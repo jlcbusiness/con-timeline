@@ -29,6 +29,7 @@ export const Timeline: React.FC = () => {
   const [clickedTime, setClickedTime] = useState<Date | undefined>();
   const [scrollPosition, setScrollPosition] = useState(0);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [hasAutoScrolled, setHasAutoScrolled] = useState(false); // Track if we've already auto-scrolled
   
   const timelineContentRef = useRef<HTMLDivElement>(null);
   
@@ -49,7 +50,8 @@ export const Timeline: React.FC = () => {
     deleteEvent,
     clearAllEvents,
     exportEvents,
-    importEvents
+    importEvents,
+    setEvents
   } = useEventPersistence();
 
   // Location persistence
@@ -86,18 +88,21 @@ export const Timeline: React.FC = () => {
     setScrollPosition(e.currentTarget.scrollLeft);
   }, []);
 
-  // Auto-scroll to current time on mount
+  // Auto-scroll to current time on mount - but only once!
   useEffect(() => {
-    const now = new Date();
-    if (now >= startDate && now <= endDate && timelineContentRef.current) {
-      const hoursFromStart = (now.getTime() - startDate.getTime()) / (1000 * 60 * 60);
-      const scrollLeft = hoursFromStart * 240 - 400; // Center current time
-      const finalScrollLeft = Math.max(0, scrollLeft);
-      
-      timelineContentRef.current.scrollLeft = finalScrollLeft;
-      setScrollPosition(finalScrollLeft);
+    if (!hasAutoScrolled && !eventsLoading && !locationsLoading && timelineContentRef.current) {
+      const now = new Date();
+      if (now >= startDate && now <= endDate) {
+        const hoursFromStart = (now.getTime() - startDate.getTime()) / (1000 * 60 * 60);
+        const scrollLeft = hoursFromStart * 240 - 400; // Center current time
+        const finalScrollLeft = Math.max(0, scrollLeft);
+        
+        timelineContentRef.current.scrollLeft = finalScrollLeft;
+        setScrollPosition(finalScrollLeft);
+      }
+      setHasAutoScrolled(true); // Mark that we've done the initial auto-scroll
     }
-  }, [startDate, endDate]);
+  }, [startDate, endDate, eventsLoading, locationsLoading, hasAutoScrolled]);
 
   // Global mouse event handlers for drag and resize
   useEffect(() => {
@@ -200,7 +205,7 @@ export const Timeline: React.FC = () => {
         ? currentScroll - scrollAmount
         : currentScroll + scrollAmount;
       
-      const finalScrollLeft = Math.max(0, newScrollLeft);
+      const finalScrollLeft = Math.max(0, Math.min(newScrollLeft, totalTimelineWidth - timelineContentRef.current.clientWidth));
       
       timelineContentRef.current.scrollTo({
         left: finalScrollLeft,
@@ -217,7 +222,26 @@ export const Timeline: React.FC = () => {
       const eventPosition = getTimePosition(targetDate, startDate);
       const viewportWidth = timelineContentRef.current.clientWidth;
       const scrollLeft = eventPosition - viewportWidth / 2; // Center the date
-      const finalScrollLeft = Math.max(0, scrollLeft);
+      const maxScroll = totalTimelineWidth - viewportWidth;
+      const finalScrollLeft = Math.max(0, Math.min(scrollLeft, maxScroll));
+      
+      timelineContentRef.current.scrollTo({
+        left: finalScrollLeft,
+        behavior: 'smooth'
+      });
+      
+      setScrollPosition(finalScrollLeft);
+    }
+  };
+
+  // Fixed function to scroll to a specific event
+  const scrollToEvent = (event: TimelineEventType) => {
+    if (timelineContentRef.current) {
+      const eventPosition = getTimePosition(event.startTime, startDate);
+      const viewportWidth = timelineContentRef.current.clientWidth;
+      const scrollLeft = eventPosition - viewportWidth / 2; // Center the event
+      const maxScroll = totalTimelineWidth - viewportWidth;
+      const finalScrollLeft = Math.max(0, Math.min(scrollLeft, maxScroll));
       
       timelineContentRef.current.scrollTo({
         left: finalScrollLeft,
@@ -275,12 +299,12 @@ export const Timeline: React.FC = () => {
 
   // Define the specific jump-to dates
   const jumpToDates = [
-    { date: new Date(2025, 7, 27, 9, 0, 0), label: 'Weds 27' }, // August 27, 9 AM
-    { date: new Date(2025, 7, 28, 9, 0, 0), label: 'Thurs 28' }, // August 28, 9 AM
-    { date: new Date(2025, 7, 29, 9, 0, 0), label: 'Fri 29' }, // August 29, 9 AM
-    { date: new Date(2025, 7, 30, 9, 0, 0), label: 'Sat 30' }, // August 30, 9 AM
-    { date: new Date(2025, 7, 31, 9, 0, 0), label: 'Sun 31' }, // August 31, 9 AM
-    { date: new Date(2025, 8, 1, 9, 0, 0), label: 'Mon 1' },   // September 1, 9 AM
+    { date: new Date(2025, 7, 27, 9, 0, 0), label: 'Aug 27' }, // August 27, 9 AM
+    { date: new Date(2025, 7, 28, 9, 0, 0), label: 'Aug 28' }, // August 28, 9 AM
+    { date: new Date(2025, 7, 29, 9, 0, 0), label: 'Aug 29' }, // August 29, 9 AM
+    { date: new Date(2025, 7, 30, 9, 0, 0), label: 'Aug 30' }, // August 30, 9 AM
+    { date: new Date(2025, 7, 31, 9, 0, 0), label: 'Aug 31' }, // August 31, 9 AM
+    { date: new Date(2025, 8, 1, 9, 0, 0), label: 'Sep 1' },   // September 1, 9 AM
     { date: new Date(2025, 8, 2, 9, 0, 0), label: 'Sep 2' }    // September 2, 9 AM
   ];
 
@@ -369,7 +393,7 @@ export const Timeline: React.FC = () => {
               onImport={handleImportEvents}
               onClearAll={handleClearAllEvents}
               eventCount={events.length}
-            />      
+            />
             
             <button
               onClick={() => {
@@ -459,7 +483,7 @@ export const Timeline: React.FC = () => {
                 {/* Grid and Events Area - Updated height for 10 slots with proper alignment */}
                 <div className="absolute top-12 left-0 right-0" style={{ height: '640px' }}>
                   {/* Grid Lines */}
-                  {timeSlots.map((slot) => {
+                  {timeSlots.map((slot, index) => {
                     const leftPosition = getTimePosition(slot, startDate);
                     
                     return (
@@ -569,7 +593,7 @@ export const Timeline: React.FC = () => {
             <div className="flex items-center gap-4">
               {Object.entries(groupEventsByDate()).map(([date, dateEvents]) => (
                 <span key={date} className="flex items-center gap-1">
-                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                   {new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}: {dateEvents.length}
                 </span>
               ))}
