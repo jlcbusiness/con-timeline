@@ -1,0 +1,156 @@
+import React from 'react';
+import { Edit3, Clock, GripVertical, ChevronLeft, ChevronRight, MapPin } from 'lucide-react';
+import type { TimelineEvent as TimelineEventType } from '../types/timeline';
+import { getTimePosition, getEventWidth } from '../utils/timelineUtils';
+
+interface TimelineEventProps {
+  event: TimelineEventType;
+  startDate: Date;
+  onEdit: (event: TimelineEventType) => void;
+  onDragStart: (event: TimelineEventType, clientX: number, clientY: number, type: 'move' | 'resize-start' | 'resize-end') => void;
+  isDragging?: boolean;
+  isResizing?: boolean;
+}
+
+export const TimelineEvent: React.FC<TimelineEventProps> = ({
+  event,
+  startDate,
+  onEdit,
+  onDragStart,
+  isDragging = false,
+  isResizing = false
+}) => {
+  // Use the unified positioning functions
+  const leftPosition = getTimePosition(event.startTime, startDate);
+  const width = getEventWidth(event.startTime, event.endTime);
+  
+  // Fixed positioning calculation to align with slot headers
+  // Each slot is 64px high, and we add 4px margin from the top of each slot
+  const topPosition = event.position * 64 + 4;
+
+  const formatTime = (date: Date): string => {
+    return date.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+  };
+
+  const getDuration = (): string => {
+    const durationMs = event.endTime.getTime() - event.startTime.getTime();
+    const hours = Math.floor(durationMs / (1000 * 60 * 60));
+    const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
+    
+    if (hours === 0) {
+      return `${minutes}m`;
+    } else if (minutes === 0) {
+      return `${hours}h`;
+    } else {
+      return `${hours}h ${minutes}m`;
+    }
+  };
+
+  const handleMouseDown = (e: React.MouseEvent, type: 'move' | 'resize-start' | 'resize-end') => {
+    e.preventDefault();
+    e.stopPropagation();
+    onDragStart(event, e.clientX, e.clientY, type);
+  };
+
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onEdit(event);
+  };
+
+  return (
+    <div
+      className={`absolute rounded-md shadow-sm border border-opacity-20 border-white group transition-all select-none ${
+        isDragging || isResizing 
+          ? 'shadow-lg scale-105 z-50 cursor-grabbing' 
+          : 'hover:shadow-md hover:scale-105 hover:z-10 cursor-grab'
+      }`}
+      style={{
+        left: `${leftPosition}px`,
+        top: `${topPosition}px`,
+        width: `${Math.max(width, 80)}px`, // Minimum width of 80px for resize handles
+        height: '56px', // Fixed height to fit within 64px slot with margins
+        backgroundColor: event.color,
+        color: 'white'
+      }}
+      onDoubleClick={handleDoubleClick}
+      title={`${event.title}${event.location ? ` @ ${event.location}` : ''}\n${formatTime(event.startTime)} - ${formatTime(event.endTime)}\n${getDuration()}\nDouble-click to edit, drag to move, drag edges to resize`}
+    >
+      {/* Resize handle - Start */}
+      <div
+        className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize opacity-0 group-hover:opacity-100 transition-opacity bg-white bg-opacity-20 rounded-l-md flex items-center justify-center"
+        onMouseDown={(e) => handleMouseDown(e, 'resize-start')}
+        title="Drag to resize start time"
+      >
+        <ChevronLeft size={8} className="text-white" />
+      </div>
+
+      {/* Main event content */}
+      <div
+        className="flex flex-col justify-center h-full px-3 py-2 text-xs font-medium cursor-grab active:cursor-grabbing"
+        onMouseDown={(e) => handleMouseDown(e, 'move')}
+      >
+        {/* First line: Title with icons and edit button */}
+        <div className="flex items-center justify-between min-w-0">
+          <div className="flex items-center gap-1 min-w-0 flex-1">
+            <GripVertical size={10} className="flex-shrink-0 opacity-60" />
+            <Clock size={10} className="flex-shrink-0 opacity-80" />
+            <span className="truncate font-medium">{event.title}</span>
+          </div>
+          
+          <div className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-1">
+            <Edit3 size={10} />
+          </div>
+        </div>
+
+        {/* Second line: Location (if present) */}
+        {event.location && (
+          <div className="flex items-center gap-1 mt-1 min-w-0">
+            <div className="w-2.5"></div> {/* Spacer to align with title */}
+            <MapPin size={8} className="flex-shrink-0 opacity-80" />
+            <span className="truncate text-xs opacity-90">{event.location}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Resize handle - End */}
+      <div
+        className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize opacity-0 group-hover:opacity-100 transition-opacity bg-white bg-opacity-20 rounded-r-md flex items-center justify-center"
+        onMouseDown={(e) => handleMouseDown(e, 'resize-end')}
+        title="Drag to resize end time"
+      >
+        <ChevronRight size={8} className="text-white" />
+      </div>
+      
+      {/* Enhanced tooltip on hover */}
+      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-20">
+        <div className="font-medium">{event.title}</div>
+        <div className="text-gray-300">
+          {formatTime(event.startTime)} - {formatTime(event.endTime)} ({getDuration()})
+        </div>
+        {event.location && (
+          <div className="text-gray-300 flex items-center gap-1">
+            <MapPin size={10} />
+            {event.location}
+          </div>
+        )}
+        {event.description && (
+          <div className="text-gray-300 mt-1 max-w-xs">{event.description}</div>
+        )}
+        <div className="text-gray-400 text-xs mt-1">
+          Double-click to edit • Drag to move • Drag edges to resize
+        </div>
+        <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+      </div>
+
+      {/* Visual feedback during drag/resize */}
+      {(isDragging || isResizing) && (
+        <div className="absolute -inset-1 border-2 border-white border-dashed rounded-md pointer-events-none"></div>
+      )}
+    </div>
+  );
+};
