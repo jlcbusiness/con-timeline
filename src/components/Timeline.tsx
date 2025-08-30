@@ -299,13 +299,13 @@ export const Timeline: React.FC = () => {
 
   // Define the specific jump-to dates
   const jumpToDates = [
-    { date: new Date(2025, 7, 27, 9, 0, 0), label: 'Aug 27' }, // August 27, 9 AM
-    { date: new Date(2025, 7, 28, 9, 0, 0), label: 'Aug 28' }, // August 28, 9 AM
-    { date: new Date(2025, 7, 29, 9, 0, 0), label: 'Aug 29' }, // August 29, 9 AM
-    { date: new Date(2025, 7, 30, 9, 0, 0), label: 'Aug 30' }, // August 30, 9 AM
-    { date: new Date(2025, 7, 31, 9, 0, 0), label: 'Aug 31' }, // August 31, 9 AM
-    { date: new Date(2025, 8, 1, 9, 0, 0), label: 'Sep 1' },   // September 1, 9 AM
-    { date: new Date(2025, 8, 2, 9, 0, 0), label: 'Sep 2' }    // September 2, 9 AM
+    { date: new Date(2025, 7, 27, 9, 0, 0), label: 'Weds 27' }, // August 27, 9 AM
+    { date: new Date(2025, 7, 28, 9, 0, 0), label: 'Thurs 28' }, // August 28, 9 AM
+    { date: new Date(2025, 7, 29, 9, 0, 0), label: 'Fri 29' }, // August 29, 9 AM
+    { date: new Date(2025, 7, 30, 9, 0, 0), label: 'Sat 30' }, // August 30, 9 AM
+    { date: new Date(2025, 7, 31, 9, 0, 0), label: 'Sun 31' }, // August 31, 9 AM
+    { date: new Date(2025, 8, 1, 9, 0, 0), label: 'Mon 1' },   // September 1, 9 AM
+    { date: new Date(2025, 8, 2, 9, 0, 0), label: 'Tues 2' }    // September 2, 9 AM
   ];
 
   if (eventsLoading || locationsLoading) {
