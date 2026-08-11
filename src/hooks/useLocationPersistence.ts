@@ -53,7 +53,7 @@ export const useLocationPersistence = () => {
 
   const addLocation = (name: string): Location => {
     const newLocation: Location = {
-      id: Date.now().toString(),
+      id: typeof crypto !== 'undefined' && (crypto as any).randomUUID ? (crypto as any).randomUUID() : Date.now().toString(),
       name: name.trim(),
       createdAt: new Date()
     };

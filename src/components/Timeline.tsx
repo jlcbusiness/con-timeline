@@ -9,6 +9,8 @@ import { DragonConImporter } from './DragonConImporter';
 import { useDragAndResize } from '../hooks/useDragAndResize';
 import { useEventPersistence } from '../hooks/useEventPersistence';
 import { useLocationPersistence } from '../hooks/useLocationPersistence';
+import { TimelineSelector } from './TimelineSelector';
+import { PIXELS_PER_HOUR, DEFAULT_START_DATE, DEFAULT_END_DATE } from '../config/timeline';
 import {
   generateTimeSlots,
   formatTimeSlot,
@@ -19,8 +21,8 @@ import {
 
 export const Timeline: React.FC = () => {
   // Timeline configuration
-  const startDate = new Date(2025, 7, 27, 1, 0, 0); // August 27, 2025, 1 AM
-  const endDate = new Date(2025, 8, 2, 23, 0, 0); // September 2, 2025, 11 PM
+  const startDate = DEFAULT_START_DATE;
+  const endDate = DEFAULT_END_DATE;
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLocationManagerOpen, setIsLocationManagerOpen] = useState(false);
@@ -38,7 +40,7 @@ export const Timeline: React.FC = () => {
   // Calculate total timeline width based on actual time duration
   const totalDurationMs = endDate.getTime() - startDate.getTime();
   const totalDurationHours = totalDurationMs / (1000 * 60 * 60);
-  const totalTimelineWidth = Math.round(totalDurationHours * 240); // 240px per hour, rounded
+  const totalTimelineWidth = Math.round(totalDurationHours * PIXELS_PER_HOUR); // px per hour
 
   // Event persistence
   const {
@@ -80,7 +82,8 @@ export const Timeline: React.FC = () => {
     events,
     handleEventUpdate,
     handleBatchUpdate,
-    startDate
+    startDate,
+    endDate
   );
 
   // Track scroll position for navigation
@@ -93,8 +96,8 @@ export const Timeline: React.FC = () => {
     if (!hasAutoScrolled && !eventsLoading && !locationsLoading && timelineContentRef.current) {
       const now = new Date();
       if (now >= startDate && now <= endDate) {
-        const hoursFromStart = (now.getTime() - startDate.getTime()) / (1000 * 60 * 60);
-        const scrollLeft = hoursFromStart * 240 - 400; // Center current time
+      const hoursFromStart = (now.getTime() - startDate.getTime()) / (1000 * 60 * 60);
+      const scrollLeft = hoursFromStart * PIXELS_PER_HOUR - 400; // Center current time (approx)
         const finalScrollLeft = Math.max(0, scrollLeft);
         
         timelineContentRef.current.scrollLeft = finalScrollLeft;
@@ -168,7 +171,7 @@ export const Timeline: React.FC = () => {
       const position = findAvailablePosition(events, eventData.startTime, eventData.endTime);
       const newEvent: TimelineEventType = {
         ...eventData,
-        id: Date.now().toString(),
+        id: typeof crypto !== 'undefined' && (crypto as any).randomUUID ? (crypto as any).randomUUID() : Date.now().toString(),
         position
       };
       addEvent(newEvent);
@@ -325,7 +328,10 @@ export const Timeline: React.FC = () => {
       <div className="bg-white shadow-sm border-b px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Timeline</h1>
+            <div className="flex items-center gap-4">
+              <h1 className="text-2xl font-bold text-gray-900">Timeline</h1>
+              <TimelineSelector />
+            </div>
             <p className="text-sm text-gray-600 mt-1">
               August 27 - September 2, 2025 • {getCurrentDateRange()}
               {(dragState.isDragging || dragState.isResizing) && (

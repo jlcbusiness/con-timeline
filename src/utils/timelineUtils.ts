@@ -1,4 +1,5 @@
 import type { TimelineEvent } from '../types/timeline';
+import { PIXELS_PER_HOUR, PIXELS_PER_SLOT } from '../config/timeline';
 
 export const generateTimeSlots = (startDate: Date, endDate: Date): Date[] => {
   const slots: Date[] = [];
@@ -165,14 +166,14 @@ export const getTimePosition = (time: Date, startDate: Date): number => {
   const timeDiffMs = time.getTime() - startDate.getTime();
   const timeDiffHours = timeDiffMs / (1000 * 60 * 60);
   // Use Math.round to ensure consistent pixel positioning
-  return Math.round(timeDiffHours * 240); // 240px per hour
+  return Math.round(timeDiffHours * PIXELS_PER_HOUR); // px per hour
 };
 
 export const getEventWidth = (startTime: Date, endTime: Date): number => {
   const durationInMs = endTime.getTime() - startTime.getTime();
   const durationInHours = durationInMs / (1000 * 60 * 60);
   // Use Math.round to ensure consistent pixel positioning
-  return Math.round(durationInHours * 240); // 240px per hour
+  return Math.round(durationInHours * PIXELS_PER_HOUR); // px per hour
 };
 
 // Helper function to convert time to half-hour increments for positioning
@@ -180,7 +181,7 @@ export const getHalfHourPosition = (time: Date, startDate: Date): number => {
   const diffInMs = time.getTime() - startDate.getTime();
   const diffInMinutes = diffInMs / (1000 * 60);
   const halfHourIncrements = diffInMinutes / 30;
-  return halfHourIncrements * 120; // 120px per half-hour
+  return halfHourIncrements * (PIXELS_PER_HOUR / 2); // px per half-hour
 };
 
 // Helper function to get event width in half-hour increments
@@ -188,5 +189,5 @@ export const getEventWidthInHalfHours = (startTime: Date, endTime: Date): number
   const durationInMs = endTime.getTime() - startTime.getTime();
   const durationInMinutes = durationInMs / (1000 * 60);
   const halfHourIncrements = durationInMinutes / 30;
-  return halfHourIncrements * 120; // 120px per half-hour
+  return halfHourIncrements * (PIXELS_PER_HOUR / 2); // px per half-hour
 };

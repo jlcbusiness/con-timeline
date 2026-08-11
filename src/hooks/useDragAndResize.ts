@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import type { TimelineEvent } from '../types/timeline';
 import { roundToNearestHalfHour, cascadeEventPositions } from '../utils/timelineUtils';
+import { PIXELS_PER_HOUR, PIXELS_PER_SLOT, DEFAULT_END_DATE } from '../config/timeline';
 
 export interface DragState {
   isDragging: boolean;
@@ -15,7 +16,8 @@ export const useDragAndResize = (
   events: TimelineEvent[],
   onEventUpdate: (eventId: string, updates: Partial<TimelineEvent>) => void,
   onBatchUpdate: (updates: { eventId: string; updates: Partial<TimelineEvent> }[]) => void,
-  startDate: Date
+  startDate: Date,
+  endDate: Date = DEFAULT_END_DATE
 ) => {
   const [dragState, setDragState] = useState<DragState>({
     isDragging: false,
@@ -51,15 +53,15 @@ export const useDragAndResize = (
     const deltaY = clientY - dragState.startY;
 
     // Convert pixel movement to time increments using the same system as positioning
-    // 240px = 1 hour, so 120px = 30 minutes
-    const halfHourIncrements = Math.round(deltaX / 120);
+    // PIXELS_PER_HOUR px = 1 hour, so PIXELS_PER_HOUR/2 = 30 minutes
+    const halfHourIncrements = Math.round(deltaX / (PIXELS_PER_HOUR / 2));
     const timeChange = halfHourIncrements * 30 * 60 * 1000; // milliseconds (30 minutes)
     
-    // Convert vertical movement to position change (64px = 1 position)
-    const positionChange = Math.round(deltaY / 64);
+    // Convert vertical movement to position change (PIXELS_PER_SLOT = 1 position)
+    const positionChange = Math.round(deltaY / PIXELS_PER_SLOT);
 
     const originalEvent = dragState.originalEvent;
-    const endDate = new Date(2025, 8, 2, 23, 0, 0); // September 2, 2025, 11 PM
+    // endDate comes from the hook parameter (fallback default in signature)
 
     if (dragState.dragType === 'move') {
       // Moving the entire event

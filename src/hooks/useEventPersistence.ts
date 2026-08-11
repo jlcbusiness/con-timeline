@@ -1,16 +1,26 @@
 import { useState, useEffect } from 'react';
 import type { TimelineEvent } from '../types/timeline';
 
-const STORAGE_KEY = 'timeline-events';
+// Use an active timeline id to namespace storage keys so multiple timelines can coexist.
+const getActiveTimelineId = () => {
+  try {
+    return localStorage.getItem('active-timeline-id') || 'default';
+  } catch (e) {
+    return 'default';
+  }
+};
 
 export const useEventPersistence = () => {
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Compute storage key using active timeline id
+  const storageKey = `timeline-events:${getActiveTimelineId()}`;
+
   // Load events from localStorage on mount
   useEffect(() => {
     try {
-      const savedEvents = localStorage.getItem(STORAGE_KEY);
+      const savedEvents = localStorage.getItem(storageKey);
       if (savedEvents) {
         const parsedEvents = JSON.parse(savedEvents);
         // Convert date strings back to Date objects
@@ -26,18 +36,19 @@ export const useEventPersistence = () => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storageKey]);
 
   // Save events to localStorage whenever events change
   useEffect(() => {
     if (!isLoading) {
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
+        localStorage.setItem(storageKey, JSON.stringify(events));
       } catch (error) {
         console.error('Failed to save events to localStorage:', error);
       }
     }
-  }, [events, isLoading]);
+  }, [events, isLoading, storageKey]);
 
   const addEvent = (event: TimelineEvent) => {
     setEvents(prevEvents => [...prevEvents, event]);
@@ -88,7 +99,8 @@ export const useEventPersistence = () => {
     URL.revokeObjectURL(url);
   };
 
-  const importEvents = (file: File) => {
+  // Import merges by default (appends) and validates basic fields
+  const importEvents = (file: File, options?: { replace?: boolean }) => {
     return new Promise<void>((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -96,6 +108,10 @@ export const useEventPersistence = () => {
           const content = e.target?.result as string;
           const importedEvents = JSON.parse(content);
           
+          if (!Array.isArray(importedEvents)) {
+            return reject(new Error('Invalid file format: expected array'));
+          }
+
           // Validate and convert dates
           const validEvents = importedEvents
             .filter((event: any) => 
@@ -107,7 +123,19 @@ export const useEventPersistence = () => {
               endTime: new Date(event.endTime)
             }));
 
-          setEvents(validEvents);
+          if (options?.replace) {
+            setEvents(validEvents);
+          } else {
+            // Merge while avoiding exact id collisions
+            setEvents(prev => {
+              const existingIds = new Set(prev.map(e => e.id));
+              const deduped = validEvents.map((ev: any) => (
+                existingIds.has(ev.id) ? { ...ev, id: `${ev.id}-${Date.now()}` } : ev
+              ));
+              return [...prev, ...deduped];
+            });
+          }
+
           resolve();
         } catch (error) {
           reject(new Error('Invalid file format'));
