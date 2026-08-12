@@ -9,6 +9,7 @@
     "test:watch": "vitest --watch",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
+    "migrate:timelines": "node ./scripts/migrate-timelines-to-uuid.js",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -36,5 +37,6 @@
     "typescript-eslint": "^8.39.1",
     "vite": "^7.1.2",
     "vitest": "^4.1.10"
+    "pg": "^8.11.0"
   }
 }
