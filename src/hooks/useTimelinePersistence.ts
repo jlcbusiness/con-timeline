@@ -4,6 +4,8 @@ export interface TimelineMeta {
   id: string;
   name: string;
   createdAt: string;
+  archived?: boolean;
+  archivedAt?: string | null;
 }
 
 const TIMELINES_KEY = 'timelines';
@@ -69,10 +71,22 @@ export const useTimelinePersistence = () => {
     // delete associated events from localStorage
     try { localStorage.removeItem(`timeline-events:${id}`); } catch (_) {}
     if (activeId === id) {
-      const first = timelines.find(t => t.id !== id);
+      const first = timelines.find(t => t.id !== id && !t.archived);
       const newActive = first ? first.id : null;
       setActiveId(newActive);
     }
+  };
+
+  const archiveTimeline = (id: string) => {
+    setTimelines(prev => prev.map(t => t.id === id ? { ...t, archived: true, archivedAt: new Date().toISOString() } : t));
+    if (activeId === id) {
+      const first = timelines.find(t => t.id !== id && !t.archived);
+      setActiveId(first ? first.id : null);
+    }
+  };
+
+  const unarchiveTimeline = (id: string) => {
+    setTimelines(prev => prev.map(t => t.id === id ? { ...t, archived: false, archivedAt: null } : t));
   };
 
   return {
@@ -81,6 +95,8 @@ export const useTimelinePersistence = () => {
     createTimeline,
     renameTimeline,
     deleteTimeline,
+    archiveTimeline,
+    unarchiveTimeline,
     setActiveId
   };
 };

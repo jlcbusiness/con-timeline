@@ -61,7 +61,7 @@ Additionally, the repo follows some conventions inspired by the `International-P
 ## Development workflow notes
 
 - Follow the `.github/project-specific.instructions.md` pattern if we adopt a longer-lived Copilot-driven workflow: create per-chunk checklists in `.github/log/` and append action logs there.
-- Keep secrets out of the repo. Use Vercel environment variables for `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
+ - Keep secrets out of the repo. Use Vercel environment variables for `TIMELINE_SUPABASE_URL` and `TIMELINE_SUPABASE_ANON_KEY` (or `VITE_TIMELINE_SUPABASE_*` for client exposure).
 
 
 ## Extensibility points
@@ -76,7 +76,7 @@ Recent changes
 - Centralized constants: `src/config/timeline.ts` added for pixel/slot and default date values.
 - ID stability: event and location IDs now use `crypto.randomUUID()` when available.
 - Import behavior: import now validates input and merges by default (option to replace).
-- Auth scaffolding: `src/lib/supabase.ts` and `src/components/AuthGate.tsx` were added to integrate Supabase auth (requires `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` env vars).
+- Auth scaffolding: `src/lib/supabase.ts` and `src/components/AuthGate.tsx` were added to integrate Supabase auth (uses `TIMELINE_SUPABASE_URL` and `TIMELINE_SUPABASE_ANON_KEY` env vars; set `VITE_TIMELINE_SUPABASE_*` if you need client exposure).
 - Tests: initial `vitest` test and scripts added; starter tests for `timelineUtils` were added.
 
 ## TODOs (taken from README and code comments)

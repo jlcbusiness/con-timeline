@@ -27,7 +27,7 @@ High-level tasks
     - Consider an `snapshots` table for exported/imported snapshots mirroring the `SavedPackingListSnapshot` pattern used by packing-checklist. This allows server-side restore and history.
 
 3. App changes (implementation highlights)
-   - Add `@supabase/supabase-js` and create `src/lib/supabase.ts` to instantiate the client from `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
+   - Add `@supabase/supabase-js` and create `src/lib/supabase.ts` to instantiate the client. Use `TIMELINE_SUPABASE_URL` and `TIMELINE_SUPABASE_ANON_KEY` as the canonical env var names to avoid collisions; set `VITE_TIMELINE_SUPABASE_*` equivalents if you need these exposed to the Vite client.
    - Implement `useAuth` wrapper and an `AuthGate` component to require sign-in for editing. Mirror `AuthGate` in packing-checklist for sign-in UX.
    - Replace `useEventPersistence` with `useEventStore` that:
      - Loads server data on sign-in (or falls back to local snapshot until user confirms migration).
@@ -43,7 +43,7 @@ High-level tasks
    - Provide a one-time import from localStorage to server when a user signs up (ask to confirm merge vs replace).
 
 6. Deployment
-   - Add env vars to Vercel: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`.
+   - Add env vars to Vercel: `TIMELINE_SUPABASE_URL`, `TIMELINE_SUPABASE_ANON_KEY` (and `VITE_TIMELINE_SUPABASE_*` if you need client exposure).
    - Update CORS and allowed origins in Supabase to include your Vercel domain.
 
 Estimated work items

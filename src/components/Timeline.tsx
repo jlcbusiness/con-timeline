@@ -10,6 +10,8 @@ import { useDragAndResize } from '../hooks/useDragAndResize';
 import { useEventPersistence } from '../hooks/useEventPersistence';
 import { useLocationPersistence } from '../hooks/useLocationPersistence';
 import { TimelineSelector } from './TimelineSelector';
+import { ManageTimelinesModal } from './ManageTimelinesModal';
+import { useTimelinePersistence } from '../hooks/useTimelinePersistence';
 import { PIXELS_PER_HOUR, DEFAULT_START_DATE, DEFAULT_END_DATE } from '../config/timeline';
 import {
   generateTimeSlots,
@@ -37,6 +39,18 @@ export const Timeline: React.FC = () => {
   
   const timeSlots = generateTimeSlots(startDate, endDate);
 
+  // Timeline persistence (must initialize before event persistence so active id is set)
+  const {
+    timelines,
+    activeId,
+    createTimeline,
+    renameTimeline,
+    deleteTimeline,
+    archiveTimeline,
+    unarchiveTimeline,
+    setActiveId
+  } = useTimelinePersistence();
+
   // Calculate total timeline width based on actual time duration
   const totalDurationMs = endDate.getTime() - startDate.getTime();
   const totalDurationHours = totalDurationMs / (1000 * 60 * 60);
@@ -55,6 +69,8 @@ export const Timeline: React.FC = () => {
     importEvents,
     setEvents
   } = useEventPersistence();
+
+  const [isManageOpen, setIsManageOpen] = useState(false);
 
   // Location persistence
   const {
@@ -330,7 +346,24 @@ export const Timeline: React.FC = () => {
           <div>
             <div className="flex items-center gap-4">
               <h1 className="text-2xl font-bold text-gray-900">Timeline</h1>
-              <TimelineSelector />
+              <TimelineSelector
+                timelines={timelines}
+                activeId={activeId}
+                setActiveId={setActiveId}
+                onCreate={createTimeline}
+                onManage={() => setIsManageOpen(true)}
+              />
+              <ManageTimelinesModal
+                isOpen={isManageOpen}
+                onClose={() => setIsManageOpen(false)}
+                timelines={timelines}
+                activeId={activeId}
+                setActiveId={setActiveId}
+                renameTimeline={renameTimeline}
+                deleteTimeline={deleteTimeline}
+                archiveTimeline={archiveTimeline}
+                unarchiveTimeline={unarchiveTimeline}
+              />
             </div>
             <p className="text-sm text-gray-600 mt-1">
               August 27 - September 2, 2025 • {getCurrentDateRange()}
