@@ -1,5 +1,5 @@
 import type { TimelineEvent } from '../types/timeline';
-import { PIXELS_PER_HOUR, PIXELS_PER_SLOT } from '../config/timeline';
+import { PIXELS_PER_HOUR } from '../config/timeline';
 
 export const generateTimeSlots = (startDate: Date, endDate: Date): Date[] => {
   const slots: Date[] = [];

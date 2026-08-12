@@ -6,8 +6,8 @@ export const AuthGate: React.FC<{ children: React.ReactNode }> = ({ children }) 
 
   useEffect(() => {
     if (!supabase) return;
-    const session = supabase.auth.getSession().then(r => setUser(r.data?.session?.user ?? null));
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+    supabase.auth.getSession().then((r: any) => setUser(r.data?.session?.user ?? null));
+    const { data: sub } = supabase.auth.onAuthStateChange((_event: string, session: any) => {
       setUser(session?.user ?? null);
     });
     return () => { sub?.subscription.unsubscribe(); };

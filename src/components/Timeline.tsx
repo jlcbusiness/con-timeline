@@ -66,8 +66,7 @@ export const Timeline: React.FC = () => {
     deleteEvent,
     clearAllEvents,
     exportEvents,
-    importEvents,
-    setEvents
+    importEvents
   } = useEventPersistence();
 
   const [isManageOpen, setIsManageOpen] = useState(false);
@@ -253,23 +252,7 @@ export const Timeline: React.FC = () => {
     }
   };
 
-  // Fixed function to scroll to a specific event
-  const scrollToEvent = (event: TimelineEventType) => {
-    if (timelineContentRef.current) {
-      const eventPosition = getTimePosition(event.startTime, startDate);
-      const viewportWidth = timelineContentRef.current.clientWidth;
-      const scrollLeft = eventPosition - viewportWidth / 2; // Center the event
-      const maxScroll = totalTimelineWidth - viewportWidth;
-      const finalScrollLeft = Math.max(0, Math.min(scrollLeft, maxScroll));
-      
-      timelineContentRef.current.scrollTo({
-        left: finalScrollLeft,
-        behavior: 'smooth'
-      });
-      
-      setScrollPosition(finalScrollLeft);
-    }
-  };
+  // (removed unused scrollToEvent helper)
 
   const getCurrentDateRange = (): string => {
     if (!timelineContentRef.current) return '';
@@ -522,7 +505,7 @@ export const Timeline: React.FC = () => {
                 {/* Grid and Events Area - Updated height for 10 slots with proper alignment */}
                 <div className="absolute top-12 left-0 right-0" style={{ height: '640px' }}>
                   {/* Grid Lines */}
-                  {timeSlots.map((slot, index) => {
+                  {timeSlots.map((slot) => {
                     const leftPosition = getTimePosition(slot, startDate);
                     
                     return (

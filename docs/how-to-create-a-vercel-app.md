@@ -26,7 +26,7 @@ This guide assumes you already have a Vercel account and a GitHub repository for
 
 4. Database setup with Supabase (quick)
    - Create a Supabase project and database.
-   - Create `events` and `locations` tables with relevant columns (see docs/plans/upgrade-to-auth.md).
+   - Create `events`, `locations`, and `timelines` tables and RLS policies. You can run the provided SQL at [supabase/schema-events-locations.sql](supabase/schema-events-locations.sql) to create the schema and policies.
    - Enable Row Level Security and add policies so authenticated users can insert/select/update/delete their own rows.
 
 5. Link auth
