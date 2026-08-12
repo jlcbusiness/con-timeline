@@ -29,7 +29,7 @@ ALTER TABLE locations RENAME COLUMN new_timeline_id TO timeline_id;
 
 -- 5) Replace primary key on timelines
 ALTER TABLE timelines DROP CONSTRAINT IF EXISTS timelines_pkey;
-ALTER TABLE timelines DROP COLUMN IF NOT EXISTS id;
+ALTER TABLE timelines DROP COLUMN IF EXISTS id;
 ALTER TABLE timelines RENAME COLUMN new_id TO id;
 ALTER TABLE timelines ADD PRIMARY KEY (id);
 
