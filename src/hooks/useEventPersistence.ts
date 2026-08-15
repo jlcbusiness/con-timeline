@@ -39,6 +39,36 @@ const buildEventRow = (event: TimelineEvent, timelineId: string, userId: string)
   updated_at: event.updatedAt || new Date().toISOString()
 });
 
+const isUuid = (value: string) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+
+const createUuid = () => {
+  if (typeof crypto !== 'undefined' && (crypto as any).randomUUID) {
+    return (crypto as any).randomUUID();
+  }
+
+  if (typeof crypto !== 'undefined' && (crypto as any).getRandomValues) {
+    return '10000000-1000-4000-8000-100000000000'.replace(/[018]/g, char =>
+      ((Number(char) ^ ((crypto as any).getRandomValues(new Uint8Array(1))[0] & 15) >> (Number(char) / 4))).toString(16)
+    );
+  }
+
+  return `10000000-1000-4000-8000-${Date.now().toString(16).padStart(12, '0').slice(-12)}`;
+};
+
+const normalizeImportedEvent = (event: any): TimelineEvent => {
+  const nextId = typeof event.id === 'string' && isUuid(event.id)
+    ? event.id
+    : createUuid();
+
+  return {
+    ...event,
+    id: nextId,
+    startTime: new Date(event.startTime),
+    endTime: new Date(event.endTime)
+  };
+};
+
 export const readImportedEvents = (file: File) => {
   return new Promise<TimelineEvent[]>((resolve, reject) => {
     const reader = new FileReader();
@@ -53,11 +83,7 @@ export const readImportedEvents = (file: File) => {
 
         const validEvents = importedEvents
           .filter((event: any) => event.id && event.title && event.startTime && event.endTime)
-          .map((event: any) => ({
-            ...event,
-            startTime: new Date(event.startTime),
-            endTime: new Date(event.endTime)
-          })) as TimelineEvent[];
+          .map(normalizeImportedEvent) as TimelineEvent[];
 
         resolve(validEvents);
       } catch (error) {
