@@ -574,8 +574,8 @@ export const Timeline: React.FC = () => {
 
         <div className="mt-2 flex min-w-0 flex-col items-center justify-center gap-1">
           <span className="text-sm font-medium text-gray-700 text-center">{getCurrentDateRange()}</span>
-          <div className="flex flex-wrap items-center justify-center gap-2 text-xs text-gray-600">
-            <div className="flex items-center gap-1">
+          <div className="flex max-w-full flex-wrap items-center justify-center gap-2 text-xs text-gray-600">
+            <div className="flex max-w-full flex-wrap items-center justify-center gap-1">
               {jumpToDates.map(({ date, label }) => (
                 <button
                   key={date.toISOString()}

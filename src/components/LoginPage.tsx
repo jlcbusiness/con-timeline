@@ -90,7 +90,13 @@ export const LoginPage: React.FC = () => {
         <p className="mt-2 text-sm text-gray-600">
           Create an account or sign in to load your timelines, events, and locations.
         </p>
-        <div className="mt-6 space-y-4">
+        <form
+          className="mt-6 space-y-4"
+          onSubmit={event => {
+            event.preventDefault();
+            void signInWithEmail();
+          }}
+        >
           <div className="space-y-3">
             <label className="block text-sm font-medium text-gray-700">
               Email
@@ -117,14 +123,14 @@ export const LoginPage: React.FC = () => {
           </div>
 
           <div className="flex flex-col gap-2">
-            <button onClick={signInWithGoogle} className="rounded bg-blue-600 px-3 py-2 text-white" disabled={isSubmitting}>Continue with Google</button>
-            <button onClick={signUpWithEmail} className="rounded border border-gray-300 px-3 py-2 text-gray-800 disabled:opacity-50" disabled={isSubmitting}>Create account</button>
-            <button onClick={signInWithEmail} className="rounded border border-gray-300 px-3 py-2 text-gray-800 disabled:opacity-50" disabled={isSubmitting}>Sign in</button>
-            <button onClick={resetPassword} className="rounded border border-gray-300 px-3 py-2 text-gray-800 disabled:opacity-50" disabled={isSubmitting}>Reset password</button>
+            <button type="button" onClick={signInWithGoogle} className="rounded bg-blue-600 px-3 py-2 text-white" disabled={isSubmitting}>Continue with Google</button>
+            <button type="button" onClick={signUpWithEmail} className="rounded border border-gray-300 px-3 py-2 text-gray-800 disabled:opacity-50" disabled={isSubmitting}>Create account</button>
+            <button type="submit" className="rounded border border-gray-300 px-3 py-2 text-gray-800 disabled:opacity-50" disabled={isSubmitting}>Sign in</button>
+            <button type="button" onClick={resetPassword} className="rounded border border-gray-300 px-3 py-2 text-gray-800 disabled:opacity-50" disabled={isSubmitting}>Reset password</button>
           </div>
 
           {statusMessage && <p className="text-sm text-gray-600">{statusMessage}</p>}
-        </div>
+        </form>
       </div>
     </div>
   );
