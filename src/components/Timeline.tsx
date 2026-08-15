@@ -76,7 +76,8 @@ export const Timeline: React.FC = () => {
     isLoading: locationsLoading,
     addLocation,
     updateLocation,
-    deleteLocation
+    deleteLocation,
+    mergeLocations
   } = useLocationPersistence();
 
   const getLocationSuggestions = () => {
@@ -236,7 +237,15 @@ export const Timeline: React.FC = () => {
   };
 
   const handleImportEvents = async (file: File) => {
-    await importEvents(file);
+    const importedEvents = await importEvents(file);
+    const importedLocationNames = importedEvents
+      .map(event => event.location?.trim())
+      .filter((location): location is string => Boolean(location));
+
+    if (importedLocationNames.length > 0) {
+      mergeLocations(importedLocationNames);
+    }
+
     setLastSaved(new Date());
   };
 

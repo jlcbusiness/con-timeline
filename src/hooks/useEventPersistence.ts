@@ -103,7 +103,7 @@ export const useEventPersistence = () => {
 
   // Import merges by default (appends) and validates basic fields
   const importEvents = (file: File, options?: { replace?: boolean }) => {
-    return new Promise<void>((resolve, reject) => {
+    return new Promise<TimelineEvent[]>((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (e) => {
         try {
@@ -142,7 +142,7 @@ export const useEventPersistence = () => {
             });
           }
 
-          resolve();
+          resolve(validEvents);
         } catch (error) {
           reject(new Error('Invalid file format'));
         }

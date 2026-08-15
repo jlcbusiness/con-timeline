@@ -77,6 +77,41 @@ export const useLocationPersistence = () => {
     );
   };
 
+  const mergeLocations = (names: string[]) => {
+    const normalizedNames = names
+      .map(name => name.trim())
+      .filter(Boolean);
+
+    const uniqueNames = Array.from(new Set(normalizedNames.map(name => name.toLowerCase())))
+      .map(lowerName => normalizedNames.find(name => name.toLowerCase() === lowerName))
+      .filter((name): name is string => Boolean(name));
+
+    const addedLocations: Location[] = [];
+
+    setLocations(prevLocations => {
+      const existingNames = new Set(prevLocations.map(location => location.name.toLowerCase()));
+      const nextLocations = [...prevLocations];
+
+      uniqueNames.forEach(name => {
+        if (existingNames.has(name.toLowerCase())) return;
+
+        const newLocation: Location = {
+          id: typeof crypto !== 'undefined' && (crypto as any).randomUUID ? (crypto as any).randomUUID() : Date.now().toString(),
+          name,
+          createdAt: new Date()
+        };
+
+        existingNames.add(name.toLowerCase());
+        nextLocations.push(newLocation);
+        addedLocations.push(newLocation);
+      });
+
+      return nextLocations;
+    });
+
+    return addedLocations;
+  };
+
   const getLocationById = (locationId: string): Location | undefined => {
     return locations.find(location => location.id === locationId);
   };
@@ -93,6 +128,7 @@ export const useLocationPersistence = () => {
     addLocation,
     updateLocation,
     deleteLocation,
+    mergeLocations,
     getLocationById,
     getLocationByName
   };
