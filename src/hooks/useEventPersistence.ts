@@ -301,6 +301,10 @@ export const useEventPersistence = (activeTimelineId?: string | null) => {
         console.error('Failed to import events', error);
       });
 
+      if (options?.timelineId) {
+        setEvents(nextEvents);
+      }
+
       return validEvents;
     });
   };
