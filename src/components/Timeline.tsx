@@ -470,7 +470,7 @@ export const Timeline: React.FC = () => {
         <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-4">
           <div className="min-w-0">
             <div className="flex flex-col items-start">
-              <h1 className="text-2xl font-bold text-gray-900 leading-tight">Timeline</h1>
+              <h1 className="text-2xl font-bold text-gray-900 leading-tight">Con Timeline</h1>
               <div className="mt-1 flex items-center gap-2 text-xs font-mono text-gray-500">
                 <span>{shortCommitHash}</span>
                 {lastSaved && (
