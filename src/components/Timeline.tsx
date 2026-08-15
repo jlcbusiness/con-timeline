@@ -405,20 +405,6 @@ export const Timeline: React.FC = () => {
     }
   };
 
-  const groupEventsByDate = () => {
-    const grouped: { [key: string]: TimelineEventType[] } = {};
-
-    events.forEach(event => {
-      const dateKey = event.startTime.toDateString();
-      if (!grouped[dateKey]) {
-        grouped[dateKey] = [];
-      }
-      grouped[dateKey].push(event);
-    });
-
-    return grouped;
-  };
-
   const formatLastSaved = (): string => {
     if (!lastSaved) return '';
     return lastSaved.toLocaleTimeString('en-US', {
@@ -521,31 +507,6 @@ export const Timeline: React.FC = () => {
                 setIsManageOpen(true);
               }}
             />
-            <ManageTimelinesModal
-              isOpen={isManageOpen}
-              onClose={() => {
-                setIsManageOpen(false);
-                setManageMode(null);
-                setManageEditTimelineId(null);
-              }}
-              mode={manageMode === 'edit' ? 'edit' : 'manage'}
-              timelines={timelines}
-              activeId={activeId}
-              setActiveId={setActiveId}
-              renameTimeline={renameTimeline}
-              updateTimelineDates={updateTimelineDates}
-              locations={locations}
-              onAddLocation={addLocation}
-              onUpdateLocation={updateLocation}
-              onDeleteLocation={deleteLocation}
-              onExportLocations={exportLocations}
-              onImportLocations={importLocations}
-              deleteTimeline={deleteTimeline}
-              archiveTimeline={archiveTimeline}
-              unarchiveTimeline={unarchiveTimeline}
-              initialEditingTimelineId={manageMode === 'edit' ? manageEditTimelineId : null}
-              initialSection={manageEditSection}
-            />
 
             <button
               onClick={() => {
@@ -579,6 +540,32 @@ export const Timeline: React.FC = () => {
         </div>
       </div>
 
+      <ManageTimelinesModal
+        isOpen={isManageOpen}
+        onClose={() => {
+          setIsManageOpen(false);
+          setManageMode(null);
+          setManageEditTimelineId(null);
+        }}
+        mode={manageMode === 'edit' ? 'edit' : 'manage'}
+        timelines={timelines}
+        activeId={activeId}
+        setActiveId={setActiveId}
+        renameTimeline={renameTimeline}
+        updateTimelineDates={updateTimelineDates}
+        locations={locations}
+        onAddLocation={addLocation}
+        onUpdateLocation={updateLocation}
+        onDeleteLocation={deleteLocation}
+        onExportLocations={exportLocations}
+        onImportLocations={importLocations}
+        deleteTimeline={deleteTimeline}
+        archiveTimeline={archiveTimeline}
+        unarchiveTimeline={unarchiveTimeline}
+        initialEditingTimelineId={manageMode === 'edit' ? manageEditTimelineId : null}
+        initialSection={manageEditSection}
+      />
+
       {/* Timeline Container */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Single scrollable container with headers and events */}
@@ -587,7 +574,21 @@ export const Timeline: React.FC = () => {
           <div className="w-20 flex-shrink-0 bg-gray-50 border-r">
             <div className="h-full flex flex-col">
               {/* Header space - matches the header height exactly */}
-              <div className="h-12 border-b border-gray-200 bg-gray-50"></div>
+              <div className="h-12 border-b border-gray-200 bg-gray-50 md:bg-gray-50">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setClickedTime(new Date());
+                    setEditingEvent(undefined);
+                    setIsModalOpen(true);
+                  }}
+                  className="flex h-full w-full items-center justify-center bg-blue-50 px-2 text-[11px] font-medium text-blue-700 transition-colors hover:bg-blue-100 md:hidden"
+                  disabled={dragState.isDragging || dragState.isResizing}
+                  title="Create new event"
+                >
+                  New Event
+                </button>
+              </div>
               {/* Slot labels - 10 event slots plus 1 delete slot */}
               {Array.from({ length: slotCount }, (_, i) => (
                 <div
@@ -597,7 +598,12 @@ export const Timeline: React.FC = () => {
                   }`}
                   style={{ height: `${gridSlotHeight}px` }}
                 >
-                  {i === deleteSlotIndex ? 'Delete' : `Slot ${i + 1}`}
+                  {i === deleteSlotIndex ? 'Delete' : (
+                    <>
+                      <span className="md:hidden">{i + 1}</span>
+                      <span className="hidden md:inline">Slot {i + 1}</span>
+                    </>
+                  )}
                 </div>
               ))}
             </div>
@@ -758,23 +764,6 @@ export const Timeline: React.FC = () => {
         existingEvents={events}
         onAddEvent={handleDragonConEventAdd}
       />
-
-      {/* Event Summary */}
-      {events.length > 0 && (
-        <div className="bg-white border-t px-6 py-3">
-          <div className="flex items-center justify-between text-sm text-gray-600">
-            <span>{events.length} event{events.length !== 1 ? 's' : ''} scheduled</span>
-            <div className="flex items-center gap-4">
-              {Object.entries(groupEventsByDate()).map(([date, dateEvents]) => (
-                <span key={date} className="flex items-center gap-1">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                  {new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}: {dateEvents.length}
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

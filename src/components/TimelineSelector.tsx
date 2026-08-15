@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Edit3 } from 'lucide-react';
 import type { TimelineMeta } from '../hooks/useTimelinePersistence';
 
 interface Props {
@@ -42,7 +43,7 @@ export const TimelineSelector: React.FC<Props> = ({ timelines, activeId, setActi
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className="px-3 py-1.5 rounded border border-gray-300 bg-white text-sm font-medium text-gray-800 hover:bg-gray-50"
+          className="max-w-[10rem] truncate rounded border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-800 hover:bg-gray-50 md:max-w-none"
         >
           {activeTimeline?.name ?? 'Select timeline'}
         </button>
@@ -51,9 +52,11 @@ export const TimelineSelector: React.FC<Props> = ({ timelines, activeId, setActi
           type="button"
           onClick={onEditCurrent}
           disabled={!activeTimeline}
-          className="px-3 py-1.5 rounded border border-gray-300 bg-gray-50 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex items-center justify-center rounded border border-gray-300 bg-gray-50 p-2 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 md:px-3 md:py-1.5"
+          title="Edit current timeline"
         >
-          Edit
+          <Edit3 size={14} className="md:hidden" />
+          <span className="hidden md:inline">Edit</span>
         </button>
       </div>
 
