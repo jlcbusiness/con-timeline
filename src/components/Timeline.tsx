@@ -13,6 +13,9 @@ import { ManageTimelinesModal } from './ManageTimelinesModal';
 import { useTimelinePersistence } from '../hooks/useTimelinePersistence';
 import { readImportedEvents } from '../hooks/useEventPersistence';
 import { PIXELS_PER_HOUR, DEFAULT_START_DATE, DEFAULT_END_DATE } from '../config/timeline';
+import { useSupabaseSession } from '../hooks/useSupabaseSession';
+import { supabase } from '../lib/supabase';
+import { AccountMenu } from './AccountMenu';
 import {
   generateTimeSlots,
   formatTimeSlot,
@@ -22,6 +25,7 @@ import {
 } from '../utils/timelineUtils';
 
 export const Timeline: React.FC = () => {
+  const { user } = useSupabaseSession();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDragonConImporterOpen, setIsDragonConImporterOpen] = useState(false);
   const [manageEditTimelineId, setManageEditTimelineId] = useState<string | null>(null);
@@ -425,6 +429,13 @@ export const Timeline: React.FC = () => {
   const commitHash = import.meta.env.VITE_COMMIT_HASH || '';
   const shortCommitHash = commitHash ? commitHash.slice(0, 7) : 'unknown';
 
+  const handleSignOut = async () => {
+    if (!supabase) return;
+    await supabase.auth.signOut();
+    window.history.replaceState({}, '', '/login');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  };
+
   const jumpToDates = [];
   const jumpDate = new Date(startDate);
   jumpDate.setHours(9, 0, 0, 0);
@@ -508,6 +519,7 @@ export const Timeline: React.FC = () => {
                 setIsManageOpen(true);
               }}
             />
+            {user && <AccountMenu user={user} onSignOut={handleSignOut} />}
             <ManageTimelinesModal
               isOpen={isManageOpen}
               onClose={() => {
