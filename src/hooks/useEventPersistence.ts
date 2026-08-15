@@ -10,13 +10,49 @@ const getActiveTimelineId = () => {
   }
 };
 
-export const useEventPersistence = () => {
+const serializeEvent = (event: TimelineEvent) => ({
+  ...event,
+  startTime: event.startTime.toISOString(),
+  endTime: event.endTime.toISOString()
+});
+
+export const readImportedEvents = (file: File) => {
+  return new Promise<TimelineEvent[]>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string;
+        const importedEvents = JSON.parse(content);
+
+        if (!Array.isArray(importedEvents)) {
+          return reject(new Error('Invalid file format: expected array'));
+        }
+
+        const validEvents = importedEvents
+          .filter((event: any) => event.id && event.title && event.startTime && event.endTime)
+          .map((event: any) => ({
+            ...event,
+            startTime: new Date(event.startTime),
+            endTime: new Date(event.endTime)
+          })) as TimelineEvent[];
+
+        resolve(validEvents);
+      } catch (error) {
+        reject(new Error('Invalid file format'));
+      }
+    };
+    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.readAsText(file);
+  });
+};
+
+export const useEventPersistence = (activeTimelineId?: string | null) => {
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const nowIso = () => new Date().toISOString();
 
   // Compute storage key using active timeline id
-  const storageKey = `timeline-events:${getActiveTimelineId()}`;
+  const storageKey = `timeline-events:${activeTimelineId || getActiveTimelineId()}`;
 
   // Load events from localStorage on mount
   useEffect(() => {
@@ -44,7 +80,7 @@ export const useEventPersistence = () => {
   useEffect(() => {
     if (!isLoading) {
       try {
-        localStorage.setItem(storageKey, JSON.stringify(events));
+        localStorage.setItem(storageKey, JSON.stringify(events.map(serializeEvent)));
       } catch (error) {
         console.error('Failed to save events to localStorage:', error);
       }
@@ -89,7 +125,7 @@ export const useEventPersistence = () => {
   };
 
   const exportEvents = () => {
-    const dataStr = JSON.stringify(events, null, 2);
+    const dataStr = JSON.stringify(events.map(serializeEvent), null, 2);
     const dataBlob = new Blob([dataStr], { type: 'application/json' });
     const url = URL.createObjectURL(dataBlob);
     const link = document.createElement('a');
@@ -102,53 +138,54 @@ export const useEventPersistence = () => {
   };
 
   // Import merges by default (appends) and validates basic fields
-  const importEvents = (file: File, options?: { replace?: boolean }) => {
-    return new Promise<TimelineEvent[]>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const content = e.target?.result as string;
-          const importedEvents = JSON.parse(content);
-          
-          if (!Array.isArray(importedEvents)) {
-            return reject(new Error('Invalid file format: expected array'));
-          }
+  const importEvents = (file: File, options?: { replace?: boolean; timelineId?: string }) => {
+    return readImportedEvents(file).then(validEvents => {
+      const targetTimelineId = options?.timelineId || activeTimelineId || getActiveTimelineId();
+      const targetStorageKey = `timeline-events:${targetTimelineId}`;
+      const serializableEvents = validEvents.map(serializeEvent);
 
-          // Validate and convert dates
-          const validEvents = importedEvents
-            .filter((event: any) => 
-              event.id && event.title && event.startTime && event.endTime
-            )
-            .map((event: any) => ({
-              ...event,
-              startTime: new Date(event.startTime),
-              endTime: new Date(event.endTime)
-            }));
-
-          if (options?.replace) {
-            setEvents(validEvents.map((event: any) => ({
-              ...event,
-              createdAt: event.createdAt,
-              updatedAt: event.updatedAt
-            })));
-          } else {
-            // Merge while avoiding exact id collisions
-            setEvents(prev => {
-              const existingIds = new Set(prev.map(e => e.id));
-              const deduped = validEvents.map((ev: any) => (
-                existingIds.has(ev.id) ? { ...ev, id: `${ev.id}-${Date.now()}` } : ev
-              ));
-              return [...prev, ...deduped];
-            });
-          }
-
-          resolve(validEvents);
-        } catch (error) {
-          reject(new Error('Invalid file format'));
+      if (!options?.timelineId) {
+        if (options?.replace) {
+          setEvents(validEvents);
+        } else {
+          setEvents(prev => {
+            const existingIds = new Set(prev.map(e => e.id));
+            const deduped = validEvents.map(ev => (
+              existingIds.has(ev.id) ? { ...ev, id: `${ev.id}-${Date.now()}` } : ev
+            ));
+            return [...prev, ...deduped];
+          });
         }
-      };
-      reader.onerror = () => reject(new Error('Failed to read file'));
-      reader.readAsText(file);
+      }
+
+      if (options?.timelineId) {
+        try {
+          localStorage.setItem(targetStorageKey, JSON.stringify(serializableEvents));
+        } catch (error) {
+          console.error('Failed to save imported events to localStorage:', error);
+        }
+        return validEvents;
+      }
+
+      if (options?.replace) {
+        setEvents(validEvents);
+      } else {
+        setEvents(prev => {
+          const existingIds = new Set(prev.map(e => e.id));
+          const deduped = validEvents.map(ev => (
+            existingIds.has(ev.id) ? { ...ev, id: `${ev.id}-${Date.now()}` } : ev
+          ));
+          return [...prev, ...deduped];
+        });
+      }
+
+      try {
+        localStorage.setItem(targetStorageKey, JSON.stringify(serializableEvents));
+      } catch (error) {
+        console.error('Failed to save imported events to localStorage:', error);
+      }
+
+      return validEvents;
     });
   };
 
@@ -161,6 +198,7 @@ export const useEventPersistence = () => {
     deleteEvent,
     clearAllEvents,
     exportEvents,
+    readImportedEvents,
     importEvents,
     setEvents // For bulk operations like replacing all events
   };

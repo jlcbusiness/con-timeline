@@ -11,6 +11,7 @@ import { useLocationPersistence } from '../hooks/useLocationPersistence';
 import { TimelineSelector } from './TimelineSelector';
 import { ManageTimelinesModal } from './ManageTimelinesModal';
 import { useTimelinePersistence } from '../hooks/useTimelinePersistence';
+import { readImportedEvents } from '../hooks/useEventPersistence';
 import { PIXELS_PER_HOUR, DEFAULT_START_DATE, DEFAULT_END_DATE } from '../config/timeline';
 import {
   generateTimeSlots,
@@ -23,6 +24,8 @@ import {
 export const Timeline: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDragonConImporterOpen, setIsDragonConImporterOpen] = useState(false);
+  const [manageEditTimelineId, setManageEditTimelineId] = useState<string | null>(null);
+  const [manageEditSection, setManageEditSection] = useState<'timeline' | 'locations'>('timeline');
   const [editingEvent, setEditingEvent] = useState<TimelineEventType | undefined>();
   const [clickedTime, setClickedTime] = useState<Date | undefined>();
   const [scrollPosition, setScrollPosition] = useState(0);
@@ -66,7 +69,7 @@ export const Timeline: React.FC = () => {
     clearAllEvents,
     exportEvents,
     importEvents
-  } = useEventPersistence();
+  } = useEventPersistence(activeId);
 
   const [isManageOpen, setIsManageOpen] = useState(false);
 
@@ -79,6 +82,41 @@ export const Timeline: React.FC = () => {
     deleteLocation,
     mergeLocations
   } = useLocationPersistence();
+
+  const buildTimelineSpan = (eventsToInspect: TimelineEventType[]) => {
+    const datedEvents = eventsToInspect.filter(event => event.startTime && event.endTime);
+
+    if (datedEvents.length === 0) {
+      const fallbackStart = new Date(DEFAULT_START_DATE);
+      const fallbackEnd = new Date(DEFAULT_END_DATE);
+      return { startDate: fallbackStart, endDate: fallbackEnd };
+    }
+
+    const earliest = new Date(Math.min(...datedEvents.map(event => event.startTime.getTime())));
+    const latest = new Date(Math.max(...datedEvents.map(event => event.endTime.getTime())));
+
+    const startDate = new Date(earliest);
+    startDate.setHours(1, 0, 0, 0);
+
+    const endDate = new Date(latest);
+    endDate.setHours(23, 0, 0, 0);
+
+    return { startDate, endDate };
+  };
+
+  const formatTimelineName = (startDate: Date, endDate: Date) => {
+    const startMonth = startDate.toLocaleDateString('en-US', { month: 'short' });
+    const endMonth = endDate.toLocaleDateString('en-US', { month: 'short' });
+    const startDay = startDate.getDate();
+    const endDay = endDate.getDate();
+    const year = endDate.getFullYear();
+
+    if (startDate.getFullYear() === endDate.getFullYear() && startMonth === endMonth) {
+      return `${startMonth} ${startDay} - ${endDay}, ${year}`;
+    }
+
+    return `${startMonth} ${startDay} - ${endMonth} ${endDay}, ${year}`;
+  };
 
   const getLocationSuggestions = () => {
     const usage = new Map<string, { name: string; count: number; lastUsed: number }>();
@@ -237,10 +275,31 @@ export const Timeline: React.FC = () => {
   };
 
   const handleImportEvents = async (file: File) => {
-    const importedEvents = await importEvents(file);
+    const importedEvents = await readImportedEvents(file);
+    if (importedEvents.length === 0) {
+      alert('No valid events were found in that file.');
+      return;
+    }
+
+    const { startDate: inferredStartDate, endDate: inferredEndDate } = buildTimelineSpan(importedEvents);
+    const suggestedName = formatTimelineName(inferredStartDate, inferredEndDate);
+    const importedTimelineName = window.prompt('Name for the imported timeline:', suggestedName)?.trim();
+
+    if (!importedTimelineName) return;
+
+    const createdTimeline = createTimeline(
+      importedTimelineName,
+      inferredStartDate.toISOString(),
+      inferredEndDate.toISOString()
+    );
+
+    setActiveId(createdTimeline.id);
+
+    await importEvents(file, { timelineId: createdTimeline.id, replace: true });
+
     const importedLocationNames = importedEvents
-      .map(event => event.location?.trim())
-      .filter((location): location is string => Boolean(location));
+      .map((event: TimelineEventType) => event.location?.trim())
+      .filter((location: string | undefined): location is string => Boolean(location));
 
     if (importedLocationNames.length > 0) {
       mergeLocations(importedLocationNames);
@@ -449,6 +508,12 @@ export const Timeline: React.FC = () => {
               activeId={activeId}
               setActiveId={setActiveId}
               onCreate={createTimeline}
+              onEditCurrent={() => {
+                if (!activeId) return;
+                setManageEditTimelineId(activeId);
+                setManageEditSection('timeline');
+                setIsManageOpen(true);
+              }}
               onManage={() => setIsManageOpen(true)}
             />
             <ManageTimelinesModal
@@ -466,6 +531,8 @@ export const Timeline: React.FC = () => {
               deleteTimeline={deleteTimeline}
               archiveTimeline={archiveTimeline}
               unarchiveTimeline={unarchiveTimeline}
+              initialEditingTimelineId={manageEditTimelineId}
+              initialSection={manageEditSection}
             />
 
             <button

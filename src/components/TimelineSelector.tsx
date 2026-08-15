@@ -6,10 +6,11 @@ interface Props {
   activeId: string | null;
   setActiveId: (id: string | null) => void;
   onCreate: (name: string, startDate: string, endDate: string) => void;
+  onEditCurrent: () => void;
   onManage: () => void;
 }
 
-export const TimelineSelector: React.FC<Props> = ({ timelines, activeId, setActiveId, onCreate, onManage }) => {
+export const TimelineSelector: React.FC<Props> = ({ timelines, activeId, setActiveId, onCreate, onEditCurrent, onManage }) => {
   const activeTimelines = timelines.filter(t => !t.archived);
   const activeTimeline = activeTimelines.find(t => t.id === activeId);
   const [isOpen, setIsOpen] = useState(false);
@@ -37,13 +38,24 @@ export const TimelineSelector: React.FC<Props> = ({ timelines, activeId, setActi
 
   return (
     <div className="relative">
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="px-3 py-1.5 rounded border border-gray-300 bg-white text-sm font-medium text-gray-800 hover:bg-gray-50"
-      >
-        {activeTimeline?.name ?? 'Select timeline'}
-      </button>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setIsOpen(!isOpen)}
+          className="px-3 py-1.5 rounded border border-gray-300 bg-white text-sm font-medium text-gray-800 hover:bg-gray-50"
+        >
+          {activeTimeline?.name ?? 'Select timeline'}
+        </button>
+
+        <button
+          type="button"
+          onClick={onEditCurrent}
+          disabled={!activeTimeline}
+          className="px-3 py-1.5 rounded border border-gray-300 bg-gray-50 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Edit
+        </button>
+      </div>
 
       {isOpen && (
         <>

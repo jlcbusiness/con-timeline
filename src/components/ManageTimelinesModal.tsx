@@ -18,11 +18,31 @@ interface Props {
   deleteTimeline: (id: string) => void;
   archiveTimeline: (id: string) => void;
   unarchiveTimeline: (id: string) => void;
+  initialEditingTimelineId?: string | null;
+  initialSection?: 'timeline' | 'locations';
 }
 
-export const ManageTimelinesModal: React.FC<Props> = ({ isOpen, onClose, timelines, activeId, setActiveId, renameTimeline, updateTimelineDates, locations, onAddLocation, onUpdateLocation, onDeleteLocation, deleteTimeline, archiveTimeline, unarchiveTimeline }) => {
+export const ManageTimelinesModal: React.FC<Props> = ({ isOpen, onClose, timelines, activeId, setActiveId, renameTimeline, updateTimelineDates, locations, onAddLocation, onUpdateLocation, onDeleteLocation, deleteTimeline, archiveTimeline, unarchiveTimeline, initialEditingTimelineId, initialSection }) => {
   const [editingTimeline, setEditingTimeline] = useState<TimelineMeta | null>(null);
   const [editingSection, setEditingSection] = useState<'timeline' | 'locations'>('timeline');
+
+  React.useEffect(() => {
+    if (!isOpen) {
+      setEditingTimeline(null);
+      setEditingSection('timeline');
+      return;
+    }
+
+    if (initialEditingTimelineId) {
+      const timeline = timelines.find(item => item.id === initialEditingTimelineId) || null;
+      setEditingTimeline(timeline);
+      setEditingSection(initialSection || 'timeline');
+      return;
+    }
+
+    setEditingTimeline(null);
+    setEditingSection(initialSection || 'timeline');
+  }, [isOpen, initialEditingTimelineId, initialSection, timelines]);
 
   if (!isOpen) return null;
 
@@ -44,7 +64,6 @@ export const ManageTimelinesModal: React.FC<Props> = ({ isOpen, onClose, timelin
                     <span>{t.name}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button onClick={() => setEditingTimeline(t)} className="px-2 py-1 bg-gray-100 rounded">Edit</button>
                     <button onClick={() => archiveTimeline(t.id)} className="px-2 py-1 bg-yellow-100 rounded">Archive</button>
                     <button onClick={() => { if (confirm(`Delete timeline "${t.name}"? This will remove its events from storage.`)) deleteTimeline(t.id); }} className="px-2 py-1 bg-red-100 rounded text-red-600">Delete</button>
                   </div>
