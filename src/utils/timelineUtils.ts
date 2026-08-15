@@ -64,6 +64,10 @@ export const eventsOverlap = (event1: TimelineEvent, event2: TimelineEvent): boo
   return getBufferedStartTime(event1) < event2.endTime && event1.endTime > getBufferedStartTime(event2);
 };
 
+const eventsOverlapWithoutBuffer = (event1: TimelineEvent, event2: TimelineEvent): boolean => {
+  return event1.startTime < event2.endTime && event1.endTime > event2.startTime;
+};
+
 // Find available position for a single event (now supports 10 slots: 0-9)
 export const findAvailablePosition = (
   events: TimelineEvent[],
@@ -102,7 +106,7 @@ export const cascadeEventPositions = (
   // Find events that overlap in time AND are in the same position as the changed event
   const directConflicts = otherEvents.filter(event => 
     event.position === updatedChangedEvent.position && 
-    eventsOverlap(updatedChangedEvent, event)
+    eventsOverlapWithoutBuffer(updatedChangedEvent, event)
   );
   
   // If no direct conflicts, no cascading needed
@@ -125,7 +129,7 @@ export const cascadeEventPositions = (
     for (let pos = 0; pos < 10 && !positionFound; pos++) { // Changed from 8 to 10
       // Check if this position has any time conflicts
       const hasConflict = eventsToCheckAgainst.some(otherEvent => 
-        otherEvent.position === pos && eventsOverlap(conflictingEvent, otherEvent)
+        otherEvent.position === pos && eventsOverlapWithoutBuffer(conflictingEvent, otherEvent)
       );
       
       if (!hasConflict) {
