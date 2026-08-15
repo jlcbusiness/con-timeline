@@ -347,7 +347,7 @@ export const Timeline: React.FC = () => {
       .filter((location: string | undefined): location is string => Boolean(location));
 
     if (importedLocationNames.length > 0) {
-      mergeLocations(importedLocationNames);
+      await mergeLocations(importedLocationNames, createdTimeline.id);
     }
 
     setLastSaved(new Date());
@@ -368,7 +368,7 @@ export const Timeline: React.FC = () => {
     if (timelineContentRef.current) {
       const eventPosition = getTimePosition(targetDate, startDate);
       const viewportWidth = timelineContentRef.current.clientWidth;
-      const scrollLeft = eventPosition - viewportWidth / 2; // Center the date
+      const scrollLeft = eventPosition; // Align the target time to the left edge
       const maxScroll = totalTimelineWidth - viewportWidth;
       const finalScrollLeft = Math.max(0, Math.min(scrollLeft, maxScroll));
 
@@ -426,9 +426,9 @@ export const Timeline: React.FC = () => {
 
   const jumpToDates = [];
   const jumpDate = new Date(startDate);
-  jumpDate.setHours(9, 0, 0, 0);
+  jumpDate.setHours(6, 0, 0, 0);
   const lastJumpDate = new Date(endDate);
-  lastJumpDate.setHours(9, 0, 0, 0);
+  lastJumpDate.setHours(6, 0, 0, 0);
   while (jumpDate <= lastJumpDate) {
     jumpToDates.push({
       date: new Date(jumpDate),
@@ -623,7 +623,7 @@ export const Timeline: React.FC = () => {
         {/* Single scrollable container with headers and events */}
         <div className="flex-1 flex overflow-hidden">
           {/* Time Labels */}
-          <div className="w-20 flex-shrink-0 bg-gray-50 border-r">
+          <div className="w-fit flex-shrink-0 bg-gray-50 border-r">
             <div className="h-full flex flex-col">
               {/* Header space - matches the header height exactly */}
               <div className="h-12 border-b border-gray-200 bg-gray-50 md:bg-gray-50">
@@ -645,7 +645,7 @@ export const Timeline: React.FC = () => {
               {Array.from({ length: slotCount }, (_, i) => (
                 <div
                   key={i}
-                  className={`border-b border-gray-200 flex items-center justify-center text-xs font-medium ${
+                  className={`border-b border-gray-200 flex items-center justify-center px-[2mm] text-xs font-medium ${
                     i === deleteSlotIndex ? 'bg-red-50 text-red-600' : 'text-gray-500'
                   }`}
                   style={{ height: `${gridSlotHeight}px` }}

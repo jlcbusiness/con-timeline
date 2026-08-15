@@ -219,7 +219,7 @@ export const useLocationPersistence = (activeTimelineId?: string | null) => {
     }
   };
 
-  const mergeLocations = (names: string[]) => {
+  const mergeLocations = async (names: string[], timelineId?: string) => {
     const normalizedNames = names
       .map(name => name.trim())
       .filter(Boolean);
@@ -251,24 +251,27 @@ export const useLocationPersistence = (activeTimelineId?: string | null) => {
       return nextLocations;
     });
 
-    if (supabase && activeTimelineId) {
-      void supabase.auth.getUser().then(async ({ data }: any) => {
-        const user = data.user;
-        if (!user) return;
+    const targetTimelineId = timelineId || activeTimelineId;
 
-        const existingNames = new Set(locations.map(location => location.name.toLowerCase()));
-        const rows = addedLocations.filter(location => !existingNames.has(location.name.toLowerCase()));
+    if (supabase && targetTimelineId) {
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
 
-        if (rows.length === 0) return;
+      const user = userData.user;
+      if (!user) return addedLocations;
 
-        const { error } = await supabase
-          .from('locations')
-          .insert(rows.map(location => buildLocationRow(location, activeTimelineId, user.id)));
+      const existingNames = new Set(locations.map(location => location.name.toLowerCase()));
+      const rows = addedLocations.filter(location => !existingNames.has(location.name.toLowerCase()));
 
-        if (error) {
-          console.error('Failed to merge locations', error);
-        }
-      });
+      if (rows.length === 0) return addedLocations;
+
+      const { error } = await supabase
+        .from('locations')
+        .insert(rows.map(location => buildLocationRow(location, targetTimelineId, user.id)));
+
+      if (error) {
+        throw error;
+      }
     }
 
     return addedLocations;
@@ -288,7 +291,7 @@ export const useLocationPersistence = (activeTimelineId?: string | null) => {
     URL.revokeObjectURL(url);
   };
 
-  const importLocations = (file: File) => {
+  const importLocations = (file: File, timelineId?: string) => {
     return readImportedLocations(file).then(async importedLocations => {
       if (importedLocations.length === 0) {
         return importedLocations;
@@ -317,7 +320,9 @@ export const useLocationPersistence = (activeTimelineId?: string | null) => {
         return nextLocations;
       });
 
-      if (supabase && activeTimelineId && addedLocations.length > 0) {
+      const targetTimelineId = timelineId || activeTimelineId;
+
+      if (supabase && targetTimelineId && addedLocations.length > 0) {
         const { data: userData, error: userError } = await supabase.auth.getUser();
         if (userError) throw userError;
 
@@ -326,7 +331,7 @@ export const useLocationPersistence = (activeTimelineId?: string | null) => {
 
         const { error } = await supabase
           .from('locations')
-          .insert(addedLocations.map(location => buildLocationRow(location, activeTimelineId, user.id)));
+          .insert(addedLocations.map(location => buildLocationRow(location, targetTimelineId, user.id)));
 
         if (error) {
           throw error;
