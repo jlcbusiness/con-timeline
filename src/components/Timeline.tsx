@@ -419,8 +419,8 @@ export const Timeline: React.FC = () => {
     });
   };
 
-  const commitHash = 'c15bbce01f5e97275bccf28dccb8702b35e032ff';
-  const shortCommitHash = commitHash.slice(0, 7);
+  const commitHash = import.meta.env.VITE_COMMIT_HASH || '';
+  const shortCommitHash = commitHash ? commitHash.slice(0, 7) : 'unknown';
 
   const jumpToDates = [];
   const jumpDate = new Date(startDate);
