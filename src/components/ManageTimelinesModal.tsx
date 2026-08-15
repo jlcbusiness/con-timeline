@@ -125,12 +125,6 @@ export const ManageTimelinesModal: React.FC<Props> = ({ isOpen, onClose, mode, t
                 Timeline properties
               </button>
               <button
-                    onClick={() => {
-                      setEditingTimeline(null);
-                      if (directEditMode) {
-                        onClose();
-                      }
-                    }}
                 onClick={() => setEditingSection('locations')}
                 className={`rounded px-3 py-1.5 text-sm font-medium ${editingSection === 'locations' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
               >
