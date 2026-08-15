@@ -430,7 +430,15 @@ export const Timeline: React.FC = () => {
           <div className="min-w-0">
             <div className="flex flex-col items-start">
               <h1 className="text-2xl font-bold text-gray-900 leading-tight">Timeline</h1>
-              <span className="text-xs font-mono text-gray-500 mt-1">{shortCommitHash}</span>
+              <div className="mt-1 flex items-center gap-2 text-xs font-mono text-gray-500">
+                <span>{shortCommitHash}</span>
+                {lastSaved && (
+                  <span className="inline-flex items-center gap-1 text-green-600">
+                    <Save size={12} />
+                    Saved at {formatLastSaved()}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
@@ -450,17 +458,6 @@ export const Timeline: React.FC = () => {
                   </button>
                 ))}
               </div>
-              {(dragState.isDragging || dragState.isResizing) && (
-                <span className="ml-2 text-blue-600 font-medium">
-                  {dragState.isDragging ? '🔄 Moving event...' : '↔️ Resizing event...'}
-                </span>
-              )}
-              {lastSaved && (
-                <span className="ml-2 text-green-600 text-xs">
-                  <Save size={12} className="inline mr-1" />
-                  Saved at {formatLastSaved()}
-                </span>
-              )}
             </div>
           </div>
 

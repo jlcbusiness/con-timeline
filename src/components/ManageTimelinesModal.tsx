@@ -163,13 +163,6 @@ export const ManageTimelinesModal: React.FC<Props> = ({ isOpen, onClose, mode, t
                   </label>
                 </div>
                 <div className="mt-6 flex justify-between gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setEditingSection('locations')}
-                    className="rounded border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                  >
-                    Manage locations
-                  </button>
                   <div className="flex gap-3">
                     <button type="button" onClick={() => setEditingTimeline(null)} className="rounded border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
                     <button type="submit" className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">Save</button>
