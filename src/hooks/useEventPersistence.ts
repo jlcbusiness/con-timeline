@@ -275,7 +275,7 @@ export const useEventPersistence = (activeTimelineId?: string | null) => {
 
   // Import merges by default (appends) and validates basic fields
   const importEvents = (file: File, options?: { replace?: boolean; timelineId?: string }) => {
-    return readImportedEvents(file).then(validEvents => {
+    return readImportedEvents(file).then(async validEvents => {
       const targetTimelineId = options?.timelineId || activeTimelineId;
 
       if (!targetTimelineId) {
@@ -297,13 +297,14 @@ export const useEventPersistence = (activeTimelineId?: string | null) => {
         setEvents(nextEvents);
       }
 
-      void replaceEventsInBackend(targetTimelineId, nextEvents).catch(error => {
+      try {
+        await replaceEventsInBackend(targetTimelineId, nextEvents);
+      } catch (error) {
         console.error('Failed to import events', error);
-      });
-
-      if (options?.timelineId) {
-        setEvents(nextEvents);
+        throw error;
       }
+
+      setEvents(nextEvents);
 
       return validEvents;
     });
