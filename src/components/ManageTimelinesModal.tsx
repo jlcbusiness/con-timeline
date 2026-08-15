@@ -166,10 +166,6 @@ export const ManageTimelinesModal: React.FC<Props> = ({ isOpen, onClose, mode, t
                   </label>
                 </div>
                 <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-between">
-                  <div className="flex gap-3">
-                    <button type="button" onClick={() => setEditingTimeline(null)} className="rounded border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
-                    <button type="submit" className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">Save</button>
-                  </div>
                   <div className="flex flex-col gap-3 sm:flex-row">
                     <button
                       type="button"
@@ -199,6 +195,10 @@ export const ManageTimelinesModal: React.FC<Props> = ({ isOpen, onClose, mode, t
                     >
                       Delete
                     </button>
+                  </div>
+                  <div className="flex gap-3 sm:justify-end">
+                    <button type="button" onClick={() => setEditingTimeline(null)} className="rounded border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
+                    <button type="submit" className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">Save</button>
                   </div>
                 </div>
               </form>
