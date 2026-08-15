@@ -33,11 +33,8 @@ export const Timeline: React.FC = () => {
   const [clickedTime, setClickedTime] = useState<Date | undefined>();
   const [scrollPosition, setScrollPosition] = useState(0);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
-  const [hasAutoScrolled, setHasAutoScrolled] = useState(false); // Track if we've already auto-scrolled
   
   const timelineContentRef = useRef<HTMLDivElement>(null);
-  
-  const timeSlots = generateTimeSlots(startDate, endDate);
 
   // Timeline persistence (must initialize before event persistence so active id is set)
   const {
@@ -45,11 +42,19 @@ export const Timeline: React.FC = () => {
     activeId,
     createTimeline,
     renameTimeline,
+    updateTimelineDates,
     deleteTimeline,
     archiveTimeline,
     unarchiveTimeline,
     setActiveId
   } = useTimelinePersistence();
+
+  const activeTimeline = timelines.find(timeline => timeline.id === activeId);
+  const timelineStartDate = activeTimeline?.startDate;
+  const timelineEndDate = activeTimeline?.endDate;
+  const startDate = new Date(timelineStartDate || DEFAULT_START_DATE);
+  const endDate = new Date(timelineEndDate || DEFAULT_END_DATE);
+  const timeSlots = generateTimeSlots(startDate, endDate);
 
   // Calculate total timeline width based on actual time duration
   const totalDurationMs = endDate.getTime() - startDate.getTime();
@@ -106,21 +111,20 @@ export const Timeline: React.FC = () => {
     setScrollPosition(e.currentTarget.scrollLeft);
   }, []);
 
-  // Auto-scroll to current time on mount - but only once!
+  // Center the current date whenever the active timeline's calendar span changes.
   useEffect(() => {
-    if (!hasAutoScrolled && !eventsLoading && !locationsLoading && timelineContentRef.current) {
+    if (!eventsLoading && !locationsLoading && timelineContentRef.current) {
       const now = new Date();
       if (now >= startDate && now <= endDate) {
-      const hoursFromStart = (now.getTime() - startDate.getTime()) / (1000 * 60 * 60);
-      const scrollLeft = hoursFromStart * PIXELS_PER_HOUR - 400; // Center current time (approx)
+        const hoursFromStart = (now.getTime() - startDate.getTime()) / (1000 * 60 * 60);
+        const scrollLeft = hoursFromStart * PIXELS_PER_HOUR - 400;
         const finalScrollLeft = Math.max(0, scrollLeft);
         
         timelineContentRef.current.scrollLeft = finalScrollLeft;
         setScrollPosition(finalScrollLeft);
       }
-      setHasAutoScrolled(true); // Mark that we've done the initial auto-scroll
     }
-  }, [startDate, endDate, eventsLoading, locationsLoading, hasAutoScrolled]);
+  }, [timelineStartDate, timelineEndDate, eventsLoading, locationsLoading]);
 
   // Global mouse event handlers for drag and resize
   useEffect(() => {
@@ -299,16 +303,35 @@ export const Timeline: React.FC = () => {
     });
   };
 
-  // Define the specific jump-to dates
-  const jumpToDates = [
-    { date: new Date(2025, 7, 27, 9, 0, 0), label: 'Weds 27' }, // August 27, 9 AM
-    { date: new Date(2025, 7, 28, 9, 0, 0), label: 'Thurs 28' }, // August 28, 9 AM
-    { date: new Date(2025, 7, 29, 9, 0, 0), label: 'Fri 29' }, // August 29, 9 AM
-    { date: new Date(2025, 7, 30, 9, 0, 0), label: 'Sat 30' }, // August 30, 9 AM
-    { date: new Date(2025, 7, 31, 9, 0, 0), label: 'Sun 31' }, // August 31, 9 AM
-    { date: new Date(2025, 8, 1, 9, 0, 0), label: 'Mon 1' },   // September 1, 9 AM
-    { date: new Date(2025, 8, 2, 9, 0, 0), label: 'Tues 2' }    // September 2, 9 AM
-  ];
+  const formatCalendarSpan = () => {
+    const startMonth = startDate.toLocaleDateString('en-US', { month: 'long' });
+    const endMonth = endDate.toLocaleDateString('en-US', { month: 'long' });
+    const startDay = startDate.getDate();
+    const endDay = endDate.getDate();
+    const startYear = startDate.getFullYear();
+    const endYear = endDate.getFullYear();
+
+    if (startYear === endYear && startMonth === endMonth) {
+      return `${startMonth} ${startDay} - ${endDay}, ${endYear}`;
+    }
+    if (startYear === endYear) {
+      return `${startMonth} ${startDay} - ${endMonth} ${endDay}, ${endYear}`;
+    }
+    return `${startMonth} ${startDay}, ${startYear} - ${endMonth} ${endDay}, ${endYear}`;
+  };
+
+  const jumpToDates = [];
+  const jumpDate = new Date(startDate);
+  jumpDate.setHours(9, 0, 0, 0);
+  const lastJumpDate = new Date(endDate);
+  lastJumpDate.setHours(9, 0, 0, 0);
+  while (jumpDate <= lastJumpDate) {
+    jumpToDates.push({
+      date: new Date(jumpDate),
+      label: jumpDate.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' })
+    });
+    jumpDate.setDate(jumpDate.getDate() + 1);
+  }
 
   if (eventsLoading || locationsLoading) {
     return (
@@ -329,27 +352,24 @@ export const Timeline: React.FC = () => {
           <div>
             <div className="flex items-center gap-4">
               <h1 className="text-2xl font-bold text-gray-900">Timeline</h1>
-              <TimelineSelector
-                timelines={timelines}
-                activeId={activeId}
-                setActiveId={setActiveId}
-                onCreate={createTimeline}
-                onManage={() => setIsManageOpen(true)}
-              />
-              <ManageTimelinesModal
-                isOpen={isManageOpen}
-                onClose={() => setIsManageOpen(false)}
-                timelines={timelines}
-                activeId={activeId}
-                setActiveId={setActiveId}
-                renameTimeline={renameTimeline}
-                deleteTimeline={deleteTimeline}
-                archiveTimeline={archiveTimeline}
-                unarchiveTimeline={unarchiveTimeline}
-              />
+              <span className="text-sm font-medium text-gray-600">{formatCalendarSpan()}</span>
             </div>
-            <p className="text-sm text-gray-600 mt-1">
-              August 27 - September 2, 2025 • {getCurrentDateRange()}
+            <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-gray-600">
+              <span>{getCurrentDateRange()}</span>
+              <div className="flex items-center gap-1">
+                <span className="text-xs text-gray-500">Jump to:</span>
+                {jumpToDates.map(({ date, label }) => (
+                  <button
+                    key={date.toISOString()}
+                    onClick={() => scrollToDate(date)}
+                    className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded transition-colors"
+                    title={`Go to ${date.toLocaleDateString()}`}
+                    disabled={dragState.isDragging || dragState.isResizing}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
               {(dragState.isDragging || dragState.isResizing) && (
                 <span className="ml-2 text-blue-600 font-medium">
                   {dragState.isDragging ? '🔄 Moving event...' : '↔️ Resizing event...'}
@@ -361,7 +381,7 @@ export const Timeline: React.FC = () => {
                   Saved at {formatLastSaved()}
                 </span>
               )}
-            </p>
+            </div>
           </div>
           
           <div className="flex items-center gap-3">
@@ -384,21 +404,25 @@ export const Timeline: React.FC = () => {
               </button>
             </div>
 
-            {/* Jump to specific dates */}
-            <div className="flex items-center gap-1">
-              <span className="text-xs text-gray-500">Jump to:</span>
-              {jumpToDates.map(({ date, label }) => (
-                <button
-                  key={label}
-                  onClick={() => scrollToDate(date)}
-                  className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded transition-colors"
-                  title={`Go to ${date.toLocaleDateString()}`}
-                  disabled={dragState.isDragging || dragState.isResizing}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+            <TimelineSelector
+              timelines={timelines}
+              activeId={activeId}
+              setActiveId={setActiveId}
+              onCreate={createTimeline}
+              onManage={() => setIsManageOpen(true)}
+            />
+            <ManageTimelinesModal
+              isOpen={isManageOpen}
+              onClose={() => setIsManageOpen(false)}
+              timelines={timelines}
+              activeId={activeId}
+              setActiveId={setActiveId}
+              renameTimeline={renameTimeline}
+              updateTimelineDates={updateTimelineDates}
+              deleteTimeline={deleteTimeline}
+              archiveTimeline={archiveTimeline}
+              unarchiveTimeline={unarchiveTimeline}
+            />
 
             <button
               onClick={() => setIsDragonConImporterOpen(true)}
