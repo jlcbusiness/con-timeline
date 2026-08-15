@@ -40,8 +40,7 @@ export const Timeline: React.FC = () => {
     if (!bottomDeleteTargetRef.current) return false;
 
     const rect = bottomDeleteTargetRef.current.getBoundingClientRect();
-    const deleteTargetTop = rect.top - 48;
-    return clientX >= rect.left && clientX <= rect.right && clientY >= deleteTargetTop && clientY <= rect.bottom;
+    return clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom;
   };
 
   // Timeline persistence (must initialize before event persistence so active id is set)
@@ -68,6 +67,9 @@ export const Timeline: React.FC = () => {
   const totalDurationMs = endDate.getTime() - startDate.getTime();
   const totalDurationHours = totalDurationMs / (1000 * 60 * 60);
   const totalTimelineWidth = Math.round(totalDurationHours * PIXELS_PER_HOUR); // px per hour
+  const slotCount = 11;
+  const deleteSlotIndex = 10;
+  const gridSlotHeight = 64;
 
   // Event persistence
   const {
@@ -564,14 +566,16 @@ export const Timeline: React.FC = () => {
             <div className="h-full flex flex-col">
               {/* Header space - matches the header height exactly */}
               <div className="h-12 border-b border-gray-200 bg-gray-50"></div>
-              {/* Slot labels - now 10 slots with precise alignment */}
-              {Array.from({ length: 10 }, (_, i) => (
+              {/* Slot labels - 10 event slots plus 1 delete slot */}
+              {Array.from({ length: slotCount }, (_, i) => (
                 <div
                   key={i}
-                  className="border-b border-gray-200 flex items-center justify-center text-xs text-gray-500 font-medium"
-                  style={{ height: '64px' }}
+                  className={`border-b border-gray-200 flex items-center justify-center text-xs font-medium ${
+                    i === deleteSlotIndex ? 'bg-red-50 text-red-600' : 'text-gray-500'
+                  }`}
+                  style={{ height: `${gridSlotHeight}px` }}
                 >
-                  Slot {i + 1}
+                  {i === deleteSlotIndex ? 'Delete' : `Slot ${i + 1}`}
                 </div>
               ))}
             </div>
@@ -625,8 +629,8 @@ export const Timeline: React.FC = () => {
                   })}
                 </div>
 
-                {/* Grid and Events Area - Updated height for 10 slots with proper alignment */}
-                <div className="absolute top-12 left-0 right-0" style={{ height: '640px' }}>
+                {/* Grid and Events Area - 10 event slots plus 1 delete slot */}
+                <div className="absolute top-12 left-0 right-0" style={{ height: `${slotCount * gridSlotHeight}px` }}>
                   {/* Grid Lines */}
                   {timeSlots.map((slot) => {
                     const leftPosition = getTimePosition(slot, startDate);
@@ -654,12 +658,12 @@ export const Timeline: React.FC = () => {
                     );
                   })}
 
-                  {/* Horizontal Grid Lines - FIXED: positioned to align perfectly with slot labels */}
-                  {Array.from({ length: 9 }, (_, i) => (
+                  {/* Horizontal Grid Lines - positioned to align perfectly with slot labels */}
+                  {Array.from({ length: slotCount - 1 }, (_, i) => (
                     <div
                       key={i}
                       className="absolute left-0 right-0 border-b border-gray-100"
-                      style={{ top: `${(i + 1) * 64}px` }}
+                      style={{ top: `${(i + 1) * gridSlotHeight}px` }}
                     />
                   ))}
 
@@ -693,6 +697,17 @@ export const Timeline: React.FC = () => {
                     }
                     return null;
                   })()}
+
+                  {/* Delete Slot - visible 11th lane */}
+                  <div
+                    ref={bottomDeleteTargetRef}
+                    className={`absolute left-0 right-0 border-t border-red-200 flex items-center justify-center text-sm font-medium transition-colors ${
+                      isDraggingOverDeleteTarget ? 'bg-red-200 text-red-800' : 'bg-red-50 text-red-600'
+                    }`}
+                    style={{ top: `${deleteSlotIndex * gridSlotHeight}px`, height: `${gridSlotHeight}px` }}
+                  >
+                    {isDraggingOverDeleteTarget ? 'Drop here to delete' : 'Delete'}
+                  </div>
                 </div>
               </div>
             </div>
@@ -724,14 +739,9 @@ export const Timeline: React.FC = () => {
 
       {/* Event Summary */}
       {events.length > 0 && (
-        <div
-          ref={bottomDeleteTargetRef}
-          className={`border-t px-6 py-3 transition-colors ${isDraggingOverDeleteTarget ? 'bg-red-50 border-red-200' : 'bg-white'}`}
-        >
+        <div className="bg-white border-t px-6 py-3">
           <div className="flex items-center justify-between text-sm text-gray-600">
-            <span>
-              {isDraggingOverDeleteTarget ? 'Drop here to delete' : `${events.length} event${events.length !== 1 ? 's' : ''} scheduled`}
-            </span>
+            <span>{events.length} event{events.length !== 1 ? 's' : ''} scheduled</span>
             <div className="flex items-center gap-4">
               {Object.entries(groupEventsByDate()).map(([date, dateEvents]) => (
                 <span key={date} className="flex items-center gap-1">
