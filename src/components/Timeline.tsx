@@ -22,10 +22,6 @@ import {
 } from '../utils/timelineUtils';
 
 export const Timeline: React.FC = () => {
-  // Timeline configuration
-  const startDate = DEFAULT_START_DATE;
-  const endDate = DEFAULT_END_DATE;
-  
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLocationManagerOpen, setIsLocationManagerOpen] = useState(false);
   const [isDragonConImporterOpen, setIsDragonConImporterOpen] = useState(false);
