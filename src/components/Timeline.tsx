@@ -351,14 +351,13 @@ export const Timeline: React.FC = () => {
               <span className="text-sm font-medium text-gray-600">{formatCalendarSpan()}</span>
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-gray-600">
-              <span>{getCurrentDateRange()}</span>
+              <span>Viewing <strong className="font-semibold text-gray-700">{getCurrentDateRange()}</strong></span>
               <div className="flex items-center gap-1">
-                <span className="text-xs text-gray-500">Jump to:</span>
                 {jumpToDates.map(({ date, label }) => (
                   <button
                     key={date.toISOString()}
                     onClick={() => scrollToDate(date)}
-                    className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded transition-colors"
+                    className="px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded-md transition-colors"
                     title={`Go to ${date.toLocaleDateString()}`}
                     disabled={dragState.isDragging || dragState.isResizing}
                   >
