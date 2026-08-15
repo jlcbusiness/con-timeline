@@ -63,7 +63,7 @@ export const TimelineSelector: React.FC<Props> = ({ timelines, activeId, setActi
       {isOpen && (
         <>
           <div className="fixed inset-0 z-30" onClick={() => setIsOpen(false)} />
-          <div className="absolute left-0 top-full z-40 mt-1 w-56 overflow-hidden rounded-md border border-gray-200 bg-white py-1 shadow-lg">
+          <div className="absolute left-0 top-full z-50 mt-1 w-56 max-w-[calc(100vw-1rem)] overflow-hidden rounded-md border border-gray-200 bg-white py-1 shadow-lg">
             <div className="max-h-64 overflow-y-auto px-1">
               {activeTimelines.map(timeline => (
                 <button

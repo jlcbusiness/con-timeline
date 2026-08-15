@@ -48,7 +48,7 @@ export const AccountMenu: React.FC<Props> = ({ user, onSignOut }) => {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg">
+        <div className="absolute right-0 top-full z-50 mt-2 w-64 max-w-[calc(100vw-1rem)] overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg">
           <div className="border-b border-gray-100 px-4 py-3">
             <div className="text-sm font-medium text-gray-900">Signed in as {email}</div>
             <div className="text-xs text-gray-500">Your timelines are stored in Supabase</div>

@@ -173,7 +173,7 @@ export const ManageTimelinesModal: React.FC<Props> = ({ isOpen, onClose, mode, t
                 </div>
               </form>
             ) : (
-              <div className="mt-4 space-y-4">
+              <div className="mt-4 flex min-h-0 flex-1 flex-col gap-4">
                 <LocationManager
                   isOpen={true}
                   embedded

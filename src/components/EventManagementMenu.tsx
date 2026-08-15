@@ -76,7 +76,7 @@ export const EventManagementMenu: React.FC<EventManagementMenuProps> = ({
           />
 
           {/* Menu - Updated with higher z-index */}
-          <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-40">
+          <div className="absolute right-0 top-full z-50 mt-1 w-48 max-w-[calc(100vw-1rem)] overflow-hidden rounded-md border border-gray-200 bg-white py-1 shadow-lg">
             <button
               onClick={() => {
                 onExport();

@@ -114,21 +114,30 @@ export const LocationManager: React.FC<LocationManagerProps> = ({
   if (!isOpen && !embedded) return null;
 
   const shell = embedded
-    ? 'w-full max-h-[60vh] flex flex-col overflow-hidden rounded-lg border border-gray-200 bg-white'
+    ? 'w-full min-h-0 flex flex-1 flex-col overflow-hidden rounded-lg border border-gray-200 bg-white'
     : 'bg-white rounded-lg shadow-xl w-full max-w-md max-h-[calc(100dvh-1rem)] flex flex-col overflow-hidden sm:max-h-[80vh]';
 
   const content = (
     <div className={shell}>
-        <div className="flex items-start justify-between gap-3 border-b p-4 sm:items-center sm:p-6">
-          <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900 sm:text-xl">
-            <MapPin size={20} />
-            Manage Locations
-          </h2>
-          <div className="flex flex-wrap items-center justify-end gap-2">
+        <div className="border-b p-4 sm:p-6">
+          <div className="flex items-start justify-between gap-3">
+            <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900 sm:text-xl">
+              <MapPin size={20} />
+              Manage Locations
+            </h2>
+            <button
+              onClick={onClose}
+              className="text-gray-400 transition-colors hover:text-gray-600 sm:hidden"
+              type="button"
+            >
+              <X size={24} />
+            </button>
+          </div>
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
             <button
               type="button"
               onClick={onExportLocations}
-              className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-2.5 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-50 sm:px-3"
+              className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-gray-300 bg-white px-2.5 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:px-3"
               disabled={locations.length === 0}
             >
               <Download size={14} />
@@ -137,7 +146,7 @@ export const LocationManager: React.FC<LocationManagerProps> = ({
             <button
               type="button"
               onClick={handleImportClick}
-              className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-2.5 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-50 sm:px-3"
+              className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-gray-300 bg-white px-2.5 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:px-3"
               disabled={isImporting}
             >
               <Upload size={14} />
@@ -145,7 +154,7 @@ export const LocationManager: React.FC<LocationManagerProps> = ({
             </button>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
+              className="hidden text-gray-400 transition-colors hover:text-gray-600 sm:block"
               type="button"
             >
               <X size={24} />
@@ -153,7 +162,7 @@ export const LocationManager: React.FC<LocationManagerProps> = ({
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+        <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
           {/* Add new location form */}
           <form onSubmit={handleAddLocation} className="mb-5 sm:mb-6">
             <label className="mb-2 block text-sm font-medium text-gray-700">
