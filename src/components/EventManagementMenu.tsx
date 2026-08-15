@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Download, Upload, Trash2, MoreVertical, Sparkles, ChevronDown } from 'lucide-react';
+import { Download, Upload, Trash2, Sparkles, ChevronDown } from 'lucide-react';
 
 interface EventManagementMenuProps {
   onExport: () => void;
@@ -62,7 +62,6 @@ export const EventManagementMenu: React.FC<EventManagementMenuProps> = ({
         className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors"
         title="Import/export options"
       >
-        <MoreVertical size={16} />
         <span>Import/Export</span>
         <ChevronDown size={14} />
       </button>

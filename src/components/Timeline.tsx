@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Plus, ChevronLeft, ChevronRight, Save } from 'lucide-react';
+import { Plus, Save } from 'lucide-react';
 import type { TimelineEvent as TimelineEventType } from '../types/timeline';
 import { TimelineEvent } from './TimelineEvent';
 import { EventModal } from './EventModal';
@@ -330,26 +330,6 @@ export const Timeline: React.FC = () => {
     setLastSaved(new Date());
   };
 
-  // Fixed navigation functions for single container
-  const scrollTimeline = (direction: 'left' | 'right') => {
-    if (timelineContentRef.current) {
-      const scrollAmount = 960; // 4 hours worth of scrolling
-      const currentScroll = scrollPosition;
-      const newScrollLeft = direction === 'left'
-        ? currentScroll - scrollAmount
-        : currentScroll + scrollAmount;
-
-      const finalScrollLeft = Math.max(0, Math.min(newScrollLeft, totalTimelineWidth - timelineContentRef.current.clientWidth));
-
-      timelineContentRef.current.scrollTo({
-        left: finalScrollLeft,
-        behavior: 'smooth'
-      });
-
-      setScrollPosition(finalScrollLeft);
-    }
-  };
-
   // Function to scroll to a specific date
   const scrollToDate = (targetDate: Date) => {
     if (timelineContentRef.current) {
@@ -416,6 +396,7 @@ export const Timeline: React.FC = () => {
   };
 
   const commitHash = 'c15bbce01f5e97275bccf28dccb8702b35e032ff';
+  const shortCommitHash = commitHash.slice(0, 7);
 
   const jumpToDates = [];
   const jumpDate = new Date(startDate);
@@ -449,7 +430,7 @@ export const Timeline: React.FC = () => {
           <div className="min-w-0">
             <div className="flex flex-col items-start">
               <h1 className="text-2xl font-bold text-gray-900 leading-tight">Timeline</h1>
-              <span className="text-xs font-mono text-gray-500 mt-1">{commitHash}</span>
+              <span className="text-xs font-mono text-gray-500 mt-1">{shortCommitHash}</span>
             </div>
           </div>
 
@@ -484,25 +465,6 @@ export const Timeline: React.FC = () => {
           </div>
 
           <div className="flex items-center justify-end gap-3">
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => scrollTimeline('left')}
-                className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
-                title="Scroll left"
-                disabled={dragState.isDragging || dragState.isResizing}
-              >
-                <ChevronLeft size={20} />
-              </button>
-              <button
-                onClick={() => scrollTimeline('right')}
-                className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
-                title="Scroll right"
-                disabled={dragState.isDragging || dragState.isResizing}
-              >
-                <ChevronRight size={20} />
-              </button>
-            </div>
-
             <TimelineSelector
               timelines={timelines}
               activeId={activeId}
