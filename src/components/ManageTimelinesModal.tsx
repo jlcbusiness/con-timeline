@@ -6,6 +6,7 @@ import type { Location } from '../types/timeline';
 interface Props {
   isOpen: boolean;
   onClose: () => void;
+  mode: 'manage' | 'edit';
   timelines: TimelineMeta[];
   activeId: string | null;
   setActiveId: (id: string | null) => void;
@@ -22,9 +23,10 @@ interface Props {
   initialSection?: 'timeline' | 'locations';
 }
 
-export const ManageTimelinesModal: React.FC<Props> = ({ isOpen, onClose, timelines, activeId, setActiveId, renameTimeline, updateTimelineDates, locations, onAddLocation, onUpdateLocation, onDeleteLocation, deleteTimeline, archiveTimeline, unarchiveTimeline, initialEditingTimelineId, initialSection }) => {
+export const ManageTimelinesModal: React.FC<Props> = ({ isOpen, onClose, mode, timelines, activeId, setActiveId, renameTimeline, updateTimelineDates, locations, onAddLocation, onUpdateLocation, onDeleteLocation, deleteTimeline, archiveTimeline, unarchiveTimeline, initialEditingTimelineId, initialSection }) => {
   const [editingTimeline, setEditingTimeline] = useState<TimelineMeta | null>(null);
   const [editingSection, setEditingSection] = useState<'timeline' | 'locations'>('timeline');
+  const directEditMode = mode === 'edit';
 
   React.useEffect(() => {
     if (!isOpen) {
@@ -33,7 +35,7 @@ export const ManageTimelinesModal: React.FC<Props> = ({ isOpen, onClose, timelin
       return;
     }
 
-    if (initialEditingTimelineId) {
+    if (directEditMode && initialEditingTimelineId) {
       const timeline = timelines.find(item => item.id === initialEditingTimelineId) || null;
       setEditingTimeline(timeline);
       setEditingSection(initialSection || 'timeline');
@@ -42,7 +44,7 @@ export const ManageTimelinesModal: React.FC<Props> = ({ isOpen, onClose, timelin
 
     setEditingTimeline(null);
     setEditingSection(initialSection || 'timeline');
-  }, [isOpen, initialEditingTimelineId, initialSection, timelines]);
+  }, [directEditMode, isOpen, initialEditingTimelineId, initialSection, timelines]);
 
   if (!isOpen) return null;
 
@@ -52,55 +54,62 @@ export const ManageTimelinesModal: React.FC<Props> = ({ isOpen, onClose, timelin
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center p-6">
       <div className="absolute inset-0 bg-black opacity-40" onClick={onClose}></div>
-      <div className="relative bg-white rounded shadow-lg w-full max-w-4xl p-6 grid grid-cols-2 gap-6">
-        <div>
-          <h2 className="text-lg font-semibold mb-4">Active Timelines</h2>
-          <ul className="space-y-2">
-            {active.map(t => (
-              <li key={t.id} className="p-3 border rounded">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <input type="radio" checked={activeId === t.id} onChange={() => setActiveId(t.id)} />
-                    <span>{t.name}</span>
+      {!directEditMode && (
+        <div className="relative bg-white rounded shadow-lg w-full max-w-4xl p-6 grid grid-cols-2 gap-6">
+          <div>
+            <h2 className="text-lg font-semibold mb-4">Active Timelines</h2>
+            <ul className="space-y-2">
+              {active.map(t => (
+                <li key={t.id} className="p-3 border rounded">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <input type="radio" checked={activeId === t.id} onChange={() => setActiveId(t.id)} />
+                      <span>{t.name}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => archiveTimeline(t.id)} className="px-2 py-1 bg-yellow-100 rounded">Archive</button>
+                      <button onClick={() => { if (confirm(`Delete timeline "${t.name}"? This will remove its events from storage.`)) deleteTimeline(t.id); }} className="px-2 py-1 bg-red-100 rounded text-red-600">Delete</button>
+                    </div>
                   </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <h2 className="text-lg font-semibold mb-4">Archived Timelines</h2>
+            <ul className="space-y-2">
+              {archived.map(t => (
+                <li key={t.id} className="flex items-center justify-between p-2 border rounded">
+                  <div>{t.name}</div>
                   <div className="flex items-center gap-2">
-                    <button onClick={() => archiveTimeline(t.id)} className="px-2 py-1 bg-yellow-100 rounded">Archive</button>
-                    <button onClick={() => { if (confirm(`Delete timeline "${t.name}"? This will remove its events from storage.`)) deleteTimeline(t.id); }} className="px-2 py-1 bg-red-100 rounded text-red-600">Delete</button>
+                    <button onClick={() => unarchiveTimeline(t.id)} className="px-2 py-1 bg-green-100 rounded">Unarchive</button>
+                    <button onClick={() => { if (confirm(`Delete archived timeline "${t.name}"?`)) deleteTimeline(t.id); }} className="px-2 py-1 bg-red-100 rounded text-red-600">Delete</button>
                   </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
+                </li>
+              ))}
+            </ul>
+          </div>
 
-        <div>
-          <h2 className="text-lg font-semibold mb-4">Archived Timelines</h2>
-          <ul className="space-y-2">
-            {archived.map(t => (
-              <li key={t.id} className="flex items-center justify-between p-2 border rounded">
-                <div>{t.name}</div>
-                <div className="flex items-center gap-2">
-                  <button onClick={() => unarchiveTimeline(t.id)} className="px-2 py-1 bg-green-100 rounded">Unarchive</button>
-                  <button onClick={() => { if (confirm(`Delete archived timeline "${t.name}"?`)) deleteTimeline(t.id); }} className="px-2 py-1 bg-red-100 rounded text-red-600">Delete</button>
-                </div>
-              </li>
-            ))}
-          </ul>
+          <div className="col-span-2 text-right">
+            <button onClick={onClose} className="px-4 py-2 bg-gray-100 rounded">Close</button>
+          </div>
         </div>
+      )}
 
-        <div className="col-span-2 text-right">
-          <button onClick={onClose} className="px-4 py-2 bg-gray-100 rounded">Close</button>
-        </div>
-      </div>
-
-      {editingTimeline && (
+      {directEditMode && editingTimeline && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-black bg-opacity-40 p-6">
           <div className="w-full max-w-2xl rounded-lg bg-white p-6 shadow-xl">
             <div className="flex items-center justify-between gap-4">
               <h2 className="text-lg font-semibold text-gray-900">Edit timeline</h2>
               <button
                 type="button"
-                onClick={() => setEditingTimeline(null)}
+                onClick={() => {
+                  setEditingTimeline(null);
+                  if (directEditMode) {
+                    onClose();
+                  }
+                }}
                 className="text-sm font-medium text-gray-500 hover:text-gray-700"
               >
                 Close
@@ -116,7 +125,12 @@ export const ManageTimelinesModal: React.FC<Props> = ({ isOpen, onClose, timelin
                 Timeline properties
               </button>
               <button
-                type="button"
+                    onClick={() => {
+                      setEditingTimeline(null);
+                      if (directEditMode) {
+                        onClose();
+                      }
+                    }}
                 onClick={() => setEditingSection('locations')}
                 className={`rounded px-3 py-1.5 text-sm font-medium ${editingSection === 'locations' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
               >
@@ -180,7 +194,20 @@ export const ManageTimelinesModal: React.FC<Props> = ({ isOpen, onClose, timelin
                   onDeleteLocation={onDeleteLocation}
                 />
                 <div className="flex justify-end gap-3">
-                  <button type="button" onClick={() => setEditingSection('timeline')} className="rounded border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Back</button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (directEditMode) {
+                        setEditingTimeline(null);
+                        onClose();
+                        return;
+                      }
+                      setEditingSection('timeline');
+                    }}
+                    className="rounded border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    Back
+                  </button>
                 </div>
               </div>
             )}

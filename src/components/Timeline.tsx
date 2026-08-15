@@ -26,6 +26,7 @@ export const Timeline: React.FC = () => {
   const [isDragonConImporterOpen, setIsDragonConImporterOpen] = useState(false);
   const [manageEditTimelineId, setManageEditTimelineId] = useState<string | null>(null);
   const [manageEditSection, setManageEditSection] = useState<'timeline' | 'locations'>('timeline');
+  const [manageMode, setManageMode] = useState<'manage' | 'edit' | null>(null);
   const [editingEvent, setEditingEvent] = useState<TimelineEventType | undefined>();
   const [clickedTime, setClickedTime] = useState<Date | undefined>();
   const [scrollPosition, setScrollPosition] = useState(0);
@@ -512,13 +513,23 @@ export const Timeline: React.FC = () => {
                 if (!activeId) return;
                 setManageEditTimelineId(activeId);
                 setManageEditSection('timeline');
+                setManageMode('edit');
                 setIsManageOpen(true);
               }}
-              onManage={() => setIsManageOpen(true)}
+              onManage={() => {
+                setManageEditTimelineId(null);
+                setManageMode('manage');
+                setIsManageOpen(true);
+              }}
             />
             <ManageTimelinesModal
               isOpen={isManageOpen}
-              onClose={() => setIsManageOpen(false)}
+              onClose={() => {
+                setIsManageOpen(false);
+                setManageMode(null);
+                setManageEditTimelineId(null);
+              }}
+              mode={manageMode === 'edit' ? 'edit' : 'manage'}
               timelines={timelines}
               activeId={activeId}
               setActiveId={setActiveId}
@@ -531,7 +542,7 @@ export const Timeline: React.FC = () => {
               deleteTimeline={deleteTimeline}
               archiveTimeline={archiveTimeline}
               unarchiveTimeline={unarchiveTimeline}
-              initialEditingTimelineId={manageEditTimelineId}
+              initialEditingTimelineId={manageMode === 'edit' ? manageEditTimelineId : null}
               initialSection={manageEditSection}
             />
 
