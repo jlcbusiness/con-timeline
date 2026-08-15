@@ -27,12 +27,21 @@ export const Timeline: React.FC = () => {
   const [manageEditTimelineId, setManageEditTimelineId] = useState<string | null>(null);
   const [manageEditSection, setManageEditSection] = useState<'timeline' | 'locations'>('timeline');
   const [manageMode, setManageMode] = useState<'manage' | 'edit' | null>(null);
+  const [isDraggingOverDeleteTarget, setIsDraggingOverDeleteTarget] = useState(false);
   const [editingEvent, setEditingEvent] = useState<TimelineEventType | undefined>();
   const [clickedTime, setClickedTime] = useState<Date | undefined>();
   const [scrollPosition, setScrollPosition] = useState(0);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
 
   const timelineContentRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
+
+  const isPointInsideHeader = (clientX: number, clientY: number) => {
+    if (!headerRef.current) return false;
+
+    const rect = headerRef.current.getBoundingClientRect();
+    return clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom;
+  };
 
   // Timeline persistence (must initialize before event persistence so active id is set)
   const {
@@ -215,12 +224,26 @@ export const Timeline: React.FC = () => {
       if (dragState.isDragging || dragState.isResizing) {
         e.preventDefault();
         handleMouseMove(e.clientX, e.clientY);
+
+        if (dragState.isDragging) {
+          setIsDraggingOverDeleteTarget(isPointInsideHeader(e.clientX, e.clientY));
+        }
       }
     };
 
     const handleGlobalMouseUp = (e: MouseEvent) => {
       if (dragState.isDragging || dragState.isResizing) {
         e.preventDefault();
+
+        if (dragState.isDragging && dragState.originalEvent && isPointInsideHeader(e.clientX, e.clientY)) {
+          const confirmed = window.confirm(`Delete event "${dragState.originalEvent.title}"?`);
+          if (confirmed) {
+            deleteEvent(dragState.originalEvent.id);
+            setLastSaved(new Date());
+          }
+        }
+
+        setIsDraggingOverDeleteTarget(false);
         endDrag();
       }
     };
@@ -425,7 +448,10 @@ export const Timeline: React.FC = () => {
   return (
     <div className="h-screen bg-gray-50 flex flex-col">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b px-6 py-4">
+      <div
+        ref={headerRef}
+        className={`shadow-sm border-b px-6 py-4 transition-colors ${isDraggingOverDeleteTarget ? 'bg-red-50 border-red-200' : 'bg-white'}`}
+      >
         <div className="grid grid-cols-3 items-start gap-4">
           <div className="min-w-0">
             <div className="flex flex-col items-start">

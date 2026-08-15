@@ -404,29 +404,31 @@ export const EventModal: React.FC<EventModalProps> = ({
           </div>
 
           <div className="flex gap-3 pt-4">
-            <button
-              type="submit"
-              className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors font-medium"
-            >
-              {event ? 'Update Event' : 'Create Event'}
-            </button>
-            
-            {event && onDelete && (
+            <div className="flex flex-1 gap-3">
+              {event && onDelete && (
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors font-medium"
+                >
+                  Delete
+                </button>
+              )}
+
               <button
                 type="button"
-                onClick={handleDelete}
-                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors font-medium"
+                onClick={onClose}
+                className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors font-medium"
               >
-                Delete
+                Cancel
               </button>
-            )}
-            
+            </div>
+
             <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors font-medium"
+              type="submit"
+              className="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors font-medium"
             >
-              Cancel
+              {event ? 'Save' : 'Save'}
             </button>
           </div>
         </form>
