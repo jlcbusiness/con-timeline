@@ -170,6 +170,36 @@ export const ManageTimelinesModal: React.FC<Props> = ({ isOpen, onClose, mode, t
                     <button type="button" onClick={() => setEditingTimeline(null)} className="rounded border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
                     <button type="submit" className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">Save</button>
                   </div>
+                  <div className="flex flex-col gap-3 sm:flex-row">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        archiveTimeline(editingTimeline.id);
+                        setEditingTimeline(null);
+                        if (directEditMode) {
+                          onClose();
+                        }
+                      }}
+                      className="rounded border border-yellow-300 bg-yellow-50 px-4 py-2 text-sm font-medium text-yellow-800 hover:bg-yellow-100"
+                    >
+                      Archive
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!confirm(`Delete timeline "${editingTimeline.name}"? This will remove its events from storage.`)) return;
+
+                        deleteTimeline(editingTimeline.id);
+                        setEditingTimeline(null);
+                        if (directEditMode) {
+                          onClose();
+                        }
+                      }}
+                      className="rounded border border-red-300 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
               </form>
             ) : (

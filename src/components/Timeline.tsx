@@ -363,6 +363,26 @@ export const Timeline: React.FC = () => {
     setLastSaved(new Date());
   };
 
+  const getJumpTargetForDate = (day: Date) => {
+    const sameDayEventsBeforeSix = events
+      .filter(event => {
+        const eventStart = event.startTime;
+        return (
+          eventStart.getFullYear() === day.getFullYear() &&
+          eventStart.getMonth() === day.getMonth() &&
+          eventStart.getDate() === day.getDate() &&
+          eventStart.getHours() < 6
+        );
+      })
+      .sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
+
+    return sameDayEventsBeforeSix[0]?.startTime ?? (() => {
+      const fallback = new Date(day);
+      fallback.setHours(6, 0, 0, 0);
+      return fallback;
+    })();
+  };
+
   // Function to scroll to a specific date
   const scrollToDate = (targetDate: Date) => {
     if (timelineContentRef.current) {
@@ -430,8 +450,9 @@ export const Timeline: React.FC = () => {
   const lastJumpDate = new Date(endDate);
   lastJumpDate.setHours(6, 0, 0, 0);
   while (jumpDate <= lastJumpDate) {
+    const day = new Date(jumpDate);
     jumpToDates.push({
-      date: new Date(jumpDate),
+      date: getJumpTargetForDate(day),
       label: jumpDate.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' })
     });
     jumpDate.setDate(jumpDate.getDate() + 1);
