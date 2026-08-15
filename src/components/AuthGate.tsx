@@ -6,11 +6,21 @@ export const AuthGate: React.FC<{ children: React.ReactNode }> = ({ children }) 
 
   useEffect(() => {
     if (!supabase) return;
-    supabase.auth.getSession().then((r: any) => setUser(r.data?.session?.user ?? null));
-    const { data: sub } = supabase.auth.onAuthStateChange((_event: string, session: any) => {
-      setUser(session?.user ?? null);
+
+    let mounted = true;
+
+    supabase.auth.getSession().then((r: any) => {
+      if (mounted) setUser(r.data?.session?.user ?? null);
     });
-    return () => { sub?.subscription.unsubscribe(); };
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event: string, session: any) => {
+      if (mounted) setUser(session?.user ?? null);
+    });
+
+    return () => {
+      mounted = false;
+      sub?.subscription.unsubscribe();
+    };
   }, []);
 
   const signInWithGoogle = async () => {
@@ -50,22 +60,47 @@ export const AuthGate: React.FC<{ children: React.ReactNode }> = ({ children }) 
     setUser(null);
   };
 
-  if (!supabase) return <>{children}</>;
+  if (!supabase) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
+        <div className="max-w-md rounded-lg border border-red-200 bg-white p-6 shadow-sm">
+          <h1 className="text-xl font-semibold text-gray-900">Supabase not configured</h1>
+          <p className="mt-2 text-sm text-gray-600">
+            This app requires a Supabase login before it can load any timeline data.
+            Set the Vite public env vars and redeploy, then sign in again.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div>
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
       {user ? (
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-700">Signed in as {user.email}</span>
-          <button onClick={signOut} className="px-2 py-1 bg-gray-100 rounded">Sign out</button>
+        <div className="w-full">
+          <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm">
+            <div>
+              <div className="text-sm font-medium text-gray-900">Signed in as {user.email}</div>
+              <div className="text-xs text-gray-500">Your timelines are stored in Supabase</div>
+            </div>
+            <button onClick={signOut} className="rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+              Sign out
+            </button>
+          </div>
           {children}
         </div>
       ) : (
-        <div className="flex items-center gap-2">
-          <button onClick={signInWithGoogle} className="px-2 py-1 bg-blue-600 text-white rounded">Sign in with Google</button>
-          <button onClick={signUpWithEmail} className="px-2 py-1 bg-gray-100 rounded">Sign up</button>
-          <button onClick={signInWithEmail} className="px-2 py-1 bg-gray-100 rounded">Sign in</button>
-          <button onClick={resetPassword} className="px-2 py-1 bg-gray-100 rounded">Reset password</button>
+        <div className="w-full max-w-md rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+          <h1 className="text-2xl font-semibold text-gray-900">Sign in to Con-Timeline</h1>
+          <p className="mt-2 text-sm text-gray-600">
+            Create an account or sign in to load your timelines, events, and locations.
+          </p>
+          <div className="mt-6 flex flex-col gap-2">
+            <button onClick={signInWithGoogle} className="rounded bg-blue-600 px-3 py-2 text-white">Continue with Google</button>
+            <button onClick={signUpWithEmail} className="rounded border border-gray-300 px-3 py-2 text-gray-800">Create account</button>
+            <button onClick={signInWithEmail} className="rounded border border-gray-300 px-3 py-2 text-gray-800">Sign in</button>
+            <button onClick={resetPassword} className="rounded border border-gray-300 px-3 py-2 text-gray-800">Reset password</button>
+          </div>
         </div>
       )}
     </div>

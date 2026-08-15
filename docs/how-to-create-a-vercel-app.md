@@ -18,10 +18,10 @@ This guide assumes you already have a Vercel account and a GitHub repository for
    - Output directory: `dist`
 
 3. Add environment variables (if using Supabase)
-    - In the Vercel project settings, add the `TIMELINE_SUPABASE_` prefixed values to avoid collisions with other projects:
-       - `TIMELINE_SUPABASE_URL` = your Supabase project URL
-       - `TIMELINE_SUPABASE_ANON_KEY` = anon public key
-    - If you need the variables exposed to the Vite client during runtime, also add `VITE_TIMELINE_SUPABASE_URL` and `VITE_TIMELINE_SUPABASE_ANON_KEY` (Vite only exposes env vars prefixed with `VITE_` to client-side code).
+    - In the Vercel project settings, add the Vite-exposed public variables:
+       - `VITE_TIMELINE_SUPABASE_URL` = your Supabase project URL
+       - `VITE_TIMELINE_SUPABASE_ANON_KEY` = anon public key
+    - Optional aliases like `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` are also supported.
     - Do NOT add the `service_role` key to client envs; keep that secret for server-side use only.
 
 4. Database setup with Supabase (quick)

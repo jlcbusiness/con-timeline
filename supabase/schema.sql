@@ -35,22 +35,26 @@ create table if not exists locations (
 
 -- Enable Row Level Security and policies
 alter table timelines enable row level security;
+drop policy if exists timelines_owner on timelines;
 create policy timelines_owner on timelines
   for all
   using (user_id = auth.uid())
   with check (user_id = auth.uid());
 
 alter table events enable row level security;
+drop policy if exists events_owner on events;
 create policy events_owner on events
   for all
   using (user_id = auth.uid())
   with check (user_id = auth.uid());
 
 alter table locations enable row level security;
+drop policy if exists locations_owner on locations;
 create policy locations_owner on locations
   for all
   using (user_id = auth.uid())
   with check (user_id = auth.uid());
 
 -- Indexes to help common queries
+drop index if exists idx_events_timeline_start;
 create index if not exists idx_events_timeline_start on events(timeline_id, start_time);
