@@ -114,7 +114,7 @@ export const LocationManager: React.FC<LocationManagerProps> = ({
   if (!isOpen && !embedded) return null;
 
   const shell = embedded
-    ? 'w-full min-h-0 flex flex-1 flex-col overflow-hidden rounded-lg border border-gray-200 bg-white'
+    ? 'w-full min-h-0 flex max-h-[calc(100dvh-14rem)] flex-col overflow-hidden rounded-lg border border-gray-200 bg-white sm:flex-1 sm:max-h-none'
     : 'bg-white rounded-lg shadow-xl w-full max-w-md max-h-[calc(100dvh-1rem)] flex flex-col overflow-hidden sm:max-h-[80vh]';
 
   const content = (

@@ -541,7 +541,7 @@ export const Timeline: React.FC = () => {
       </div>
 
       <div className="border-b bg-white px-3 py-3 md:hidden">
-        <div className="flex items-center gap-2 overflow-visible">
+        <div className="flex w-full flex-wrap items-center justify-center gap-2 overflow-visible">
           <TimelineSelector
             timelines={timelines}
             activeId={activeId}
@@ -638,7 +638,7 @@ export const Timeline: React.FC = () => {
                   disabled={dragState.isDragging || dragState.isResizing}
                   title="Create new event"
                 >
-                  New Event
+                  New
                 </button>
               </div>
               {/* Slot labels - 10 event slots plus 1 delete slot */}
