@@ -69,7 +69,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
       className={`absolute z-10 rounded-md shadow-sm border border-opacity-20 border-white group select-none transition-[width,transform,box-shadow] duration-150 ${
         isDragging || isResizing 
           ? 'shadow-lg z-50 cursor-grabbing'
-          : 'hover:shadow-md hover:z-10 hover:w-[calc(var(--event-width)+12px)] cursor-grab'
+          : 'hover:shadow-md hover:z-40 hover:w-[calc(var(--event-width)+12px)] cursor-grab'
       }`}
       style={{
         left: `${leftPosition}px`,
@@ -85,13 +85,17 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
     >
       {/* Under-wing left shadow for contrast on white gaps */}
       <div
-        className="absolute top-0 bottom-0 z-0 rounded-l-md bg-gray-400/70 opacity-0 transition-opacity group-hover:opacity-100 pointer-events-none"
-        style={{ left: `${-resizeWingOffset}px`, width: `${resizeWingWidth}px` }}
+        className="absolute top-0 bottom-0 z-0 rounded-l-md opacity-0 transition-opacity group-hover:opacity-100 pointer-events-none"
+        style={{
+          left: `${-resizeWingOffset}px`,
+          width: `${resizeWingWidth}px`,
+          backgroundColor: event.color
+        }}
       />
 
       {/* Resize handle - Start */}
       <div
-        className="absolute top-0 bottom-0 z-20 cursor-ew-resize opacity-0 group-hover:opacity-100 transition-colors bg-white/25 hover:bg-white/40 rounded-l-md flex items-center justify-center"
+        className="absolute top-0 bottom-0 z-30 cursor-ew-resize opacity-0 group-hover:opacity-100 transition-colors bg-white/25 hover:bg-white/40 rounded-l-md flex items-center justify-center"
         style={{
           left: `${-resizeWingOffset}px`,
           width: `${resizeWingWidth}px`
@@ -132,13 +136,17 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
 
       {/* Under-wing right shadow for contrast on white gaps */}
       <div
-        className="absolute top-0 bottom-0 z-0 rounded-r-md bg-gray-400/70 opacity-0 transition-opacity group-hover:opacity-100 pointer-events-none"
-        style={{ right: `${-resizeWingOffset}px`, width: `${resizeWingWidth}px` }}
+        className="absolute top-0 bottom-0 z-0 rounded-r-md opacity-0 transition-opacity group-hover:opacity-100 pointer-events-none"
+        style={{
+          right: `${-resizeWingOffset}px`,
+          width: `${resizeWingWidth}px`,
+          backgroundColor: event.color
+        }}
       />
 
       {/* Resize handle - End */}
       <div
-        className="absolute top-0 bottom-0 z-20 cursor-ew-resize opacity-0 group-hover:opacity-100 transition-colors bg-white/25 hover:bg-white/40 rounded-r-md flex items-center justify-center"
+        className="absolute top-0 bottom-0 z-30 cursor-ew-resize opacity-0 group-hover:opacity-100 transition-colors bg-white/25 hover:bg-white/40 rounded-r-md flex items-center justify-center"
         style={{
           right: `${-resizeWingOffset}px`,
           width: `${resizeWingWidth}px`
