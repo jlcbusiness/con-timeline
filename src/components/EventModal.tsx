@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Calendar, Clock, Palette, MapPin, Plus } from 'lucide-react';
 import type { TimelineEvent, Location } from '../types/timeline';
 import { getEventColors, roundToNearestHalfHour } from '../utils/timelineUtils';
+import { EVENT_BUFFER_OPTIONS_MINUTES } from '../config/timeline';
 
 interface EventModalProps {
   isOpen: boolean;
@@ -36,6 +37,7 @@ export const EventModal: React.FC<EventModalProps> = ({
   const [endDateValue, setEndDateValue] = useState('');
   const [endTimeValue, setEndTimeValue] = useState('');
   const [color, setColor] = useState('#3B82F6');
+  const [bufferBeforeMinutes, setBufferBeforeMinutes] = useState(0);
   const [isCreateLocationOpen, setIsCreateLocationOpen] = useState(false);
   const [newLocationName, setNewLocationName] = useState('');
 
@@ -52,6 +54,7 @@ export const EventModal: React.FC<EventModalProps> = ({
       setEndDateValue(formatDateValue(event.endTime));
       setEndTimeValue(formatTimeValue(event.endTime));
       setColor(event.color);
+      setBufferBeforeMinutes(event.bufferBeforeMinutes ?? 0);
       setIsCreateLocationOpen(false);
       setNewLocationName('');
     } else if (initialStartTime) {
@@ -67,6 +70,7 @@ export const EventModal: React.FC<EventModalProps> = ({
       setEndDateValue(formatDateValue(end));
       setEndTimeValue(formatTimeValue(end));
       setColor('#3B82F6'); // Use static color instead of colors[0]
+      setBufferBeforeMinutes(0);
       setIsCreateLocationOpen(false);
       setNewLocationName('');
     }
@@ -87,7 +91,8 @@ export const EventModal: React.FC<EventModalProps> = ({
       location: location.trim(),
       startTime,
       endTime,
-      color
+      color,
+      bufferBeforeMinutes
     });
     onClose();
   };
@@ -401,6 +406,26 @@ export const EventModal: React.FC<EventModalProps> = ({
                 />
               ))}
             </div>
+          </div>
+
+          <div>
+            <label htmlFor="buffer-before" className="block text-sm font-medium text-gray-700 mb-2">
+              <Clock size={16} className="inline mr-1" />
+              Waiting Buffer
+            </label>
+            <select
+              id="buffer-before"
+              value={bufferBeforeMinutes}
+              onChange={(e) => setBufferBeforeMinutes(Number(e.target.value))}
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {EVENT_BUFFER_OPTIONS_MINUTES.map(option => (
+                <option key={option} value={option}>
+                  {option === 0 ? 'None' : option === 30 ? '30 min' : option === 60 ? '1 hr' : '2 hrs'}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-gray-500">Reserves time before the event so other events avoid it.</p>
           </div>
 
           <div className="flex flex-col gap-3 pt-4 sm:flex-row">

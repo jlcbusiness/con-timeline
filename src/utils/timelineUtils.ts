@@ -32,6 +32,16 @@ export const getEventDurationInHours = (startTime: Date, endTime: Date): number 
   return (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
 };
 
+export const getBufferedStartTime = (event: TimelineEvent): Date => {
+  const bufferBeforeMinutes = event.bufferBeforeMinutes ?? 0;
+  return new Date(event.startTime.getTime() - bufferBeforeMinutes * 60 * 1000);
+};
+
+export const getEventBufferWidth = (event: TimelineEvent): number => {
+  const bufferBeforeMinutes = event.bufferBeforeMinutes ?? 0;
+  return Math.round(bufferBeforeMinutes * (PIXELS_PER_HOUR / 60));
+};
+
 export const roundToNearestHalfHour = (date: Date): Date => {
   const minutes = date.getMinutes();
   const roundedMinutes = minutes < 15 ? 0 : minutes < 45 ? 30 : 60;
@@ -51,7 +61,7 @@ export const roundToNearestHalfHour = (date: Date): Date => {
 
 // Check if two events overlap in time
 export const eventsOverlap = (event1: TimelineEvent, event2: TimelineEvent): boolean => {
-  return event1.startTime < event2.endTime && event1.endTime > event2.startTime;
+  return getBufferedStartTime(event1) < event2.endTime && event1.endTime > getBufferedStartTime(event2);
 };
 
 // Find available position for a single event (now supports 10 slots: 0-9)
@@ -61,7 +71,7 @@ export const findAvailablePosition = (
   endTime: Date
 ): number => {
   const overlappingEvents = events.filter(event => 
-    (startTime < event.endTime && endTime > event.startTime)
+    (startTime < event.endTime && endTime > getBufferedStartTime(event))
   );
   
   const usedPositions = new Set(overlappingEvents.map(e => e.position));

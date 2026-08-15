@@ -1,7 +1,7 @@
 import React from 'react';
 import { Edit3, Clock, GripVertical, ChevronLeft, ChevronRight, MapPin } from 'lucide-react';
 import type { TimelineEvent as TimelineEventType } from '../types/timeline';
-import { getTimePosition, getEventWidth } from '../utils/timelineUtils';
+import { getTimePosition, getEventWidth, getEventBufferWidth } from '../utils/timelineUtils';
 
 interface TimelineEventProps {
   event: TimelineEventType;
@@ -23,6 +23,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
   // Use the unified positioning functions
   const leftPosition = getTimePosition(event.startTime, startDate);
   const width = getEventWidth(event.startTime, event.endTime);
+  const bufferWidth = getEventBufferWidth(event);
   const resizeWingWidth = 12;
   const resizeWingOffset = resizeWingWidth / 2;
   
@@ -90,6 +91,17 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
       onDoubleClick={handleDoubleClick}
       title={`${event.title}${event.location ? ` @ ${event.location}` : ''}\n${formatTime(event.startTime)} - ${formatTime(event.endTime)}\n${getDuration()}\nDouble-click to edit, drag to move, drag edges to resize`}
     >
+      {bufferWidth > 0 && (
+        <div
+          className="absolute top-0 bottom-0 z-0 rounded-l-md pointer-events-none opacity-30"
+          style={{
+            left: `${-bufferWidth}px`,
+            width: `${bufferWidth}px`,
+            background: `linear-gradient(to left, ${event.color} 0%, ${event.color} 20%, transparent 100%)`
+          }}
+        />
+      )}
+
       {/* Under-wing left shadow for contrast on white gaps */}
       <div
         className="absolute top-0 bottom-0 z-0 rounded-l-md opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity pointer-events-none"
