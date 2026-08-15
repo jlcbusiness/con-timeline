@@ -2,6 +2,11 @@ import React from 'react';
 import { supabase } from '../lib/supabase';
 
 export const LoginPage: React.FC = () => {
+  const [email, setEmail] = React.useState('');
+  const [password, setPassword] = React.useState('');
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [statusMessage, setStatusMessage] = React.useState<string | null>(null);
+
   const signInWithGoogle = async () => {
     if (!supabase) return alert('Supabase not configured');
     await supabase.auth.signInWithOAuth({ provider: 'google' });
@@ -9,28 +14,59 @@ export const LoginPage: React.FC = () => {
 
   const signUpWithEmail = async () => {
     if (!supabase) return alert('Supabase not configured');
-    const email = window.prompt('Email');
-    const password = window.prompt('Password');
-    if (!email || !password) return;
-    await supabase.auth.signUp({ email, password });
-    alert('Check your email for confirmation (if required).');
+    if (!email || !password) {
+      setStatusMessage('Enter an email and password first.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setStatusMessage(null);
+    const { error } = await supabase.auth.signUp({ email, password });
+    setIsSubmitting(false);
+
+    if (error) {
+      setStatusMessage(error.message);
+      return;
+    }
+
+    setStatusMessage('Check your email for confirmation, if required.');
   };
 
   const signInWithEmail = async () => {
     if (!supabase) return alert('Supabase not configured');
-    const email = window.prompt('Email');
-    const password = window.prompt('Password');
-    if (!email || !password) return;
+    if (!email || !password) {
+      setStatusMessage('Enter an email and password first.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setStatusMessage(null);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) alert(error.message);
+    setIsSubmitting(false);
+
+    if (error) {
+      setStatusMessage(error.message);
+    }
   };
 
   const resetPassword = async () => {
     if (!supabase) return alert('Supabase not configured');
-    const email = window.prompt('Email to send reset link to');
-    if (!email) return;
-    await supabase.auth.resetPasswordForEmail(email);
-    alert('Password reset email sent if account exists');
+    if (!email) {
+      setStatusMessage('Enter your email first.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setStatusMessage(null);
+    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    setIsSubmitting(false);
+
+    if (error) {
+      setStatusMessage(error.message);
+      return;
+    }
+
+    setStatusMessage('Password reset email sent if the account exists.');
   };
 
   if (!supabase) {
@@ -54,11 +90,40 @@ export const LoginPage: React.FC = () => {
         <p className="mt-2 text-sm text-gray-600">
           Create an account or sign in to load your timelines, events, and locations.
         </p>
-        <div className="mt-6 flex flex-col gap-2">
-          <button onClick={signInWithGoogle} className="rounded bg-blue-600 px-3 py-2 text-white">Continue with Google</button>
-          <button onClick={signUpWithEmail} className="rounded border border-gray-300 px-3 py-2 text-gray-800">Create account</button>
-          <button onClick={signInWithEmail} className="rounded border border-gray-300 px-3 py-2 text-gray-800">Sign in</button>
-          <button onClick={resetPassword} className="rounded border border-gray-300 px-3 py-2 text-gray-800">Reset password</button>
+        <div className="mt-6 space-y-4">
+          <div className="space-y-3">
+            <label className="block text-sm font-medium text-gray-700">
+              Email
+              <input
+                type="email"
+                value={email}
+                onChange={event => setEmail(event.target.value)}
+                className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-gray-900"
+                autoComplete="email"
+                placeholder="you@example.com"
+              />
+            </label>
+            <label className="block text-sm font-medium text-gray-700">
+              Password
+              <input
+                type="password"
+                value={password}
+                onChange={event => setPassword(event.target.value)}
+                className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-gray-900"
+                autoComplete="current-password"
+                placeholder="Your password"
+              />
+            </label>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <button onClick={signInWithGoogle} className="rounded bg-blue-600 px-3 py-2 text-white" disabled={isSubmitting}>Continue with Google</button>
+            <button onClick={signUpWithEmail} className="rounded border border-gray-300 px-3 py-2 text-gray-800 disabled:opacity-50" disabled={isSubmitting}>Create account</button>
+            <button onClick={signInWithEmail} className="rounded border border-gray-300 px-3 py-2 text-gray-800 disabled:opacity-50" disabled={isSubmitting}>Sign in</button>
+            <button onClick={resetPassword} className="rounded border border-gray-300 px-3 py-2 text-gray-800 disabled:opacity-50" disabled={isSubmitting}>Reset password</button>
+          </div>
+
+          {statusMessage && <p className="text-sm text-gray-600">{statusMessage}</p>}
         </div>
       </div>
     </div>
