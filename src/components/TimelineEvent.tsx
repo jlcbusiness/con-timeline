@@ -23,6 +23,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
   // Use the unified positioning functions
   const leftPosition = getTimePosition(event.startTime, startDate);
   const width = getEventWidth(event.startTime, event.endTime);
+  const resizeWingWidth = 4;
   
   // Fixed positioning calculation to align with slot headers
   // Each slot is 64px high, and we add 4px margin from the top of each slot
@@ -83,7 +84,8 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
     >
       {/* Resize handle - Start */}
       <div
-        className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize opacity-0 group-hover:opacity-100 transition-opacity bg-white bg-opacity-20 rounded-l-md flex items-center justify-center"
+        className="absolute top-0 bottom-0 cursor-ew-resize opacity-0 group-hover:opacity-100 transition-opacity bg-white bg-opacity-20 rounded-l-md flex items-center justify-center"
+        style={{ left: `${-resizeWingWidth}px`, width: `${resizeWingWidth}px` }}
         onMouseDown={(e) => handleMouseDown(e, 'resize-start')}
         title="Drag to resize start time"
       >
@@ -120,7 +122,8 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
 
       {/* Resize handle - End */}
       <div
-        className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize opacity-0 group-hover:opacity-100 transition-opacity bg-white bg-opacity-20 rounded-r-md flex items-center justify-center"
+        className="absolute top-0 bottom-0 cursor-ew-resize opacity-0 group-hover:opacity-100 transition-opacity bg-white bg-opacity-20 rounded-r-md flex items-center justify-center"
+        style={{ right: `${-resizeWingWidth}px`, width: `${resizeWingWidth}px` }}
         onMouseDown={(e) => handleMouseDown(e, 'resize-end')}
         title="Drag to resize end time"
       >
