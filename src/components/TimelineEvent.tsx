@@ -67,7 +67,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
       className={`absolute rounded-md shadow-sm border border-opacity-20 border-white group select-none transition-[width,transform,box-shadow] duration-150 ${
         isDragging || isResizing 
           ? 'shadow-lg z-50 cursor-grabbing'
-          : 'hover:shadow-md hover:z-10 hover:w-[calc(var(--event-width)+12px)] hover:-translate-x-[6px] cursor-grab'
+          : 'hover:shadow-md hover:z-10 hover:w-[calc(var(--event-width)+12px)] cursor-grab'
       }`}
       style={{
         left: `${leftPosition}px`,
