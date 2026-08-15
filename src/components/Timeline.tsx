@@ -228,9 +228,9 @@ export const Timeline: React.FC = () => {
     }
   }, [timelineStartDate, timelineEndDate, eventsLoading, locationsLoading]);
 
-  // Global mouse event handlers for drag and resize
+  // Global pointer event handlers for drag and resize
   useEffect(() => {
-    const handleGlobalMouseMove = (e: MouseEvent) => {
+    const handleGlobalPointerMove = (e: PointerEvent) => {
       if (dragState.isDragging || dragState.isResizing) {
         e.preventDefault();
         handleMouseMove(e.clientX, e.clientY);
@@ -241,7 +241,7 @@ export const Timeline: React.FC = () => {
       }
     };
 
-    const handleGlobalMouseUp = (e: MouseEvent) => {
+    const handleGlobalPointerUp = (e: PointerEvent) => {
       if (dragState.isDragging || dragState.isResizing) {
         e.preventDefault();
 
@@ -259,15 +259,17 @@ export const Timeline: React.FC = () => {
     };
 
     if (dragState.isDragging || dragState.isResizing) {
-      document.addEventListener('mousemove', handleGlobalMouseMove);
-      document.addEventListener('mouseup', handleGlobalMouseUp);
+      document.addEventListener('pointermove', handleGlobalPointerMove);
+      document.addEventListener('pointerup', handleGlobalPointerUp);
+      document.addEventListener('pointercancel', handleGlobalPointerUp);
       document.body.style.cursor = dragState.isDragging ? 'grabbing' : 'ew-resize';
       document.body.style.userSelect = 'none';
     }
 
     return () => {
-      document.removeEventListener('mousemove', handleGlobalMouseMove);
-      document.removeEventListener('mouseup', handleGlobalMouseUp);
+      document.removeEventListener('pointermove', handleGlobalPointerMove);
+      document.removeEventListener('pointerup', handleGlobalPointerUp);
+      document.removeEventListener('pointercancel', handleGlobalPointerUp);
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
     };
