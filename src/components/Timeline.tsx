@@ -330,7 +330,7 @@ export const Timeline: React.FC = () => {
 
     if (!importedTimelineName) return;
 
-    const createdTimeline = createTimeline(
+    const createdTimeline = await createTimeline(
       importedTimelineName,
       inferredStartDate.toISOString(),
       inferredEndDate.toISOString()
@@ -465,7 +465,7 @@ export const Timeline: React.FC = () => {
       <div
         className="shadow-sm border-b px-6 py-4 bg-white"
       >
-        <div className="grid grid-cols-3 items-start gap-4">
+        <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-4">
           <div className="min-w-0">
             <div className="flex flex-col items-start">
               <h1 className="text-2xl font-bold text-gray-900 leading-tight">Timeline</h1>
@@ -481,7 +481,7 @@ export const Timeline: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex flex-col items-center justify-center pt-1 gap-2">
+          <div className="flex min-w-0 flex-col items-center justify-center pt-1 gap-2 justify-self-center">
             <span className="text-[12pt] font-medium text-gray-700 text-center">{getCurrentDateRange()}</span>
             <div className="flex flex-wrap items-center justify-center gap-2 text-sm text-gray-600">
               <div className="flex items-center gap-1">
@@ -549,7 +549,7 @@ export const Timeline: React.FC = () => {
                 setEditingEvent(undefined);
                 setIsModalOpen(true);
               }}
-              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 whitespace-nowrap bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={dragState.isDragging || dragState.isResizing}
               title="Create new event"
             >

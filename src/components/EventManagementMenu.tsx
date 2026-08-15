@@ -59,10 +59,10 @@ export const EventManagementMenu: React.FC<EventManagementMenuProps> = ({
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+        className="inline-flex items-center gap-2 whitespace-nowrap rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors"
         title="Import/export options"
       >
-        <span>Import/Export</span>
+        <span className="whitespace-nowrap">Import/Export</span>
         <ChevronDown size={14} />
       </button>
 

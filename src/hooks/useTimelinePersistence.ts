@@ -135,7 +135,7 @@ export const useTimelinePersistence = () => {
     if (!supabase) return;
   }, [timelines, isLoaded]);
 
-  const createTimeline = (name: string, startDate: string, endDate: string) => {
+  const createTimeline = async (name: string, startDate: string, endDate: string) => {
     const id = uuid();
     const newMeta: TimelineMeta = {
       id,
@@ -148,9 +148,10 @@ export const useTimelinePersistence = () => {
     setActiveId(id);
 
     if (supabase) {
-      void supabase.auth.getUser().then(async ({ data }: any) => {
+      try {
+        const { data } = await supabase.auth.getUser();
         const user = data.user;
-        if (!user) return;
+        if (!user) return newMeta;
 
         const { error } = await supabase.from('timelines').insert({
           id,
@@ -165,7 +166,9 @@ export const useTimelinePersistence = () => {
         if (error) {
           console.error('Failed to create timeline in Supabase', error);
         }
-      });
+      } catch (error) {
+        console.error('Failed to create timeline in Supabase', error);
+      }
     }
 
     return newMeta;
