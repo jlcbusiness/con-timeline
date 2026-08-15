@@ -1380,7 +1380,7 @@
     "position": 1
   },
   {
-    "title": "SEA â†’ MDW",
+    "title": "SEA → MDW",
     "description": "",
     "location": "",
     "startTime": "2025-08-27T12:30:00.000Z",
@@ -1390,7 +1390,7 @@
     "position": 0
   },
   {
-    "title": "MDW â†’ ATL",
+    "title": "MDW → ATL",
     "description": "",
     "location": "",
     "startTime": "2025-08-27T20:00:00.000Z",
@@ -1420,7 +1420,7 @@
     "position": 0
   },
   {
-    "title": "ATL â†’ SEA",
+    "title": "ATL → SEA",
     "description": "",
     "location": "",
     "startTime": "2025-09-02T16:30:00.000Z",
@@ -1470,7 +1470,7 @@
     "position": 0
   },
   {
-    "title": "160 â†’ 161",
+    "title": "160 → 161",
     "description": "",
     "location": "",
     "startTime": "2025-08-27T10:00:00.000Z",
@@ -1490,7 +1490,7 @@
     "position": 0
   },
   {
-    "title": "161 â†’ 160",
+    "title": "161 → 160",
     "description": "",
     "location": "",
     "startTime": "2025-09-02T19:30:00.000Z",

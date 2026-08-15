@@ -16,6 +16,8 @@ interface Props {
   onAddLocation: (name: string) => Location;
   onUpdateLocation: (locationId: string, name: string) => void;
   onDeleteLocation: (locationId: string) => void;
+  onExportLocations: () => void;
+  onImportLocations: (file: File) => Promise<unknown>;
   deleteTimeline: (id: string) => void;
   archiveTimeline: (id: string) => void;
   unarchiveTimeline: (id: string) => void;
@@ -23,7 +25,7 @@ interface Props {
   initialSection?: 'timeline' | 'locations';
 }
 
-export const ManageTimelinesModal: React.FC<Props> = ({ isOpen, onClose, mode, timelines, activeId, setActiveId, renameTimeline, updateTimelineDates, locations, onAddLocation, onUpdateLocation, onDeleteLocation, deleteTimeline, archiveTimeline, unarchiveTimeline, initialEditingTimelineId, initialSection }) => {
+export const ManageTimelinesModal: React.FC<Props> = ({ isOpen, onClose, mode, timelines, activeId, setActiveId, renameTimeline, updateTimelineDates, locations, onAddLocation, onUpdateLocation, onDeleteLocation, onExportLocations, onImportLocations, deleteTimeline, archiveTimeline, unarchiveTimeline, initialEditingTimelineId, initialSection }) => {
   const [editingTimeline, setEditingTimeline] = useState<TimelineMeta | null>(null);
   const [editingSection, setEditingSection] = useState<'timeline' | 'locations'>('timeline');
   const directEditMode = mode === 'edit';
@@ -179,6 +181,8 @@ export const ManageTimelinesModal: React.FC<Props> = ({ isOpen, onClose, mode, t
                   onAddLocation={onAddLocation}
                   onUpdateLocation={onUpdateLocation}
                   onDeleteLocation={onDeleteLocation}
+                  onExportLocations={onExportLocations}
+                  onImportLocations={onImportLocations}
                 />
                 <div className="flex justify-end gap-3">
                   <button

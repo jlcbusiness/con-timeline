@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { X, Plus, Edit3, Trash2, MapPin, Check } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { X, Plus, Edit3, Trash2, MapPin, Check, Download, Upload } from 'lucide-react';
 import type { Location } from '../types/timeline';
 
 interface LocationManagerProps {
@@ -9,6 +9,8 @@ interface LocationManagerProps {
   onAddLocation: (name: string) => Location;
   onUpdateLocation: (locationId: string, name: string) => void;
   onDeleteLocation: (locationId: string) => void;
+  onExportLocations: () => void;
+  onImportLocations: (file: File) => Promise<unknown>;
   embedded?: boolean;
 }
 
@@ -19,11 +21,36 @@ export const LocationManager: React.FC<LocationManagerProps> = ({
   onAddLocation,
   onUpdateLocation,
   onDeleteLocation,
+  onExportLocations,
+  onImportLocations,
   embedded = false
 }) => {
   const [newLocationName, setNewLocationName] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
+  const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    try {
+      await onImportLocations(file);
+    } catch (error) {
+      alert('Failed to import locations. Please check the file format.');
+    } finally {
+      setIsImporting(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
 
   const handleAddLocation = (e: React.FormEvent) => {
     e.preventDefault();
@@ -97,13 +124,33 @@ export const LocationManager: React.FC<LocationManagerProps> = ({
             <MapPin size={20} />
             Manage Locations
           </h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-            type="button"
-          >
-            <X size={24} />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onExportLocations}
+              className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={locations.length === 0}
+            >
+              <Download size={14} />
+              Export
+            </button>
+            <button
+              type="button"
+              onClick={handleImportClick}
+              className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isImporting}
+            >
+              <Upload size={14} />
+              {isImporting ? 'Importing...' : 'Import'}
+            </button>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+              type="button"
+            >
+              <X size={24} />
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-6">
@@ -217,6 +264,14 @@ export const LocationManager: React.FC<LocationManagerProps> = ({
             {embedded ? 'Back to Timeline' : 'Done'}
           </button>
         </div>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".json"
+          onChange={handleFileChange}
+          className="hidden"
+        />
       </div>
   );
 

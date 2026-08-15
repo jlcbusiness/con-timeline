@@ -98,7 +98,9 @@ export const Timeline: React.FC = () => {
     addLocation,
     updateLocation,
     deleteLocation,
-    mergeLocations
+    mergeLocations,
+    exportLocations,
+    importLocations
   } = useLocationPersistence(activeId);
 
   const buildTimelineSpan = (eventsToInspect: TimelineEventType[]) => {
@@ -536,6 +538,8 @@ export const Timeline: React.FC = () => {
               onAddLocation={addLocation}
               onUpdateLocation={updateLocation}
               onDeleteLocation={deleteLocation}
+              onExportLocations={exportLocations}
+              onImportLocations={importLocations}
               deleteTimeline={deleteTimeline}
               archiveTimeline={archiveTimeline}
               unarchiveTimeline={unarchiveTimeline}
