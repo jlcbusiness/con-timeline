@@ -34,14 +34,14 @@ export const Timeline: React.FC = () => {
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
 
   const timelineContentRef = useRef<HTMLDivElement>(null);
-  const headerRef = useRef<HTMLDivElement>(null);
+  const bottomDeleteTargetRef = useRef<HTMLDivElement>(null);
 
-  const isPointInsideHeader = (clientX: number, clientY: number) => {
-    if (!headerRef.current) return false;
+  const isPointInsideBottomDeleteTarget = (clientX: number, clientY: number) => {
+    if (!bottomDeleteTargetRef.current) return false;
 
-    const rect = headerRef.current.getBoundingClientRect();
-    const deleteTargetBottom = rect.bottom + 64;
-    return clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= deleteTargetBottom;
+    const rect = bottomDeleteTargetRef.current.getBoundingClientRect();
+    const deleteTargetTop = rect.top - 48;
+    return clientX >= rect.left && clientX <= rect.right && clientY >= deleteTargetTop && clientY <= rect.bottom;
   };
 
   // Timeline persistence (must initialize before event persistence so active id is set)
@@ -227,7 +227,7 @@ export const Timeline: React.FC = () => {
         handleMouseMove(e.clientX, e.clientY);
 
         if (dragState.isDragging) {
-          setIsDraggingOverDeleteTarget(isPointInsideHeader(e.clientX, e.clientY));
+          setIsDraggingOverDeleteTarget(isPointInsideBottomDeleteTarget(e.clientX, e.clientY));
         }
       }
     };
@@ -236,7 +236,7 @@ export const Timeline: React.FC = () => {
       if (dragState.isDragging || dragState.isResizing) {
         e.preventDefault();
 
-        if (dragState.isDragging && dragState.originalEvent && isPointInsideHeader(e.clientX, e.clientY)) {
+        if (dragState.isDragging && dragState.originalEvent && isPointInsideBottomDeleteTarget(e.clientX, e.clientY)) {
           const confirmed = window.confirm(`Delete event "${dragState.originalEvent.title}"?`);
           if (confirmed) {
             deleteEvent(dragState.originalEvent.id);
@@ -448,10 +448,8 @@ export const Timeline: React.FC = () => {
 
   return (
     <div className="h-screen bg-gray-50 flex flex-col">
-      {/* Header */}
       <div
-        ref={headerRef}
-        className={`shadow-sm border-b px-6 py-4 transition-colors ${isDraggingOverDeleteTarget ? 'bg-red-50 border-red-200' : 'bg-white'}`}
+        className="shadow-sm border-b px-6 py-4 bg-white"
       >
         <div className="grid grid-cols-3 items-start gap-4">
           <div className="min-w-0">
@@ -726,9 +724,14 @@ export const Timeline: React.FC = () => {
 
       {/* Event Summary */}
       {events.length > 0 && (
-        <div className="bg-white border-t px-6 py-3">
+        <div
+          ref={bottomDeleteTargetRef}
+          className={`border-t px-6 py-3 transition-colors ${isDraggingOverDeleteTarget ? 'bg-red-50 border-red-200' : 'bg-white'}`}
+        >
           <div className="flex items-center justify-between text-sm text-gray-600">
-            <span>{events.length} event{events.length !== 1 ? 's' : ''} scheduled</span>
+            <span>
+              {isDraggingOverDeleteTarget ? 'Drop here to delete' : `${events.length} event${events.length !== 1 ? 's' : ''} scheduled`}
+            </span>
             <div className="flex items-center gap-4">
               {Object.entries(groupEventsByDate()).map(([date, dateEvents]) => (
                 <span key={date} className="flex items-center gap-1">
