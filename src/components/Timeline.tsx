@@ -701,7 +701,7 @@ export const Timeline: React.FC = () => {
                   {/* Delete Slot - visible 11th lane */}
                   <div
                     ref={bottomDeleteTargetRef}
-                    className={`absolute left-0 right-0 border-t border-red-200 flex items-center justify-center text-sm font-medium transition-colors ${
+                    className={`absolute left-0 right-0 z-0 border-t border-red-200 flex items-center justify-center text-sm font-medium transition-colors ${
                       isDraggingOverDeleteTarget ? 'bg-red-200 text-red-800' : 'bg-red-50 text-red-600'
                     }`}
                     style={{ top: `${deleteSlotIndex * gridSlotHeight}px`, height: `${gridSlotHeight}px` }}

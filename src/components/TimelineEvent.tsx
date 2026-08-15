@@ -23,7 +23,8 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
   // Use the unified positioning functions
   const leftPosition = getTimePosition(event.startTime, startDate);
   const width = getEventWidth(event.startTime, event.endTime);
-  const resizeWingWidth = 4;
+  const resizeWingWidth = 12;
+  const resizeWingOffset = resizeWingWidth / 2;
   
   // Fixed positioning calculation to align with slot headers
   // Each slot is 64px high, and we add 4px margin from the top of each slot
@@ -65,7 +66,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
 
   return (
     <div
-      className={`absolute rounded-md shadow-sm border border-opacity-20 border-white group select-none transition-[width,transform,box-shadow] duration-150 ${
+      className={`absolute z-10 rounded-md shadow-sm border border-opacity-20 border-white group select-none transition-[width,transform,box-shadow] duration-150 ${
         isDragging || isResizing 
           ? 'shadow-lg z-50 cursor-grabbing'
           : 'hover:shadow-md hover:z-10 hover:w-[calc(var(--event-width)+12px)] cursor-grab'
@@ -84,12 +85,12 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
     >
       {/* Resize handle - Start */}
       <div
-        className="absolute top-0 bottom-0 cursor-ew-resize opacity-0 group-hover:opacity-100 transition-opacity bg-white bg-opacity-20 rounded-l-md flex items-center justify-center"
-        style={{ left: `${-resizeWingWidth}px`, width: `${resizeWingWidth}px` }}
+        className="absolute top-0 bottom-0 z-20 cursor-ew-resize opacity-0 group-hover:opacity-100 transition-colors bg-white/25 hover:bg-white/40 rounded-l-md flex items-center justify-center"
+        style={{ left: `${-resizeWingOffset}px`, width: `${resizeWingWidth}px` }}
         onMouseDown={(e) => handleMouseDown(e, 'resize-start')}
         title="Drag to resize start time"
       >
-        <ChevronLeft size={8} className="text-white" />
+        <ChevronLeft size={10} className="text-white" />
       </div>
 
       {/* Main event content */}
@@ -122,12 +123,12 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
 
       {/* Resize handle - End */}
       <div
-        className="absolute top-0 bottom-0 cursor-ew-resize opacity-0 group-hover:opacity-100 transition-opacity bg-white bg-opacity-20 rounded-r-md flex items-center justify-center"
-        style={{ right: `${-resizeWingWidth}px`, width: `${resizeWingWidth}px` }}
+        className="absolute top-0 bottom-0 z-20 cursor-ew-resize opacity-0 group-hover:opacity-100 transition-colors bg-white/25 hover:bg-white/40 rounded-r-md flex items-center justify-center"
+        style={{ right: `${-resizeWingOffset}px`, width: `${resizeWingWidth}px` }}
         onMouseDown={(e) => handleMouseDown(e, 'resize-end')}
         title="Drag to resize end time"
       >
-        <ChevronRight size={8} className="text-white" />
+        <ChevronRight size={10} className="text-white" />
       </div>
       
       {/* Enhanced tooltip on hover */}

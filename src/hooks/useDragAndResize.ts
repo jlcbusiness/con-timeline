@@ -66,7 +66,7 @@ export const useDragAndResize = (
     if (dragState.dragType === 'move') {
       // Moving the entire event
       const newStartTime = new Date(originalEvent.startTime.getTime() + timeChange);
-      const newPosition = Math.max(0, Math.min(9, originalEvent.position + positionChange)); // Changed from 7 to 9
+      const newPosition = Math.max(0, Math.min(10, originalEvent.position + positionChange));
 
       // Round to nearest half hour
       const roundedStartTime = roundToNearestHalfHour(newStartTime);
