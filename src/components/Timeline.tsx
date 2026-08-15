@@ -519,7 +519,6 @@ export const Timeline: React.FC = () => {
                 setIsManageOpen(true);
               }}
             />
-            {user && <AccountMenu user={user} onSignOut={handleSignOut} />}
             <ManageTimelinesModal
               isOpen={isManageOpen}
               onClose={() => {
@@ -544,14 +543,6 @@ export const Timeline: React.FC = () => {
               initialSection={manageEditSection}
             />
 
-            <EventManagementMenu
-              onExport={exportEvents}
-              onImport={handleImportEvents}
-              onClearAll={handleClearAllEvents}
-              onDragonCon={() => setIsDragonConImporterOpen(true)}
-              eventCount={events.length}
-            />
-
             <button
               onClick={() => {
                 setClickedTime(new Date());
@@ -565,6 +556,20 @@ export const Timeline: React.FC = () => {
               <Plus size={16} />
               New Event
             </button>
+
+            <EventManagementMenu
+              onExport={exportEvents}
+              onImport={handleImportEvents}
+              onClearAll={handleClearAllEvents}
+              onDragonCon={() => setIsDragonConImporterOpen(true)}
+              eventCount={events.length}
+            />
+
+            {user && (
+              <div className="ml-auto">
+                <AccountMenu user={user} onSignOut={handleSignOut} />
+              </div>
+            )}
           </div>
 
         </div>
