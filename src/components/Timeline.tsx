@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Plus, ChevronLeft, ChevronRight, Save, Sparkles } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, Save } from 'lucide-react';
 import type { TimelineEvent as TimelineEventType } from '../types/timeline';
 import { TimelineEvent } from './TimelineEvent';
 import { EventModal } from './EventModal';
@@ -181,6 +181,17 @@ export const Timeline: React.FC = () => {
   // Track scroll position for navigation
   const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     setScrollPosition(e.currentTarget.scrollLeft);
+  }, []);
+
+  const handleWheelScroll = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
+    if (!timelineContentRef.current) return;
+
+    const delta = event.deltaY !== 0 ? event.deltaY : event.deltaX;
+    if (delta === 0) return;
+
+    event.preventDefault();
+    timelineContentRef.current.scrollLeft += delta;
+    setScrollPosition(timelineContentRef.current.scrollLeft);
   }, []);
 
   // Center the current date whenever the active timeline's calendar span changes.
@@ -404,22 +415,7 @@ export const Timeline: React.FC = () => {
     });
   };
 
-  const formatCalendarSpan = () => {
-    const startMonth = startDate.toLocaleDateString('en-US', { month: 'long' });
-    const endMonth = endDate.toLocaleDateString('en-US', { month: 'long' });
-    const startDay = startDate.getDate();
-    const endDay = endDate.getDate();
-    const startYear = startDate.getFullYear();
-    const endYear = endDate.getFullYear();
-
-    if (startYear === endYear && startMonth === endMonth) {
-      return `${startMonth} ${startDay} - ${endDay}, ${endYear}`;
-    }
-    if (startYear === endYear) {
-      return `${startMonth} ${startDay} - ${endMonth} ${endDay}, ${endYear}`;
-    }
-    return `${startMonth} ${startDay}, ${startYear} - ${endMonth} ${endDay}, ${endYear}`;
-  };
+  const commitHash = 'c15bbce01f5e97275bccf28dccb8702b35e032ff';
 
   const jumpToDates = [];
   const jumpDate = new Date(startDate);
@@ -449,14 +445,17 @@ export const Timeline: React.FC = () => {
     <div className="h-screen bg-gray-50 flex flex-col">
       {/* Header */}
       <div className="bg-white shadow-sm border-b px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-4">
-              <h1 className="text-2xl font-bold text-gray-900">Timeline</h1>
-              <span className="text-sm font-medium text-gray-600">{formatCalendarSpan()}</span>
+        <div className="grid grid-cols-3 items-start gap-4">
+          <div className="min-w-0">
+            <div className="flex flex-col items-start">
+              <h1 className="text-2xl font-bold text-gray-900 leading-tight">Timeline</h1>
+              <span className="text-xs font-mono text-gray-500 mt-1">{commitHash}</span>
             </div>
-            <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-gray-600">
-              <span>Viewing <strong className="font-semibold text-gray-700">{getCurrentDateRange()}</strong></span>
+          </div>
+
+          <div className="flex flex-col items-center justify-center pt-1 gap-2">
+            <span className="text-[12pt] font-medium text-gray-700 text-center">{getCurrentDateRange()}</span>
+            <div className="flex flex-wrap items-center justify-center gap-2 text-sm text-gray-600">
               <div className="flex items-center gap-1">
                 {jumpToDates.map(({ date, label }) => (
                   <button
@@ -484,7 +483,7 @@ export const Timeline: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center justify-end gap-3">
             <div className="flex items-center gap-1">
               <button
                 onClick={() => scrollTimeline('left')}
@@ -546,20 +545,11 @@ export const Timeline: React.FC = () => {
               initialSection={manageEditSection}
             />
 
-            <button
-              onClick={() => setIsDragonConImporterOpen(true)}
-              className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={dragState.isDragging || dragState.isResizing}
-              title="Import Dragon Con schedule"
-            >
-              <Sparkles size={16} />
-              Dragon Con
-            </button>
-
             <EventManagementMenu
               onExport={exportEvents}
               onImport={handleImportEvents}
               onClearAll={handleClearAllEvents}
+              onDragonCon={() => setIsDragonConImporterOpen(true)}
               eventCount={events.length}
             />
 
@@ -571,11 +561,13 @@ export const Timeline: React.FC = () => {
               }}
               className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={dragState.isDragging || dragState.isResizing}
+              title="Create new event"
             >
               <Plus size={16} />
-              Add Event
+              New Event
             </button>
           </div>
+
         </div>
       </div>
 
@@ -607,6 +599,7 @@ export const Timeline: React.FC = () => {
               ref={timelineContentRef}
               className="h-full overflow-x-auto overflow-y-hidden scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100"
               onScroll={handleScroll}
+              onWheel={handleWheelScroll}
             >
               <div
                 className="relative bg-white"

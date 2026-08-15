@@ -1,10 +1,11 @@
 import React, { useRef } from 'react';
-import { Download, Upload, Trash2, MoreVertical } from 'lucide-react';
+import { Download, Upload, Trash2, MoreVertical, Sparkles, ChevronDown } from 'lucide-react';
 
 interface EventManagementMenuProps {
   onExport: () => void;
   onImport: (file: File) => Promise<void>;
   onClearAll: () => void;
+  onDragonCon: () => void;
   eventCount: number;
 }
 
@@ -12,6 +13,7 @@ export const EventManagementMenu: React.FC<EventManagementMenuProps> = ({
   onExport,
   onImport,
   onClearAll,
+  onDragonCon,
   eventCount
 }) => {
   const [isOpen, setIsOpen] = React.useState(false);
@@ -57,10 +59,12 @@ export const EventManagementMenu: React.FC<EventManagementMenuProps> = ({
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
-        title="Event management options"
+        className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+        title="Import/export options"
       >
-        <MoreVertical size={20} />
+        <MoreVertical size={16} />
+        <span>Import/Export</span>
+        <ChevronDown size={14} />
       </button>
 
       {isOpen && (
@@ -82,7 +86,7 @@ export const EventManagementMenu: React.FC<EventManagementMenuProps> = ({
               disabled={eventCount === 0}
             >
               <Download size={16} />
-              Export Events ({eventCount})
+              Export to file
             </button>
 
             <button
@@ -91,7 +95,18 @@ export const EventManagementMenu: React.FC<EventManagementMenuProps> = ({
               disabled={isImporting}
             >
               <Upload size={16} />
-              {isImporting ? 'Importing...' : 'Import Events'}
+              {isImporting ? 'Importing...' : 'Import from file'}
+            </button>
+
+            <button
+              onClick={() => {
+                onDragonCon();
+                setIsOpen(false);
+              }}
+              className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+            >
+              <Sparkles size={16} />
+              Dragon Con
             </button>
 
 
