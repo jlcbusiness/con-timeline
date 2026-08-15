@@ -451,7 +451,7 @@ export const Timeline: React.FC = () => {
   return (
     <div className="h-screen bg-gray-50 flex flex-col">
       <div
-        className="shadow-sm border-b px-6 py-4 bg-white"
+        className="hidden shadow-sm border-b px-6 py-4 bg-white md:block"
       >
         <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-4">
           <div className="min-w-0">
@@ -537,6 +537,58 @@ export const Timeline: React.FC = () => {
             )}
           </div>
 
+        </div>
+      </div>
+
+      <div className="border-b bg-white px-3 py-3 md:hidden">
+        <div className="flex items-center gap-2 overflow-x-auto whitespace-nowrap">
+          <TimelineSelector
+            timelines={timelines}
+            activeId={activeId}
+            setActiveId={setActiveId}
+            onCreate={createTimeline}
+            onEditCurrent={() => {
+              if (!activeId) return;
+              setManageEditTimelineId(activeId);
+              setManageEditSection('timeline');
+              setManageMode('edit');
+              setIsManageOpen(true);
+            }}
+            onManage={() => {
+              setManageEditTimelineId(null);
+              setManageMode('manage');
+              setIsManageOpen(true);
+            }}
+          />
+
+          <EventManagementMenu
+            onExport={exportEvents}
+            onImport={handleImportEvents}
+            onClearAll={handleClearAllEvents}
+            onDragonCon={() => setIsDragonConImporterOpen(true)}
+            eventCount={events.length}
+          />
+
+          {user && <AccountMenu user={user} onSignOut={handleSignOut} />}
+        </div>
+
+        <div className="mt-2 flex min-w-0 flex-col items-center justify-center gap-1">
+          <span className="text-sm font-medium text-gray-700 text-center">{getCurrentDateRange()}</span>
+          <div className="flex flex-wrap items-center justify-center gap-2 text-xs text-gray-600">
+            <div className="flex items-center gap-1">
+              {jumpToDates.map(({ date, label }) => (
+                <button
+                  key={date.toISOString()}
+                  onClick={() => scrollToDate(date)}
+                  className="rounded-md bg-gray-200 px-2 py-1 transition-colors hover:bg-gray-300"
+                  title={`Go to ${date.toLocaleDateString()}`}
+                  disabled={dragState.isDragging || dragState.isResizing}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 

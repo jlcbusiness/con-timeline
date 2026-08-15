@@ -114,21 +114,21 @@ export const LocationManager: React.FC<LocationManagerProps> = ({
   if (!isOpen && !embedded) return null;
 
   const shell = embedded
-    ? 'w-full max-h-[70vh] flex flex-col rounded-lg border border-gray-200 bg-white'
-    : 'bg-white rounded-lg shadow-xl w-full max-w-md max-h-[80vh] flex flex-col';
+    ? 'w-full max-h-[60vh] flex flex-col overflow-hidden rounded-lg border border-gray-200 bg-white'
+    : 'bg-white rounded-lg shadow-xl w-full max-w-md max-h-[calc(100dvh-1rem)] flex flex-col overflow-hidden sm:max-h-[80vh]';
 
   const content = (
     <div className={shell}>
-        <div className="flex items-center justify-between p-6 border-b">
-          <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+        <div className="flex items-start justify-between gap-3 border-b p-4 sm:items-center sm:p-6">
+          <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900 sm:text-xl">
             <MapPin size={20} />
             Manage Locations
           </h2>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <button
               type="button"
               onClick={onExportLocations}
-              className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-2.5 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-50 sm:px-3"
               disabled={locations.length === 0}
             >
               <Download size={14} />
@@ -137,7 +137,7 @@ export const LocationManager: React.FC<LocationManagerProps> = ({
             <button
               type="button"
               onClick={handleImportClick}
-              className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-2.5 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-50 sm:px-3"
               disabled={isImporting}
             >
               <Upload size={14} />
@@ -153,13 +153,13 @@ export const LocationManager: React.FC<LocationManagerProps> = ({
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
           {/* Add new location form */}
-          <form onSubmit={handleAddLocation} className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+          <form onSubmit={handleAddLocation} className="mb-5 sm:mb-6">
+            <label className="mb-2 block text-sm font-medium text-gray-700">
               Add New Location
             </label>
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row">
               <input
                 type="text"
                 value={newLocationName}
@@ -170,7 +170,7 @@ export const LocationManager: React.FC<LocationManagerProps> = ({
               />
               <button
                 type="submit"
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+                className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-white transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                 disabled={!newLocationName.trim()}
               >
                 <Plus size={16} />
@@ -180,20 +180,20 @@ export const LocationManager: React.FC<LocationManagerProps> = ({
 
           {/* Locations list */}
           <div>
-            <h3 className="text-sm font-medium text-gray-700 mb-3">
+            <h3 className="mb-3 text-sm font-medium text-gray-700">
               Current Locations ({locations.length})
             </h3>
 
             {locations.length === 0 ? (
               <p className="text-gray-500 text-sm italic">No locations added yet.</p>
             ) : (
-              <div className="space-y-2">
+                <div className="space-y-2">
                 {locations
                   .sort((a, b) => a.name.localeCompare(b.name))
                   .map((location) => (
                     <div
                       key={location.id}
-                      className="flex items-center gap-2 p-3 bg-gray-50 rounded-md group"
+                        className="group flex items-center gap-2 rounded-md bg-gray-50 p-3"
                     >
                       <MapPin size={14} className="text-gray-400 flex-shrink-0" />
 
@@ -231,7 +231,7 @@ export const LocationManager: React.FC<LocationManagerProps> = ({
                           <span className="flex-1 text-sm text-gray-900">
                             {location.name}
                           </span>
-                          <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                          <div className="flex gap-1 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
                             <button
                               onClick={() => handleStartEdit(location)}
                               className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
@@ -256,10 +256,10 @@ export const LocationManager: React.FC<LocationManagerProps> = ({
           </div>
         </div>
 
-        <div className="border-t p-6">
+        <div className="border-t p-4 sm:p-6">
           <button
             onClick={onClose}
-            className="w-full bg-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-400 transition-colors font-medium"
+            className="w-full rounded-md bg-gray-300 px-4 py-2 font-medium text-gray-700 transition-colors hover:bg-gray-400"
           >
             {embedded ? 'Back to Timeline' : 'Done'}
           </button>

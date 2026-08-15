@@ -176,9 +176,9 @@ export const EventModal: React.FC<EventModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-6 border-b">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-2 sm:p-4">
+      <div className="flex max-h-[calc(100dvh-1rem)] w-full max-w-md flex-col overflow-hidden rounded-lg bg-white shadow-xl sm:max-h-[90vh]">
+        <div className="flex shrink-0 items-center justify-between border-b p-4 sm:p-6">
           <h2 className="text-xl font-semibold text-gray-900">
             {event ? 'Edit Event' : 'Create Event'}
           </h2>
@@ -191,7 +191,7 @@ export const EventModal: React.FC<EventModalProps> = ({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
           <div>
             <label htmlFor="event-title" className="block text-sm font-medium text-gray-700 mb-2">
               Event Title
@@ -403,7 +403,7 @@ export const EventModal: React.FC<EventModalProps> = ({
             </div>
           </div>
 
-          <div className="flex gap-3 pt-4">
+          <div className="flex flex-col gap-3 pt-4 sm:flex-row">
             <div className="flex flex-1 gap-3">
               {event && onDelete && (
                 <button
@@ -426,7 +426,7 @@ export const EventModal: React.FC<EventModalProps> = ({
 
             <button
               type="submit"
-              className="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors font-medium"
+              className="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors font-medium sm:self-end"
             >
               {event ? 'Save' : 'Save'}
             </button>
@@ -434,8 +434,8 @@ export const EventModal: React.FC<EventModalProps> = ({
         </form>
 
         {isCreateLocationOpen && (
-          <div className="absolute inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 p-6">
-            <div className="w-full max-w-sm rounded-lg bg-white p-5 shadow-xl">
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 p-4">
+            <div className="w-full max-w-sm rounded-lg bg-white p-4 shadow-xl sm:p-5">
               <h3 className="text-base font-semibold text-gray-900">Add location</h3>
               <p className="mt-1 text-sm text-gray-600">
                 Create a new location for this event.

@@ -54,23 +54,23 @@ export const ManageTimelinesModal: React.FC<Props> = ({ isOpen, onClose, mode, t
   const archived = timelines.filter(t => t.archived);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center p-6">
+    <div className="fixed inset-0 z-50 flex items-start justify-center p-2 sm:p-6">
       <div className="absolute inset-0 bg-black opacity-40" onClick={onClose}></div>
       {!directEditMode && (
-        <div className="relative bg-white rounded shadow-lg w-full max-w-4xl p-6 grid grid-cols-2 gap-6">
+        <div className="relative flex max-h-[calc(100dvh-1rem)] w-full max-w-4xl flex-col overflow-hidden rounded bg-white shadow-lg sm:max-h-[calc(100dvh-3rem)] md:grid md:grid-cols-2 md:gap-6 md:p-6">
           <div>
-            <h2 className="text-lg font-semibold mb-4">Active Timelines</h2>
+            <h2 className="mb-4 text-lg font-semibold">Active Timelines</h2>
             <ul className="space-y-2">
               {active.map(t => (
-                <li key={t.id} className="p-3 border rounded">
-                  <div className="flex items-center justify-between gap-3">
+                <li key={t.id} className="rounded border p-3">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-center gap-2">
                       <input type="radio" checked={activeId === t.id} onChange={() => setActiveId(t.id)} />
-                      <span>{t.name}</span>
+                      <span className="truncate">{t.name}</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button onClick={() => archiveTimeline(t.id)} className="px-2 py-1 bg-yellow-100 rounded">Archive</button>
-                      <button onClick={() => { if (confirm(`Delete timeline "${t.name}"? This will remove its events from storage.`)) deleteTimeline(t.id); }} className="px-2 py-1 bg-red-100 rounded text-red-600">Delete</button>
+                    <div className="flex items-center gap-2 self-end sm:self-auto">
+                      <button onClick={() => archiveTimeline(t.id)} className="rounded bg-yellow-100 px-2 py-1 text-sm">Archive</button>
+                      <button onClick={() => { if (confirm(`Delete timeline "${t.name}"? This will remove its events from storage.`)) deleteTimeline(t.id); }} className="rounded bg-red-100 px-2 py-1 text-sm text-red-600">Delete</button>
                     </div>
                   </div>
                 </li>
@@ -79,14 +79,14 @@ export const ManageTimelinesModal: React.FC<Props> = ({ isOpen, onClose, mode, t
           </div>
 
           <div>
-            <h2 className="text-lg font-semibold mb-4">Archived Timelines</h2>
+            <h2 className="mb-4 text-lg font-semibold">Archived Timelines</h2>
             <ul className="space-y-2">
               {archived.map(t => (
-                <li key={t.id} className="flex items-center justify-between p-2 border rounded">
-                  <div>{t.name}</div>
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => unarchiveTimeline(t.id)} className="px-2 py-1 bg-green-100 rounded">Unarchive</button>
-                    <button onClick={() => { if (confirm(`Delete archived timeline "${t.name}"?`)) deleteTimeline(t.id); }} className="px-2 py-1 bg-red-100 rounded text-red-600">Delete</button>
+                <li key={t.id} className="flex flex-col gap-3 rounded border p-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="truncate">{t.name}</div>
+                  <div className="flex items-center gap-2 self-end sm:self-auto">
+                    <button onClick={() => unarchiveTimeline(t.id)} className="rounded bg-green-100 px-2 py-1 text-sm">Unarchive</button>
+                    <button onClick={() => { if (confirm(`Delete archived timeline "${t.name}"?`)) deleteTimeline(t.id); }} className="rounded bg-red-100 px-2 py-1 text-sm text-red-600">Delete</button>
                   </div>
                 </li>
               ))}
@@ -94,15 +94,15 @@ export const ManageTimelinesModal: React.FC<Props> = ({ isOpen, onClose, mode, t
           </div>
 
           <div className="col-span-2 text-right">
-            <button onClick={onClose} className="px-4 py-2 bg-gray-100 rounded">Close</button>
+            <button onClick={onClose} className="rounded bg-gray-100 px-4 py-2">Close</button>
           </div>
         </div>
       )}
 
       {directEditMode && editingTimeline && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-black bg-opacity-40 p-6">
-          <div className="w-full max-w-2xl rounded-lg bg-white p-6 shadow-xl">
-            <div className="flex items-center justify-between gap-4">
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-black bg-opacity-40 p-2 sm:p-6">
+          <div className="flex max-h-[calc(100dvh-1rem)] w-full max-w-2xl flex-col overflow-hidden rounded-lg bg-white shadow-xl sm:max-h-[calc(100dvh-3rem)]">
+            <div className="flex items-center justify-between gap-4 border-b p-4 sm:p-6">
               <h2 className="text-lg font-semibold text-gray-900">Edit timeline</h2>
               <button
                 type="button"
@@ -118,7 +118,7 @@ export const ManageTimelinesModal: React.FC<Props> = ({ isOpen, onClose, mode, t
               </button>
             </div>
 
-            <div className="mt-4 flex items-center gap-2 border-b border-gray-200 pb-3">
+            <div className="flex flex-wrap items-center gap-2 border-b border-gray-200 px-4 py-3 sm:px-6">
               <button
                 type="button"
                 onClick={() => setEditingSection('timeline')}
@@ -134,9 +134,10 @@ export const ManageTimelinesModal: React.FC<Props> = ({ isOpen, onClose, mode, t
               </button>
             </div>
 
+            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
             {editingSection === 'timeline' ? (
               <form
-                className="mt-4 space-y-4"
+                className="space-y-4"
                 onSubmit={event => {
                   event.preventDefault();
                   const formData = new FormData(event.currentTarget);
@@ -154,7 +155,7 @@ export const ManageTimelinesModal: React.FC<Props> = ({ isOpen, onClose, mode, t
                   Name
                   <input name="name" defaultValue={editingTimeline.name} className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-gray-900" required />
                 </label>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <label className="block text-sm font-medium text-gray-700">
                     Start date
                     <input name="startDate" type="date" defaultValue={editingTimeline.startDate.slice(0, 10)} className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-gray-900" required />
@@ -164,7 +165,7 @@ export const ManageTimelinesModal: React.FC<Props> = ({ isOpen, onClose, mode, t
                     <input name="endDate" type="date" defaultValue={editingTimeline.endDate.slice(0, 10)} className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-gray-900" required />
                   </label>
                 </div>
-                <div className="mt-6 flex justify-between gap-3">
+                <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-between">
                   <div className="flex gap-3">
                     <button type="button" onClick={() => setEditingTimeline(null)} className="rounded border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
                     <button type="submit" className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">Save</button>
@@ -202,6 +203,7 @@ export const ManageTimelinesModal: React.FC<Props> = ({ isOpen, onClose, mode, t
                 </div>
               </div>
             )}
+            </div>
           </div>
         </div>
       )}
