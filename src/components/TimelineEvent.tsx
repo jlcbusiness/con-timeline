@@ -26,6 +26,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
   const bufferWidth = getEventBufferWidth(event);
   const resizeWingWidth = 12;
   const resizeWingOffset = resizeWingWidth / 2;
+  const eventStackClass = bufferWidth > 0 ? 'z-30' : 'z-10';
   
   // Fixed positioning calculation to align with slot headers
   // Each slot is 64px high, and we add 4px margin from the top of each slot
@@ -74,7 +75,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
 
   return (
     <div
-      className={`absolute z-10 rounded-md shadow-sm border border-opacity-20 border-white group select-none touch-none transition-[width,transform,box-shadow] duration-150 ${
+      className={`absolute ${eventStackClass} rounded-md shadow-sm border border-opacity-20 border-white group select-none touch-none transition-[width,transform,box-shadow] duration-150 ${
         isDragging || isResizing 
           ? 'shadow-lg z-50 cursor-grabbing'
           : 'hover:shadow-md hover:z-40 hover:w-[calc(var(--event-width)+12px)] cursor-grab'
@@ -93,7 +94,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
     >
       {bufferWidth > 0 && (
         <div
-          className="absolute top-0 bottom-0 z-0 rounded-l-md pointer-events-none"
+          className="absolute top-0 bottom-0 z-20 rounded-l-md pointer-events-none"
           style={{
             left: `${-bufferWidth}px`,
             width: `${bufferWidth}px`,
@@ -102,18 +103,6 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
             borderLeft: '1px solid rgba(255, 255, 255, 0.35)',
             borderTopLeftRadius: '0.375rem',
             borderBottomLeftRadius: '0.375rem'
-          }}
-        />
-      )}
-
-      {bufferWidth > 0 && (
-        <div
-          className="absolute top-0 bottom-0 z-0 rounded-l-md pointer-events-none"
-          style={{
-            left: `${-bufferWidth}px`,
-            width: `${bufferWidth}px`,
-            backgroundColor: event.color,
-            opacity: 0.3
           }}
         />
       )}
