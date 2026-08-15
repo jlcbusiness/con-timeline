@@ -40,7 +40,8 @@ export const Timeline: React.FC = () => {
     if (!headerRef.current) return false;
 
     const rect = headerRef.current.getBoundingClientRect();
-    return clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom;
+    const deleteTargetBottom = rect.bottom + 64;
+    return clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= deleteTargetBottom;
   };
 
   // Timeline persistence (must initialize before event persistence so active id is set)
