@@ -3,7 +3,6 @@ import { Plus, ChevronLeft, ChevronRight, Save, Sparkles } from 'lucide-react';
 import type { TimelineEvent as TimelineEventType } from '../types/timeline';
 import { TimelineEvent } from './TimelineEvent';
 import { EventModal } from './EventModal';
-import { LocationManager } from './LocationManager';
 import { EventManagementMenu } from './EventManagementMenu';
 import { DragonConImporter } from './DragonConImporter';
 import { useDragAndResize } from '../hooks/useDragAndResize';
@@ -23,13 +22,12 @@ import {
 
 export const Timeline: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isLocationManagerOpen, setIsLocationManagerOpen] = useState(false);
   const [isDragonConImporterOpen, setIsDragonConImporterOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<TimelineEventType | undefined>();
   const [clickedTime, setClickedTime] = useState<Date | undefined>();
   const [scrollPosition, setScrollPosition] = useState(0);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
-  
+
   const timelineContentRef = useRef<HTMLDivElement>(null);
 
   // Timeline persistence (must initialize before event persistence so active id is set)
@@ -81,6 +79,44 @@ export const Timeline: React.FC = () => {
     deleteLocation
   } = useLocationPersistence();
 
+  const getLocationSuggestions = () => {
+    const usage = new Map<string, { name: string; count: number; lastUsed: number }>();
+
+    events.forEach((event, index) => {
+      const name = event.location?.trim();
+      if (!name) return;
+
+      const key = name.toLowerCase();
+      const timestamp = new Date(event.updatedAt || event.createdAt || index).getTime();
+      const existing = usage.get(key);
+
+      if (existing) {
+        existing.count += 1;
+        existing.lastUsed = Math.max(existing.lastUsed, timestamp);
+        existing.name = name;
+      } else {
+        usage.set(key, { name, count: 1, lastUsed: timestamp });
+      }
+    });
+
+    const sortedByRecentUse = [...usage.values()]
+      .sort((a, b) => b.lastUsed - a.lastUsed)
+      .map(item => item.name);
+
+    const recentLocations = sortedByRecentUse.slice(0, 3);
+    const recentKeys = new Set(recentLocations.map(name => name.toLowerCase()));
+
+    const popularLocations = [...usage.values()]
+      .filter(item => !recentKeys.has(item.name.toLowerCase()))
+      .sort((a, b) => b.count - a.count || b.lastUsed - a.lastUsed)
+      .slice(0, 3)
+      .map(item => item.name);
+
+    return { recentLocations, popularLocations };
+  };
+
+  const { recentLocations, popularLocations } = getLocationSuggestions();
+
   // Handle event updates for drag and resize
   const handleEventUpdate = (eventId: string, updates: Partial<TimelineEventType>) => {
     updateEvent(eventId, updates);
@@ -115,7 +151,7 @@ export const Timeline: React.FC = () => {
         const hoursFromStart = (now.getTime() - startDate.getTime()) / (1000 * 60 * 60);
         const scrollLeft = hoursFromStart * PIXELS_PER_HOUR - 400;
         const finalScrollLeft = Math.max(0, scrollLeft);
-        
+
         timelineContentRef.current.scrollLeft = finalScrollLeft;
         setScrollPosition(finalScrollLeft);
       }
@@ -156,7 +192,7 @@ export const Timeline: React.FC = () => {
   const handleTimeSlotClick = (time: Date) => {
     // Don't create new events if we're dragging
     if (dragState.isDragging || dragState.isResizing) return;
-    
+
     setClickedTime(time);
     setEditingEvent(undefined);
     setIsModalOpen(true);
@@ -165,7 +201,7 @@ export const Timeline: React.FC = () => {
   const handleEventEdit = (event: TimelineEventType) => {
     // Don't edit if we're dragging
     if (dragState.isDragging || dragState.isResizing) return;
-    
+
     setEditingEvent(event);
     setClickedTime(undefined);
     setIsModalOpen(true);
@@ -179,7 +215,7 @@ export const Timeline: React.FC = () => {
         eventData.startTime,
         eventData.endTime
       );
-      
+
       updateEvent(editingEvent.id, { ...eventData, position });
     } else {
       // Create new event
@@ -219,17 +255,17 @@ export const Timeline: React.FC = () => {
     if (timelineContentRef.current) {
       const scrollAmount = 960; // 4 hours worth of scrolling
       const currentScroll = scrollPosition;
-      const newScrollLeft = direction === 'left' 
+      const newScrollLeft = direction === 'left'
         ? currentScroll - scrollAmount
         : currentScroll + scrollAmount;
-      
+
       const finalScrollLeft = Math.max(0, Math.min(newScrollLeft, totalTimelineWidth - timelineContentRef.current.clientWidth));
-      
+
       timelineContentRef.current.scrollTo({
         left: finalScrollLeft,
         behavior: 'smooth'
       });
-      
+
       setScrollPosition(finalScrollLeft);
     }
   };
@@ -242,12 +278,12 @@ export const Timeline: React.FC = () => {
       const scrollLeft = eventPosition - viewportWidth / 2; // Center the date
       const maxScroll = totalTimelineWidth - viewportWidth;
       const finalScrollLeft = Math.max(0, Math.min(scrollLeft, maxScroll));
-      
+
       timelineContentRef.current.scrollTo({
         left: finalScrollLeft,
         behavior: 'smooth'
       });
-      
+
       setScrollPosition(finalScrollLeft);
     }
   };
@@ -256,19 +292,19 @@ export const Timeline: React.FC = () => {
 
   const getCurrentDateRange = (): string => {
     if (!timelineContentRef.current) return '';
-    
+
     const scrollLeft = scrollPosition;
     const viewportWidth = timelineContentRef.current.clientWidth;
-    
+
     const startHour = Math.floor(scrollLeft / 240);
     const endHour = Math.floor((scrollLeft + viewportWidth) / 240);
-    
+
     const visibleStartTime = new Date(startDate);
     visibleStartTime.setHours(visibleStartTime.getHours() + startHour);
-    
+
     const visibleEndTime = new Date(startDate);
     visibleEndTime.setHours(visibleEndTime.getHours() + endHour);
-    
+
     if (visibleStartTime.toDateString() === visibleEndTime.toDateString()) {
       return formatDateHeader(visibleStartTime);
     } else {
@@ -278,7 +314,7 @@ export const Timeline: React.FC = () => {
 
   const groupEventsByDate = () => {
     const grouped: { [key: string]: TimelineEventType[] } = {};
-    
+
     events.forEach(event => {
       const dateKey = event.startTime.toDateString();
       if (!grouped[dateKey]) {
@@ -286,7 +322,7 @@ export const Timeline: React.FC = () => {
       }
       grouped[dateKey].push(event);
     });
-    
+
     return grouped;
   };
 
@@ -378,7 +414,7 @@ export const Timeline: React.FC = () => {
               )}
             </div>
           </div>
-          
+
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1">
               <button
@@ -414,6 +450,10 @@ export const Timeline: React.FC = () => {
               setActiveId={setActiveId}
               renameTimeline={renameTimeline}
               updateTimelineDates={updateTimelineDates}
+              locations={locations}
+              onAddLocation={addLocation}
+              onUpdateLocation={updateLocation}
+              onDeleteLocation={deleteLocation}
               deleteTimeline={deleteTimeline}
               archiveTimeline={archiveTimeline}
               unarchiveTimeline={unarchiveTimeline}
@@ -435,7 +475,7 @@ export const Timeline: React.FC = () => {
               onClearAll={handleClearAllEvents}
               eventCount={events.length}
             />
-            
+
             <button
               onClick={() => {
                 setClickedTime(new Date());
@@ -463,7 +503,7 @@ export const Timeline: React.FC = () => {
               <div className="h-12 border-b border-gray-200 bg-gray-50"></div>
               {/* Slot labels - now 10 slots with precise alignment */}
               {Array.from({ length: 10 }, (_, i) => (
-                <div 
+                <div
                   key={i}
                   className="border-b border-gray-200 flex items-center justify-center text-xs text-gray-500 font-medium"
                   style={{ height: '64px' }}
@@ -476,14 +516,14 @@ export const Timeline: React.FC = () => {
 
           {/* Single Timeline Content with Headers and Events */}
           <div className="flex-1 relative overflow-hidden">
-            <div 
+            <div
               ref={timelineContentRef}
               className="h-full overflow-x-auto overflow-y-hidden scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100"
               onScroll={handleScroll}
             >
-              <div 
+              <div
                 className="relative bg-white"
-                style={{ 
+                style={{
                   width: `${totalTimelineWidth}px`,
                   height: '100%'
                 }}
@@ -493,12 +533,12 @@ export const Timeline: React.FC = () => {
                   {timeSlots.map((slot, index) => {
                     const isNewDay = index === 0 || slot.getDate() !== timeSlots[index - 1].getDate();
                     const leftPosition = getTimePosition(slot, startDate);
-                    
+
                     return (
-                      <div 
-                        key={slot.getTime()} 
+                      <div
+                        key={slot.getTime()}
                         className="absolute top-0"
-                        style={{ 
+                        style={{
                           left: `${leftPosition}px`,
                           width: '240px',
                           height: '48px'
@@ -509,7 +549,7 @@ export const Timeline: React.FC = () => {
                             {formatDateHeader(slot)}
                           </div>
                         )}
-                        <div 
+                        <div
                           className={`h-full border-r border-gray-200 flex items-end justify-center pb-2 text-xs font-medium text-gray-600 ${
                             isNewDay ? 'pt-6' : 'pt-2'
                           }`}
@@ -526,16 +566,16 @@ export const Timeline: React.FC = () => {
                   {/* Grid Lines */}
                   {timeSlots.map((slot) => {
                     const leftPosition = getTimePosition(slot, startDate);
-                    
+
                     return (
                       <div
                         key={slot.getTime()}
                         className={`absolute top-0 bottom-0 border-r border-gray-100 transition-colors group ${
-                          dragState.isDragging || dragState.isResizing 
-                            ? 'cursor-not-allowed' 
+                          dragState.isDragging || dragState.isResizing
+                            ? 'cursor-not-allowed'
                             : 'hover:bg-blue-50 cursor-pointer'
                         }`}
-                        style={{ 
+                        style={{
                           left: `${leftPosition}px`,
                           width: '240px'
                         }}
@@ -577,7 +617,7 @@ export const Timeline: React.FC = () => {
                     const now = new Date();
                     if (now >= startDate && now <= endDate) {
                       const leftPosition = getTimePosition(now, startDate);
-                      
+
                       return (
                         <div
                           className="absolute top-0 bottom-0 w-0.5 bg-red-500 z-30 pointer-events-none"
@@ -605,17 +645,8 @@ export const Timeline: React.FC = () => {
         event={editingEvent}
         initialStartTime={clickedTime}
         locations={locations}
-        onManageLocations={() => setIsLocationManagerOpen(true)}
-      />
-
-      {/* Location Manager Modal */}
-      <LocationManager
-        isOpen={isLocationManagerOpen}
-        onClose={() => setIsLocationManagerOpen(false)}
-        locations={locations}
-        onAddLocation={addLocation}
-        onUpdateLocation={updateLocation}
-        onDeleteLocation={deleteLocation}
+        recentLocations={recentLocations}
+        popularLocations={popularLocations}
       />
 
       {/* Dragon Con Importer Modal */}

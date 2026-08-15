@@ -7,6 +7,8 @@ export interface TimelineEvent {
   endTime: Date;
   color: string;
   position: number; // 0-9 for vertical stacking (10 slots)
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface TimeSlot {

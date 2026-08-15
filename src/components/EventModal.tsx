@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, Clock, Palette, MapPin, Settings } from 'lucide-react';
+import { X, Calendar, Clock, Palette, MapPin } from 'lucide-react';
 import type { TimelineEvent, Location } from '../types/timeline';
 import { getEventColors, roundToNearestHalfHour } from '../utils/timelineUtils';
 
@@ -11,7 +11,8 @@ interface EventModalProps {
   event?: TimelineEvent;
   initialStartTime?: Date;
   locations: Location[];
-  onManageLocations: () => void;
+  recentLocations: string[];
+  popularLocations: string[];
 }
 
 export const EventModal: React.FC<EventModalProps> = ({
@@ -22,7 +23,8 @@ export const EventModal: React.FC<EventModalProps> = ({
   event,
   initialStartTime,
   locations,
-  onManageLocations
+  recentLocations,
+  popularLocations
 }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -163,20 +165,10 @@ export const EventModal: React.FC<EventModalProps> = ({
           </div>
 
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <label htmlFor="event-location" className="block text-sm font-medium text-gray-700">
-                <MapPin size={16} className="inline mr-1" />
-                Location (Optional)
-              </label>
-              <button
-                type="button"
-                onClick={onManageLocations}
-                className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1 transition-colors"
-              >
-                <Settings size={12} />
-                Manage
-              </button>
-            </div>
+            <label htmlFor="event-location" className="block text-sm font-medium text-gray-700 mb-2">
+              <MapPin size={16} className="inline mr-1" />
+              Location (Optional)
+            </label>
             
             <div className="space-y-2">
               {/* Location input with datalist */}
@@ -197,26 +189,50 @@ export const EventModal: React.FC<EventModalProps> = ({
                 ))}
               </datalist>
 
-              {/* Quick select buttons for common locations */}
-              {locations.length > 0 && (
-                <div className="flex flex-wrap gap-1">
-                  {locations
-                    .sort((a, b) => a.name.localeCompare(b.name))
-                    .slice(0, 6) // Show first 6 locations as quick buttons
-                    .map((loc) => (
-                      <button
-                        key={loc.id}
-                        type="button"
-                        onClick={() => handleLocationSelect(loc.name)}
-                        className={`px-2 py-1 text-xs rounded-md border transition-colors ${
-                          location === loc.name
-                            ? 'bg-blue-100 border-blue-300 text-blue-700'
-                            : 'bg-gray-100 border-gray-300 text-gray-600 hover:bg-gray-200'
-                        }`}
-                      >
-                        {loc.name}
-                      </button>
-                    ))}
+              {(recentLocations.length > 0 || popularLocations.length > 0) && (
+                <div className="space-y-2">
+                  {recentLocations.length > 0 && (
+                    <div>
+                      <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">Recent</div>
+                      <div className="flex flex-wrap gap-1">
+                        {recentLocations.map((name) => (
+                          <button
+                            key={name}
+                            type="button"
+                            onClick={() => handleLocationSelect(name)}
+                            className={`px-2 py-1 text-xs rounded-md border transition-colors ${
+                              location === name
+                                ? 'bg-blue-100 border-blue-300 text-blue-700'
+                                : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200'
+                            }`}
+                          >
+                            {name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {popularLocations.length > 0 && (
+                    <div>
+                      <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">Popular</div>
+                      <div className="flex flex-wrap gap-1">
+                        {popularLocations.map((name) => (
+                          <button
+                            key={name}
+                            type="button"
+                            onClick={() => handleLocationSelect(name)}
+                            className={`px-2 py-1 text-xs rounded-md border transition-colors ${
+                              location === name
+                                ? 'bg-blue-100 border-blue-300 text-blue-700'
+                                : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200'
+                            }`}
+                          >
+                            {name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

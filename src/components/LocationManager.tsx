@@ -9,6 +9,7 @@ interface LocationManagerProps {
   onAddLocation: (name: string) => Location;
   onUpdateLocation: (locationId: string, name: string) => void;
   onDeleteLocation: (locationId: string) => void;
+  embedded?: boolean;
 }
 
 export const LocationManager: React.FC<LocationManagerProps> = ({
@@ -17,7 +18,8 @@ export const LocationManager: React.FC<LocationManagerProps> = ({
   locations,
   onAddLocation,
   onUpdateLocation,
-  onDeleteLocation
+  onDeleteLocation,
+  embedded = false
 }) => {
   const [newLocationName, setNewLocationName] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -82,11 +84,14 @@ export const LocationManager: React.FC<LocationManagerProps> = ({
     }
   };
 
-  if (!isOpen) return null;
+  if (!isOpen && !embedded) return null;
 
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[80vh] flex flex-col">
+  const shell = embedded
+    ? 'w-full max-h-[70vh] flex flex-col rounded-lg border border-gray-200 bg-white'
+    : 'bg-white rounded-lg shadow-xl w-full max-w-md max-h-[80vh] flex flex-col';
+
+  const content = (
+    <div className={shell}>
         <div className="flex items-center justify-between p-6 border-b">
           <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
             <MapPin size={20} />
@@ -209,10 +214,19 @@ export const LocationManager: React.FC<LocationManagerProps> = ({
             onClick={onClose}
             className="w-full bg-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-400 transition-colors font-medium"
           >
-            Done
+            {embedded ? 'Back to Timeline' : 'Done'}
           </button>
         </div>
       </div>
+  );
+
+  if (embedded) {
+    return content;
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      {content}
     </div>
   );
 };

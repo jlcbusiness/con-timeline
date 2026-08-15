@@ -13,6 +13,7 @@ const getActiveTimelineId = () => {
 export const useEventPersistence = () => {
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const nowIso = () => new Date().toISOString();
 
   // Compute storage key using active timeline id
   const storageKey = `timeline-events:${getActiveTimelineId()}`;
@@ -51,13 +52,14 @@ export const useEventPersistence = () => {
   }, [events, isLoading, storageKey]);
 
   const addEvent = (event: TimelineEvent) => {
-    setEvents(prevEvents => [...prevEvents, event]);
+    const timestamp = nowIso();
+    setEvents(prevEvents => [...prevEvents, { ...event, createdAt: event.createdAt || timestamp, updatedAt: timestamp }]);
   };
 
   const updateEvent = (eventId: string, updates: Partial<TimelineEvent>) => {
     setEvents(prevEvents => 
       prevEvents.map(event => 
-        event.id === eventId ? { ...event, ...updates } : event
+        event.id === eventId ? { ...event, ...updates, updatedAt: nowIso() } : event
       )
     );
   };
@@ -70,7 +72,7 @@ export const useEventPersistence = () => {
       updates.forEach(({ eventId, updates: eventUpdates }) => {
         const eventIndex = updatedEvents.findIndex(e => e.id === eventId);
         if (eventIndex !== -1) {
-          updatedEvents[eventIndex] = { ...updatedEvents[eventIndex], ...eventUpdates };
+          updatedEvents[eventIndex] = { ...updatedEvents[eventIndex], ...eventUpdates, updatedAt: nowIso() };
         }
       });
       
@@ -124,7 +126,11 @@ export const useEventPersistence = () => {
             }));
 
           if (options?.replace) {
-            setEvents(validEvents);
+            setEvents(validEvents.map((event: any) => ({
+              ...event,
+              createdAt: event.createdAt,
+              updatedAt: event.updatedAt
+            })));
           } else {
             // Merge while avoiding exact id collisions
             setEvents(prev => {
