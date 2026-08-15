@@ -684,6 +684,7 @@ export const Timeline: React.FC = () => {
         event={editingEvent}
         initialStartTime={clickedTime}
         locations={locations}
+        onAddLocation={addLocation}
         recentLocations={recentLocations}
         popularLocations={popularLocations}
       />
