@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
 
 export interface TimelineMeta {
   id: string;
@@ -10,12 +11,21 @@ export interface TimelineMeta {
   archivedAt?: string | null;
 }
 
-const TIMELINES_KEY = 'timelines';
 const ACTIVE_KEY = 'active-timeline-id';
 const LEGACY_START_DATE = '2025-08-27T01:00:00';
 const LEGACY_END_DATE = '2025-09-02T23:00:00';
 
 const uuid = () => (typeof crypto !== 'undefined' && (crypto as any).randomUUID ? (crypto as any).randomUUID() : Date.now().toString());
+
+const mapTimelineRow = (timeline: any): TimelineMeta => ({
+  id: timeline.id,
+  name: timeline.name,
+  createdAt: timeline.created_at || new Date().toISOString(),
+  startDate: timeline.start_date || LEGACY_START_DATE,
+  endDate: timeline.end_date || LEGACY_END_DATE,
+  archived: Boolean(timeline.archived),
+  archivedAt: timeline.archived_at || null
+});
 
 export const useTimelinePersistence = () => {
   const [timelines, setTimelines] = useState<TimelineMeta[]>([]);
@@ -23,56 +33,107 @@ export const useTimelinePersistence = () => {
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(TIMELINES_KEY);
-      const parsed: TimelineMeta[] = raw ? JSON.parse(raw) : [];
-      if (parsed.length === 0) {
-        const defaultId = 'default';
-        const defaultTimeline: TimelineMeta = {
-          id: defaultId,
-          name: 'Default Timeline',
-          createdAt: new Date().toISOString(),
-          startDate: LEGACY_START_DATE,
-          endDate: LEGACY_END_DATE
-        };
-        setTimelines([defaultTimeline]);
-        setActiveId(defaultId);
-        localStorage.setItem(TIMELINES_KEY, JSON.stringify([defaultTimeline]));
-        localStorage.setItem(ACTIVE_KEY, defaultId);
-      } else {
-        const migratedTimelines = parsed.map(timeline => ({
-          ...timeline,
-          startDate: timeline.startDate || LEGACY_START_DATE,
-          endDate: timeline.endDate || LEGACY_END_DATE
-        }));
-        setTimelines(migratedTimelines);
-        const a = localStorage.getItem(ACTIVE_KEY) || parsed[0].id;
-        setActiveId(a);
+    let cancelled = false;
+
+    const loadTimelines = async () => {
+      setIsLoaded(false);
+
+      try {
+        if (!supabase) {
+          setTimelines([]);
+          setActiveId(null);
+          return;
+        }
+
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+        if (userError) throw userError;
+
+        const user = userData.user;
+        if (!user) {
+          setTimelines([]);
+          setActiveId(null);
+          return;
+        }
+
+        const { data, error } = await supabase
+          .from('timelines')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: true });
+
+        if (error) throw error;
+
+        let loadedTimelines: TimelineMeta[] = (data ?? []).map(mapTimelineRow);
+
+        if (loadedTimelines.length === 0) {
+          const defaultTimeline = {
+            id: uuid(),
+            user_id: user.id,
+            name: 'Default Timeline',
+            start_date: LEGACY_START_DATE,
+            end_date: LEGACY_END_DATE,
+            archived: false,
+            archived_at: null
+          };
+
+          const { data: inserted, error: insertError } = await supabase
+            .from('timelines')
+            .insert(defaultTimeline)
+            .select('*')
+            .single();
+
+          if (insertError) throw insertError;
+
+          loadedTimelines = inserted ? [mapTimelineRow(inserted)] : [];
+        }
+
+        if (cancelled) return;
+
+        setTimelines(loadedTimelines);
+
+        const activeKey = `active-timeline-id:${user.id}`;
+        const preferredActiveId = localStorage.getItem(activeKey) || localStorage.getItem(ACTIVE_KEY);
+        const nextActiveId = preferredActiveId && loadedTimelines.some(timeline => timeline.id === preferredActiveId)
+          ? preferredActiveId
+          : loadedTimelines.find(timeline => !timeline.archived)?.id ?? loadedTimelines[0]?.id ?? null;
+
+        setActiveId(nextActiveId);
+
+        if (nextActiveId) {
+          localStorage.setItem(activeKey, nextActiveId);
+        }
+      } catch (error) {
+        console.error('Failed to load timelines', error);
+      } finally {
+        if (!cancelled) {
+          setIsLoaded(true);
+        }
       }
-    } catch (e) {
-      console.error('Failed to load timelines', e);
-    } finally {
-      setIsLoaded(true);
-    }
+    };
+
+    void loadTimelines();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  useEffect(() => {
+    if (!supabase || !activeId) return;
+
+    void supabase.auth.getUser().then(({ data }: any) => {
+      const user = data.user;
+      if (user) {
+        localStorage.setItem(`active-timeline-id:${user.id}`, activeId);
+      }
+    });
+  }, [activeId]);
 
   useEffect(() => {
     if (!isLoaded) return;
 
-    try {
-      localStorage.setItem(TIMELINES_KEY, JSON.stringify(timelines));
-    } catch (e) {
-      console.error('Failed to save timelines', e);
-    }
+    if (!supabase) return;
   }, [timelines, isLoaded]);
-
-  useEffect(() => {
-    try {
-      if (activeId) localStorage.setItem(ACTIVE_KEY, activeId);
-    } catch (e) {
-      console.error('Failed to save active timeline', e);
-    }
-  }, [activeId]);
 
   const createTimeline = (name: string, startDate: string, endDate: string) => {
     const id = uuid();
@@ -85,21 +146,90 @@ export const useTimelinePersistence = () => {
     };
     setTimelines(prev => [...prev, newMeta]);
     setActiveId(id);
+
+    if (supabase) {
+      void supabase.auth.getUser().then(async ({ data }: any) => {
+        const user = data.user;
+        if (!user) return;
+
+        const { error } = await supabase.from('timelines').insert({
+          id,
+          user_id: user.id,
+          name: newMeta.name,
+          start_date: startDate,
+          end_date: endDate,
+          archived: false,
+          archived_at: null
+        });
+
+        if (error) {
+          console.error('Failed to create timeline in Supabase', error);
+        }
+      });
+    }
+
     return newMeta;
   };
 
   const renameTimeline = (id: string, name: string) => {
     setTimelines(prev => prev.map(t => t.id === id ? { ...t, name } : t));
+
+    if (supabase) {
+      void supabase.auth.getUser().then(async ({ data }: any) => {
+        const user = data.user;
+        if (!user) return;
+
+        const { error } = await supabase.from('timelines')
+          .update({ name })
+          .eq('id', id)
+          .eq('user_id', user.id);
+
+        if (error) {
+          console.error('Failed to rename timeline in Supabase', error);
+        }
+      });
+    }
   };
 
   const updateTimelineDates = (id: string, startDate: string, endDate: string) => {
     setTimelines(prev => prev.map(t => t.id === id ? { ...t, startDate, endDate } : t));
+
+    if (supabase) {
+      void supabase.auth.getUser().then(async ({ data }: any) => {
+        const user = data.user;
+        if (!user) return;
+
+        const { error } = await supabase.from('timelines')
+          .update({ start_date: startDate, end_date: endDate })
+          .eq('id', id)
+          .eq('user_id', user.id);
+
+        if (error) {
+          console.error('Failed to update timeline dates in Supabase', error);
+        }
+      });
+    }
   };
 
   const deleteTimeline = (id: string) => {
     setTimelines(prev => prev.filter(t => t.id !== id));
-    // delete associated events from localStorage
-    try { localStorage.removeItem(`timeline-events:${id}`); } catch (_) {}
+
+    if (supabase) {
+      void supabase.auth.getUser().then(async ({ data }: any) => {
+        const user = data.user;
+        if (!user) return;
+
+        const { error } = await supabase.from('timelines')
+          .delete()
+          .eq('id', id)
+          .eq('user_id', user.id);
+
+        if (error) {
+          console.error('Failed to delete timeline in Supabase', error);
+        }
+      });
+    }
+
     if (activeId === id) {
       const first = timelines.find(t => t.id !== id && !t.archived);
       const newActive = first ? first.id : null;
@@ -109,6 +239,24 @@ export const useTimelinePersistence = () => {
 
   const archiveTimeline = (id: string) => {
     setTimelines(prev => prev.map(t => t.id === id ? { ...t, archived: true, archivedAt: new Date().toISOString() } : t));
+
+    if (supabase) {
+      void supabase.auth.getUser().then(async ({ data }: any) => {
+        const user = data.user;
+        if (!user) return;
+
+        const archivedAt = new Date().toISOString();
+        const { error } = await supabase.from('timelines')
+          .update({ archived: true, archived_at: archivedAt })
+          .eq('id', id)
+          .eq('user_id', user.id);
+
+        if (error) {
+          console.error('Failed to archive timeline in Supabase', error);
+        }
+      });
+    }
+
     if (activeId === id) {
       const first = timelines.find(t => t.id !== id && !t.archived);
       setActiveId(first ? first.id : null);
@@ -117,11 +265,28 @@ export const useTimelinePersistence = () => {
 
   const unarchiveTimeline = (id: string) => {
     setTimelines(prev => prev.map(t => t.id === id ? { ...t, archived: false, archivedAt: null } : t));
+
+    if (supabase) {
+      void supabase.auth.getUser().then(async ({ data }: any) => {
+        const user = data.user;
+        if (!user) return;
+
+        const { error } = await supabase.from('timelines')
+          .update({ archived: false, archived_at: null })
+          .eq('id', id)
+          .eq('user_id', user.id);
+
+        if (error) {
+          console.error('Failed to unarchive timeline in Supabase', error);
+        }
+      });
+    }
   };
 
   return {
     timelines,
     activeId,
+    isLoading: !isLoaded,
     createTimeline,
     renameTimeline,
     updateTimelineDates,

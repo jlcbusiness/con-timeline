@@ -6,6 +6,8 @@ create table if not exists timelines (
   id text primary key,
   user_id uuid references auth.users on delete cascade,
   name text not null,
+  start_date timestamptz not null,
+  end_date timestamptz not null,
   created_at timestamptz default now()
 );
 

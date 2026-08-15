@@ -1,19 +1,42 @@
 import { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
 import type { TimelineEvent } from '../types/timeline';
 
 // Use an active timeline id to namespace storage keys so multiple timelines can coexist.
-const getActiveTimelineId = () => {
-  try {
-    return localStorage.getItem('active-timeline-id') || 'default';
-  } catch (e) {
-    return 'default';
-  }
-};
-
 const serializeEvent = (event: TimelineEvent) => ({
   ...event,
   startTime: event.startTime.toISOString(),
   endTime: event.endTime.toISOString()
+});
+
+const mapEventRow = (event: any): TimelineEvent => ({
+  id: event.id,
+  title: event.title,
+  description: event.description || '',
+  location: event.metadata?.location || '',
+  startTime: new Date(event.start_time),
+  endTime: new Date(event.end_time),
+  color: event.metadata?.color || '#3B82F6',
+  position: event.position ?? 0,
+  createdAt: event.created_at || undefined,
+  updatedAt: event.updated_at || undefined
+});
+
+const buildEventRow = (event: TimelineEvent, timelineId: string, userId: string) => ({
+  id: event.id,
+  timeline_id: timelineId,
+  user_id: userId,
+  title: event.title,
+  description: event.description || null,
+  start_time: event.startTime.toISOString(),
+  end_time: event.endTime.toISOString(),
+  position: event.position,
+  metadata: {
+    color: event.color,
+    location: event.location || ''
+  },
+  created_at: event.createdAt || event.startTime.toISOString(),
+  updated_at: event.updatedAt || new Date().toISOString()
 });
 
 export const readImportedEvents = (file: File) => {
@@ -51,77 +74,190 @@ export const useEventPersistence = (activeTimelineId?: string | null) => {
   const [isLoading, setIsLoading] = useState(true);
   const nowIso = () => new Date().toISOString();
 
-  // Compute storage key using active timeline id
-  const storageKey = `timeline-events:${activeTimelineId || getActiveTimelineId()}`;
-
-  // Load events from localStorage on mount
   useEffect(() => {
-    try {
-      const savedEvents = localStorage.getItem(storageKey);
-      if (savedEvents) {
-        const parsedEvents = JSON.parse(savedEvents);
-        // Convert date strings back to Date objects
-        const eventsWithDates = parsedEvents.map((event: any) => ({
-          ...event,
-          startTime: new Date(event.startTime),
-          endTime: new Date(event.endTime)
-        }));
-        setEvents(eventsWithDates);
-      }
-    } catch (error) {
-      console.error('Failed to load events from localStorage:', error);
-    } finally {
-      setIsLoading(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [storageKey]);
+    let cancelled = false;
 
-  // Save events to localStorage whenever events change
-  useEffect(() => {
-    if (!isLoading) {
+    const loadEvents = async () => {
+      setIsLoading(true);
+
       try {
-        localStorage.setItem(storageKey, JSON.stringify(events.map(serializeEvent)));
+        if (!supabase || !activeTimelineId) {
+          setEvents([]);
+          return;
+        }
+
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+        if (userError) throw userError;
+
+        const user = userData.user;
+        if (!user) {
+          setEvents([]);
+          return;
+        }
+
+        const { data, error } = await supabase
+          .from('events')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('timeline_id', activeTimelineId)
+          .order('position', { ascending: true })
+          .order('created_at', { ascending: true });
+
+        if (error) throw error;
+
+        if (!cancelled) {
+          setEvents((data ?? []).map(mapEventRow));
+        }
       } catch (error) {
-        console.error('Failed to save events to localStorage:', error);
+        console.error('Failed to load events', error);
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    void loadEvents();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTimelineId]);
+
+  const persistEvent = async (event: TimelineEvent) => {
+    if (!supabase || !activeTimelineId) return;
+
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError) throw userError;
+
+    const user = userData.user;
+    if (!user) return;
+
+    const { error } = await supabase
+      .from('events')
+      .upsert(buildEventRow(event, activeTimelineId, user.id), { onConflict: 'id' });
+
+    if (error) {
+      throw error;
+    }
+  };
+
+  const replaceEventsInBackend = async (timelineId: string, nextEvents: TimelineEvent[]) => {
+    if (!supabase) return;
+
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError) throw userError;
+
+    const user = userData.user;
+    if (!user) return;
+
+    const { error: deleteError } = await supabase
+      .from('events')
+      .delete()
+      .eq('timeline_id', timelineId)
+      .eq('user_id', user.id);
+
+    if (deleteError) {
+      throw deleteError;
+    }
+
+    if (nextEvents.length > 0) {
+      const { error: insertError } = await supabase
+        .from('events')
+        .insert(nextEvents.map(event => buildEventRow(event, timelineId, user.id)));
+
+      if (insertError) {
+        throw insertError;
       }
     }
-  }, [events, isLoading, storageKey]);
+  };
 
   const addEvent = (event: TimelineEvent) => {
     const timestamp = nowIso();
-    setEvents(prevEvents => [...prevEvents, { ...event, createdAt: event.createdAt || timestamp, updatedAt: timestamp }]);
+    const nextEvent = { ...event, createdAt: event.createdAt || timestamp, updatedAt: timestamp };
+    setEvents(prevEvents => [...prevEvents, nextEvent]);
+
+    void persistEvent(nextEvent).catch(error => {
+      console.error('Failed to save event', error);
+    });
   };
 
   const updateEvent = (eventId: string, updates: Partial<TimelineEvent>) => {
-    setEvents(prevEvents => 
-      prevEvents.map(event => 
+    const existingEvent = events.find(event => event.id === eventId);
+
+    setEvents(prevEvents =>
+      prevEvents.map(event =>
         event.id === eventId ? { ...event, ...updates, updatedAt: nowIso() } : event
       )
     );
+
+    if (existingEvent) {
+      void persistEvent({ ...existingEvent, ...updates, updatedAt: nowIso() }).catch(error => {
+        console.error('Failed to update event', error);
+      });
+    }
   };
 
   // Batch update multiple events at once (for cascading position changes)
   const batchUpdateEvents = (updates: { eventId: string; updates: Partial<TimelineEvent> }[]) => {
-    setEvents(prevEvents => {
-      const updatedEvents = [...prevEvents];
-      
-      updates.forEach(({ eventId, updates: eventUpdates }) => {
-        const eventIndex = updatedEvents.findIndex(e => e.id === eventId);
-        if (eventIndex !== -1) {
-          updatedEvents[eventIndex] = { ...updatedEvents[eventIndex], ...eventUpdates, updatedAt: nowIso() };
-        }
-      });
-      
-      return updatedEvents;
+    const updatedIds = new Set(updates.map(({ eventId }) => eventId));
+    const nextEvents = events.map(event => {
+      const update = updates.find(item => item.eventId === event.id);
+      return update ? { ...event, ...update.updates, updatedAt: nowIso() } : event;
+    });
+
+    setEvents(nextEvents);
+
+    void Promise.all(
+      nextEvents
+        .filter(event => updatedIds.has(event.id))
+        .map(event => persistEvent(event))
+    ).catch(error => {
+      console.error('Failed to batch update events', error);
     });
   };
 
   const deleteEvent = (eventId: string) => {
     setEvents(prevEvents => prevEvents.filter(event => event.id !== eventId));
+
+    if (supabase && activeTimelineId) {
+      void supabase.auth.getUser().then(async ({ data }: any) => {
+        const user = data.user;
+        if (!user) return;
+
+        const { error } = await supabase
+          .from('events')
+          .delete()
+          .eq('id', eventId)
+          .eq('timeline_id', activeTimelineId)
+          .eq('user_id', user.id);
+
+        if (error) {
+          console.error('Failed to delete event', error);
+        }
+      });
+    }
   };
 
   const clearAllEvents = () => {
     setEvents([]);
+
+    if (supabase && activeTimelineId) {
+      void supabase.auth.getUser().then(async ({ data }: any) => {
+        const user = data.user;
+        if (!user) return;
+
+        const { error } = await supabase
+          .from('events')
+          .delete()
+          .eq('timeline_id', activeTimelineId)
+          .eq('user_id', user.id);
+
+        if (error) {
+          console.error('Failed to clear events', error);
+        }
+      });
+    }
   };
 
   const exportEvents = () => {
@@ -140,50 +276,30 @@ export const useEventPersistence = (activeTimelineId?: string | null) => {
   // Import merges by default (appends) and validates basic fields
   const importEvents = (file: File, options?: { replace?: boolean; timelineId?: string }) => {
     return readImportedEvents(file).then(validEvents => {
-      const targetTimelineId = options?.timelineId || activeTimelineId || getActiveTimelineId();
-      const targetStorageKey = `timeline-events:${targetTimelineId}`;
-      const serializableEvents = validEvents.map(serializeEvent);
+      const targetTimelineId = options?.timelineId || activeTimelineId;
 
-      if (!options?.timelineId) {
-        if (options?.replace) {
-          setEvents(validEvents);
-        } else {
-          setEvents(prev => {
-            const existingIds = new Set(prev.map(e => e.id));
-            const deduped = validEvents.map(ev => (
-              existingIds.has(ev.id) ? { ...ev, id: `${ev.id}-${Date.now()}` } : ev
-            ));
-            return [...prev, ...deduped];
-          });
-        }
-      }
-
-      if (options?.timelineId) {
-        try {
-          localStorage.setItem(targetStorageKey, JSON.stringify(serializableEvents));
-        } catch (error) {
-          console.error('Failed to save imported events to localStorage:', error);
-        }
+      if (!targetTimelineId) {
         return validEvents;
       }
 
-      if (options?.replace) {
-        setEvents(validEvents);
-      } else {
-        setEvents(prev => {
-          const existingIds = new Set(prev.map(e => e.id));
-          const deduped = validEvents.map(ev => (
-            existingIds.has(ev.id) ? { ...ev, id: `${ev.id}-${Date.now()}` } : ev
-          ));
-          return [...prev, ...deduped];
-        });
+      const nextEvents = options?.replace
+        ? validEvents
+        : (() => {
+            const existingIds = new Set(events.map(event => event.id));
+            const deduped = validEvents.map(event => (
+              existingIds.has(event.id) ? { ...event, id: `${event.id}-${Date.now()}` } : event
+            ));
+
+            return options?.timelineId ? deduped : [...events, ...deduped];
+          })();
+
+      if (targetTimelineId === activeTimelineId) {
+        setEvents(nextEvents);
       }
 
-      try {
-        localStorage.setItem(targetStorageKey, JSON.stringify(serializableEvents));
-      } catch (error) {
-        console.error('Failed to save imported events to localStorage:', error);
-      }
+      void replaceEventsInBackend(targetTimelineId, nextEvents).catch(error => {
+        console.error('Failed to import events', error);
+      });
 
       return validEvents;
     });

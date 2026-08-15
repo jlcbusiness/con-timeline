@@ -47,6 +47,7 @@ export const Timeline: React.FC = () => {
   const {
     timelines,
     activeId,
+    isLoading: timelinesLoading,
     createTimeline,
     renameTimeline,
     updateTimelineDates,
@@ -94,7 +95,7 @@ export const Timeline: React.FC = () => {
     updateLocation,
     deleteLocation,
     mergeLocations
-  } = useLocationPersistence();
+  } = useLocationPersistence(activeId);
 
   const buildTimelineSpan = (eventsToInspect: TimelineEventType[]) => {
     const datedEvents = eventsToInspect.filter(event => event.startTime && event.endTime);
@@ -437,7 +438,7 @@ export const Timeline: React.FC = () => {
     jumpDate.setDate(jumpDate.getDate() + 1);
   }
 
-  if (eventsLoading || locationsLoading) {
+  if (timelinesLoading || eventsLoading || locationsLoading) {
     return (
       <div className="h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
