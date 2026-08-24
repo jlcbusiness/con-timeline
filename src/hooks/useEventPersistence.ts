@@ -71,6 +71,9 @@ const normalizeImportedEvent = (event: any): TimelineEvent => {
   };
 };
 
+const isMissingTableError = (error: any) =>
+  error?.code === 'PGRST205' || error?.code === '42P01' || /could not find the table/i.test(String(error?.message || ''));
+
 export const readImportedEvents = (file: File) => {
   return new Promise<TimelineEvent[]>((resolve, reject) => {
     const reader = new FileReader();
@@ -137,6 +140,13 @@ export const useEventPersistence = (activeTimelineId?: string | null) => {
           setEvents((data ?? []).map(mapEventRow));
         }
       } catch (error) {
+        if (isMissingTableError(error)) {
+          if (!cancelled) {
+            setEvents([]);
+          }
+          return;
+        }
+
         console.error('Failed to load events', error);
       } finally {
         if (!cancelled) {
@@ -186,6 +196,7 @@ export const useEventPersistence = (activeTimelineId?: string | null) => {
       .eq('user_id', user.id);
 
     if (deleteError) {
+      if (isMissingTableError(deleteError)) return;
       throw deleteError;
     }
 
@@ -195,6 +206,7 @@ export const useEventPersistence = (activeTimelineId?: string | null) => {
         .insert(nextEvents.map(event => buildEventRow(event, timelineId, user.id)));
 
       if (insertError) {
+        if (isMissingTableError(insertError)) return;
         throw insertError;
       }
     }
@@ -329,6 +341,10 @@ export const useEventPersistence = (activeTimelineId?: string | null) => {
         await replaceEventsInBackend(targetTimelineId, nextEvents);
       } catch (error) {
         console.error('Failed to import events', error);
+        if (isMissingTableError(error)) {
+          setEvents(nextEvents);
+          return validEvents;
+        }
         throw error;
       }
 

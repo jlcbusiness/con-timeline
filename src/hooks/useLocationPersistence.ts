@@ -61,6 +61,9 @@ const buildLocationRow = (location: Location, timelineId: string, userId: string
   updated_at: location.createdAt.toISOString()
 });
 
+const isMissingTableError = (error: any) =>
+  error?.code === 'PGRST205' || error?.code === '42P01' || /could not find the table/i.test(String(error?.message || ''));
+
 export const readImportedLocations = (file: File) => {
   return new Promise<Location[]>((resolve, reject) => {
     const reader = new FileReader();
@@ -129,6 +132,13 @@ export const useLocationPersistence = (activeTimelineId?: string | null) => {
           setLocations(loadedLocations);
         }
       } catch (error) {
+        if (isMissingTableError(error)) {
+          if (!cancelled) {
+            setLocations([]);
+          }
+          return;
+        }
+
         console.error('Failed to load locations', error);
       } finally {
         if (!cancelled) {
@@ -254,22 +264,28 @@ export const useLocationPersistence = (activeTimelineId?: string | null) => {
     const targetTimelineId = timelineId || activeTimelineId;
 
     if (supabase && targetTimelineId) {
-      const { data: userData, error: userError } = await supabase.auth.getUser();
-      if (userError) throw userError;
+      try {
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+        if (userError) throw userError;
 
-      const user = userData.user;
-      if (!user) return addedLocations;
+        const user = userData.user;
+        if (!user) return addedLocations;
 
-      const existingNames = new Set(locations.map(location => location.name.toLowerCase()));
-      const rows = addedLocations.filter(location => !existingNames.has(location.name.toLowerCase()));
+        const existingNames = new Set(locations.map(location => location.name.toLowerCase()));
+        const rows = addedLocations.filter(location => !existingNames.has(location.name.toLowerCase()));
 
-      if (rows.length === 0) return addedLocations;
+        if (rows.length === 0) return addedLocations;
 
-      const { error } = await supabase
-        .from('locations')
-        .insert(rows.map(location => buildLocationRow(location, targetTimelineId, user.id)));
+        const { error } = await supabase
+          .from('locations')
+          .insert(rows.map(location => buildLocationRow(location, targetTimelineId, user.id)));
 
-      if (error) {
+        if (error) {
+          if (isMissingTableError(error)) return addedLocations;
+          throw error;
+        }
+      } catch (error) {
+        if (isMissingTableError(error)) return addedLocations;
         throw error;
       }
     }
@@ -323,17 +339,23 @@ export const useLocationPersistence = (activeTimelineId?: string | null) => {
       const targetTimelineId = timelineId || activeTimelineId;
 
       if (supabase && targetTimelineId && addedLocations.length > 0) {
-        const { data: userData, error: userError } = await supabase.auth.getUser();
-        if (userError) throw userError;
+        try {
+          const { data: userData, error: userError } = await supabase.auth.getUser();
+          if (userError) throw userError;
 
-        const user = userData.user;
-        if (!user) return importedLocations;
+          const user = userData.user;
+          if (!user) return importedLocations;
 
-        const { error } = await supabase
-          .from('locations')
-          .insert(addedLocations.map(location => buildLocationRow(location, targetTimelineId, user.id)));
+          const { error } = await supabase
+            .from('locations')
+            .insert(addedLocations.map(location => buildLocationRow(location, targetTimelineId, user.id)));
 
-        if (error) {
+          if (error) {
+            if (isMissingTableError(error)) return importedLocations;
+            throw error;
+          }
+        } catch (error) {
+          if (isMissingTableError(error)) return importedLocations;
           throw error;
         }
       }

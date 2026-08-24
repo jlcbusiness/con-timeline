@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 
+const isStaleAuthSessionError = (error: any) =>
+  /User from sub claim in JWT does not exist|Auth session missing|Invalid Refresh Token|JWT expired/i.test(String(error?.message || ''));
+
 export const useSupabaseSession = () => {
   const [user, setUser] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -13,9 +16,20 @@ export const useSupabaseSession = () => {
 
     let mounted = true;
 
-    supabase.auth.getSession().then((response: any) => {
+    supabase.auth.getUser().then(async (response: any) => {
       if (!mounted) return;
-      setUser(response.data?.session?.user ?? null);
+
+      if (response.error) {
+        if (isStaleAuthSessionError(response.error)) {
+          await supabase.auth.signOut();
+        }
+
+        setUser(null);
+        setIsLoading(false);
+        return;
+      }
+
+      setUser(response.data?.user ?? null);
       setIsLoading(false);
     });
 

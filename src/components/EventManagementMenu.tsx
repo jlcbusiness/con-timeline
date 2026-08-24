@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Download, Upload, Trash2, Sparkles, ChevronDown, ArrowUpDown } from 'lucide-react';
+import { Download, Upload, Trash2, Sparkles, ArrowUpDown } from 'lucide-react';
 
 interface EventManagementMenuProps {
   onExport: () => void;
@@ -24,6 +24,27 @@ export const EventManagementMenu: React.FC<EventManagementMenuProps> = ({
     fileInputRef.current?.click();
   };
 
+  const getImportErrorMessage = (error: unknown) => {
+    if (error instanceof Error && error.message.trim()) {
+      return error.message;
+    }
+
+    if (typeof error === 'string' && error.trim()) {
+      return error;
+    }
+
+    try {
+      const serialized = JSON.stringify(error);
+      if (serialized && serialized !== '{}') {
+        return serialized;
+      }
+    } catch {
+      // ignore JSON stringify failures and fall through to the generic message
+    }
+
+    return 'Failed to import events. Please check the file format or your Supabase connection.';
+  };
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -33,7 +54,7 @@ export const EventManagementMenu: React.FC<EventManagementMenuProps> = ({
       await onImport(file);
       setIsOpen(false);
     } catch (error) {
-      alert('Failed to import events. Please check the file format.');
+      alert(getImportErrorMessage(error));
     } finally {
       setIsImporting(false);
       if (fileInputRef.current) {
@@ -61,10 +82,9 @@ export const EventManagementMenu: React.FC<EventManagementMenuProps> = ({
         onClick={() => setIsOpen(!isOpen)}
         className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border border-gray-300 bg-white p-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-900 md:px-3 md:py-2"
         title="Import/export options"
+        aria-label="Import/export options"
       >
-        <ArrowUpDown size={16} className="md:hidden" />
-        <span className="hidden whitespace-nowrap md:inline">Import/Export</span>
-        <ChevronDown size={14} className="hidden md:inline" />
+        <ArrowUpDown size={16} />
       </button>
 
       {isOpen && (

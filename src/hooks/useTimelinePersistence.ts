@@ -17,6 +17,9 @@ const LEGACY_END_DATE = '2025-09-02T23:00:00';
 
 const uuid = () => (typeof crypto !== 'undefined' && (crypto as any).randomUUID ? (crypto as any).randomUUID() : Date.now().toString());
 
+const isMissingTableError = (error: any) =>
+  error?.code === 'PGRST205' || error?.code === '42P01' || /could not find the table/i.test(String(error?.message || ''));
+
 const mapTimelineRow = (timeline: any): TimelineMeta => ({
   id: timeline.id,
   name: timeline.name,
@@ -61,7 +64,36 @@ export const useTimelinePersistence = () => {
           .eq('user_id', user.id)
           .order('created_at', { ascending: true });
 
-        if (error) throw error;
+        if (error) {
+          if (isMissingTableError(error)) {
+            const fallbackTimeline = {
+              id: uuid(),
+              user_id: user.id,
+              name: 'Default Timeline',
+              start_date: LEGACY_START_DATE,
+              end_date: LEGACY_END_DATE,
+              archived: false,
+              archived_at: null
+            };
+
+            const loadedFallbackTimelines = [mapTimelineRow(fallbackTimeline)];
+            if (cancelled) return;
+
+            setTimelines(loadedFallbackTimelines);
+
+            const activeKey = `active-timeline-id:${user.id}`;
+            const preferredActiveId = localStorage.getItem(activeKey) || localStorage.getItem(ACTIVE_KEY);
+            const nextActiveId = preferredActiveId && loadedFallbackTimelines.some(timeline => timeline.id === preferredActiveId)
+              ? preferredActiveId
+              : loadedFallbackTimelines[0].id;
+
+            setActiveId(nextActiveId);
+            localStorage.setItem(activeKey, nextActiveId);
+            return;
+          }
+
+          throw error;
+        }
 
         let loadedTimelines: TimelineMeta[] = (data ?? []).map(mapTimelineRow);
 
@@ -82,9 +114,15 @@ export const useTimelinePersistence = () => {
             .select('*')
             .single();
 
-          if (insertError) throw insertError;
-
-          loadedTimelines = inserted ? [mapTimelineRow(inserted)] : [];
+          if (insertError) {
+            if (isMissingTableError(insertError)) {
+              loadedTimelines = [mapTimelineRow(defaultTimeline)];
+            } else {
+              throw insertError;
+            }
+          } else {
+            loadedTimelines = inserted ? [mapTimelineRow(inserted)] : [];
+          }
         }
 
         if (cancelled) return;
@@ -163,10 +201,14 @@ export const useTimelinePersistence = () => {
           archived_at: null
         });
 
-        if (error) {
+        if (error && !isMissingTableError(error)) {
           console.error('Failed to create timeline in Supabase', error);
         }
       } catch (error) {
+        if (isMissingTableError(error)) {
+          return newMeta;
+        }
+
         console.error('Failed to create timeline in Supabase', error);
       }
     }
