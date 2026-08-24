@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import type { CosplayEntry } from '../types/timeline';
-import { formatDateHeader, parseDayKey } from '../utils/timelineUtils';
+import { formatDateHeader, getDayKey, parseDayKey } from '../utils/timelineUtils';
 
 interface CosplayEntryModalProps {
   isOpen: boolean;
@@ -10,6 +10,7 @@ interface CosplayEntryModalProps {
   onDelete: (entryId: string) => void;
   entry?: CosplayEntry | null;
   dayKey?: string | null;
+  days: Date[];
 }
 
 export const CosplayEntryModal: React.FC<CosplayEntryModalProps> = ({
@@ -18,13 +19,16 @@ export const CosplayEntryModal: React.FC<CosplayEntryModalProps> = ({
   onSave,
   onDelete,
   entry,
-  dayKey
+  dayKey,
+  days
 }) => {
   const [title, setTitle] = useState('');
+  const [selectedDayKey, setSelectedDayKey] = useState('');
 
   useEffect(() => {
     setTitle(entry?.title || '');
-  }, [entry, isOpen]);
+    setSelectedDayKey(entry?.dayKey || dayKey || '');
+  }, [entry, dayKey, isOpen]);
 
   if (!isOpen) return null;
 
@@ -34,9 +38,9 @@ export const CosplayEntryModal: React.FC<CosplayEntryModalProps> = ({
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
     const trimmedTitle = title.trim();
-    if (!trimmedTitle || !currentDayKey) return;
+    if (!trimmedTitle || !selectedDayKey) return;
 
-    onSave(currentDayKey, trimmedTitle, entry?.id);
+    onSave(selectedDayKey, trimmedTitle, entry?.id);
     onClose();
   };
 
@@ -83,6 +87,29 @@ export const CosplayEntryModal: React.FC<CosplayEntryModalProps> = ({
               autoComplete="off"
               required
             />
+          </div>
+
+          <div>
+            <label htmlFor="cosplay-entry-day" className="mb-2 block text-sm font-medium text-gray-700">
+              Date
+            </label>
+            <select
+              id="cosplay-entry-day"
+              value={selectedDayKey}
+              onChange={(event) => setSelectedDayKey(event.target.value)}
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
+            >
+              {days.map(day => {
+                const optionKey = getDayKey(day);
+
+                return (
+                  <option key={optionKey} value={optionKey}>
+                    {formatDateHeader(day)}
+                  </option>
+                );
+              })}
+            </select>
           </div>
 
           <div className="flex items-center justify-between gap-3 pt-2">

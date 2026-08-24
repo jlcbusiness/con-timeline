@@ -550,7 +550,7 @@ export const Timeline: React.FC = () => {
 
   const handleCosplayEntrySave = (dayKey: string, title: string, entryId?: string) => {
     if (entryId) {
-      updateCosplayEntry(entryId, title);
+      updateCosplayEntry(entryId, title, dayKey);
     } else {
       addCosplayEntry(dayKey, title);
     }
@@ -1157,6 +1157,7 @@ export const Timeline: React.FC = () => {
         onDelete={handleCosplayEntryDelete}
         entry={editingCosplayEntry}
         dayKey={clickedCosplayDayKey}
+        days={dayColumns}
       />
 
       {/* Dragon Con Importer Modal */}

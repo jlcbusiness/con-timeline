@@ -212,6 +212,55 @@ export const useCosplayEntryPersistence = (activeTimelineId?: string | null, day
     setEntries(nextEntries);
   };
 
+  const shiftEntryAcrossDays = (prevEntries: CosplayEntry[], entryId: string, targetDayKey: string) => {
+    const movingEntry = prevEntries.find(entry => entry.id === entryId);
+
+    if (!movingEntry || movingEntry.dayKey === targetDayKey) {
+      return prevEntries;
+    }
+
+    const dayOrder = days.map(day => getDayKey(day));
+    const sourceIndex = dayOrder.indexOf(movingEntry.dayKey);
+    const targetIndex = dayOrder.indexOf(targetDayKey);
+
+    if (sourceIndex === -1 || targetIndex === -1) {
+      return prevEntries;
+    }
+
+    const updatedAt = new Date().toISOString();
+    const movedEntry: CosplayEntry = {
+      ...movingEntry,
+      dayKey: targetDayKey,
+      updatedAt
+    };
+
+    const nextEntries = prevEntries
+      .filter(entry => entry.id !== entryId)
+      .map(entry => {
+        const entryIndex = dayOrder.indexOf(entry.dayKey);
+
+        if (sourceIndex < targetIndex && entryIndex > sourceIndex && entryIndex <= targetIndex) {
+          return {
+            ...entry,
+            dayKey: dayOrder[entryIndex - 1],
+            updatedAt
+          };
+        }
+
+        if (sourceIndex > targetIndex && entryIndex >= targetIndex && entryIndex < sourceIndex) {
+          return {
+            ...entry,
+            dayKey: dayOrder[entryIndex + 1],
+            updatedAt
+          };
+        }
+
+        return entry;
+      });
+
+    return sortEntries([...nextEntries, movedEntry]);
+  };
+
   const addEntry = (dayKey: string, title: string) => {
     const trimmedTitle = title.trim();
     if (!trimmedTitle) return;
@@ -228,9 +277,22 @@ export const useCosplayEntryPersistence = (activeTimelineId?: string | null, day
     commitEntries(nextEntries);
   };
 
-  const updateEntry = (entryId: string, title: string) => {
+  const updateEntry = (entryId: string, title: string, dayKey?: string) => {
     const trimmedTitle = title.trim();
     if (!trimmedTitle) return;
+
+    if (dayKey) {
+      setEntries(prevEntries => {
+        const shiftedEntries = shiftEntryAcrossDays(prevEntries, entryId, dayKey);
+
+        return sortEntries(shiftedEntries.map(entry =>
+          entry.id === entryId
+            ? { ...entry, title: trimmedTitle, dayKey, updatedAt: new Date().toISOString() }
+            : entry
+        ));
+      });
+      return;
+    }
 
     const nextEntries = sortEntries(entries.map(entry =>
       entry.id === entryId
@@ -246,53 +308,7 @@ export const useCosplayEntryPersistence = (activeTimelineId?: string | null, day
   };
 
   const moveEntry = (entryId: string, targetDayKey: string) => {
-    setEntries(prevEntries => {
-      const movingEntry = prevEntries.find(entry => entry.id === entryId);
-
-      if (!movingEntry || movingEntry.dayKey === targetDayKey) {
-        return prevEntries;
-      }
-
-      const dayOrder = days.map(day => getDayKey(day));
-      const sourceIndex = dayOrder.indexOf(movingEntry.dayKey);
-      const targetIndex = dayOrder.indexOf(targetDayKey);
-
-      if (sourceIndex === -1 || targetIndex === -1) {
-        return prevEntries;
-      }
-
-      const movedEntry: CosplayEntry = {
-        ...movingEntry,
-        dayKey: targetDayKey,
-        updatedAt: new Date().toISOString()
-      };
-
-      const nextEntries = prevEntries
-        .filter(entry => entry.id !== entryId)
-        .map(entry => {
-          const entryIndex = dayOrder.indexOf(entry.dayKey);
-
-          if (sourceIndex < targetIndex && entryIndex > sourceIndex && entryIndex <= targetIndex) {
-            return {
-              ...entry,
-              dayKey: dayOrder[entryIndex - 1],
-              updatedAt: new Date().toISOString()
-            };
-          }
-
-          if (sourceIndex > targetIndex && entryIndex >= targetIndex && entryIndex < sourceIndex) {
-            return {
-              ...entry,
-              dayKey: dayOrder[entryIndex + 1],
-              updatedAt: new Date().toISOString()
-            };
-          }
-
-          return entry;
-        });
-
-      return sortEntries([...nextEntries, movedEntry]);
-    });
+    setEntries(prevEntries => shiftEntryAcrossDays(prevEntries, entryId, targetDayKey));
   };
 
   return {
