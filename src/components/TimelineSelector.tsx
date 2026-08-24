@@ -43,7 +43,7 @@ export const TimelineSelector: React.FC<Props> = ({ timelines, activeId, setActi
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className="max-w-[10rem] truncate rounded border border-gray-300 bg-white px-2 py-1.5 text-sm font-medium text-gray-800 hover:bg-gray-50 md:max-w-none"
+          className="max-w-[10rem] truncate rounded border border-gray-300 bg-white px-1.5 py-1.5 text-sm font-medium text-gray-800 hover:bg-gray-50 md:max-w-none"
         >
           {activeTimeline?.name ?? 'Select timeline'}
         </button>
