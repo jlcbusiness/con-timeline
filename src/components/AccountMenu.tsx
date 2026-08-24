@@ -33,7 +33,7 @@ export const AccountMenu: React.FC<Props> = ({ user, onSignOut }) => {
       <button
         type="button"
         onClick={() => setIsOpen(prev => !prev)}
-        className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-300 bg-white shadow-sm hover:bg-gray-50"
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-300 bg-white shadow-sm hover:bg-gray-50"
         aria-label="Account menu"
         aria-haspopup="menu"
         aria-expanded={isOpen}

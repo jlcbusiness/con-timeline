@@ -823,9 +823,7 @@ export const Timeline: React.FC = () => {
             />
 
             {user && (
-              <div className="ml-auto">
-                <AccountMenu user={user} onSignOut={handleSignOut} />
-              </div>
+              <AccountMenu user={user} onSignOut={handleSignOut} />
             )}
           </div>
 
