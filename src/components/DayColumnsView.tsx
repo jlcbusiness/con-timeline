@@ -108,6 +108,65 @@ export const DayColumnsView: React.FC<DayColumnsViewProps> = ({
     dragPointerIdRef.current = null;
   };
 
+  const handleCosplayRailPointerDown = (event: React.PointerEvent<HTMLElement>, entryId: string, currentDayKey: string) => {
+    if (event.pointerType !== 'touch') return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    dragPointerIdRef.current = event.pointerId;
+    dragTouchStateRef.current.activeEntryId = entryId;
+    dragTouchStateRef.current.lastDayKey = currentDayKey;
+
+    const handleElement = event.currentTarget;
+    if (typeof handleElement.setPointerCapture === 'function') {
+      try {
+        handleElement.setPointerCapture(event.pointerId);
+      } catch {
+        // Ignore synthetic or unsupported capture failures.
+      }
+    }
+  };
+
+  const handleCosplayRailPointerMove = (event: React.PointerEvent<HTMLElement>) => {
+    if (event.pointerType !== 'touch') return;
+    if (dragPointerIdRef.current !== event.pointerId) return;
+
+    event.preventDefault();
+    handleCosplayTouchMove(event.clientX, event.clientY);
+  };
+
+  const handleCosplayRailPointerEnd = (event: React.PointerEvent<HTMLElement>) => {
+    if (event.pointerType !== 'touch') return;
+    if (dragPointerIdRef.current !== event.pointerId) return;
+
+    event.preventDefault();
+    handleCosplayTouchEnd();
+  };
+
+  const renderCosplayRail = (entryId: string, currentDayKey: string, side: 'left' | 'right') => (
+    <div
+      className={`flex min-h-full w-3.5 shrink-0 items-center justify-center bg-fuchsia-200 text-fuchsia-600 transition-colors duration-150 hover:bg-fuchsia-300 hover:text-fuchsia-700 active:cursor-grabbing ${side === 'left' ? 'rounded-l-2xl border-r border-fuchsia-200' : 'rounded-r-2xl border-l border-fuchsia-200'}`}
+      draggable
+      onDragStart={(event) => {
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('application/x-cosplay-entry', JSON.stringify({ entryId }));
+        event.dataTransfer.setData('text/plain', JSON.stringify({ entryId }));
+        if (event.currentTarget.parentElement) {
+          event.dataTransfer.setDragImage(event.currentTarget.parentElement, 20, 20);
+        }
+      }}
+      onPointerDown={(event) => handleCosplayRailPointerDown(event, entryId, currentDayKey)}
+      onPointerMove={handleCosplayRailPointerMove}
+      onPointerUp={handleCosplayRailPointerEnd}
+      onPointerCancel={handleCosplayRailPointerEnd}
+      aria-label="Drag cosplay entry"
+      title="Drag to another day"
+      style={{ touchAction: 'none' }}
+    >
+      <GripVertical size={12} />
+    </div>
+  );
+
   const boardWidth = Math.max(days.length * columnWidth, columnWidth);
 
   return (
@@ -158,62 +217,9 @@ export const DayColumnsView: React.FC<DayColumnsViewProps> = ({
                   {cosplayEntry ? (
                     <div
                       className="group flex min-h-[72px] w-full overflow-hidden rounded-2xl border border-slate-300 bg-white text-left shadow-sm transition-colors duration-150 focus-within:ring-2 focus-within:ring-slate-300"
-                      title={`${cosplayEntry.title}\nDouble-click to edit, drag the left rail to another day`}
+                      title={`${cosplayEntry.title}\nDouble-click to edit, drag either rail to another day`}
                     >
-                      <div
-                        className="flex min-h-full w-3.5 shrink-0 items-center justify-center rounded-l-2xl border-r border-fuchsia-200 bg-fuchsia-200 text-fuchsia-600 transition-colors duration-150 hover:bg-fuchsia-300 hover:text-fuchsia-700 active:cursor-grabbing"
-                        draggable
-                        onDragStart={(event) => {
-                          event.dataTransfer.effectAllowed = 'move';
-                          event.dataTransfer.setData('application/x-cosplay-entry', JSON.stringify({ entryId: cosplayEntry.id }));
-                          event.dataTransfer.setData('text/plain', JSON.stringify({ entryId: cosplayEntry.id }));
-                          if (event.currentTarget.parentElement) {
-                            event.dataTransfer.setDragImage(event.currentTarget.parentElement, 20, 20);
-                          }
-                        }}
-                        onPointerDown={(event) => {
-                          if (event.pointerType !== 'touch') return;
-
-                          event.preventDefault();
-                          event.stopPropagation();
-                          dragPointerIdRef.current = event.pointerId;
-                          dragTouchStateRef.current.activeEntryId = cosplayEntry.id;
-                          dragTouchStateRef.current.lastDayKey = dayKey;
-                          const handleElement = event.currentTarget as HTMLElement;
-                          if (typeof handleElement.setPointerCapture === 'function') {
-                            try {
-                              handleElement.setPointerCapture(event.pointerId);
-                            } catch {
-                              // Ignore synthetic or unsupported capture failures.
-                            }
-                          }
-                        }}
-                        onPointerMove={(event) => {
-                          if (event.pointerType !== 'touch') return;
-                          if (dragPointerIdRef.current !== event.pointerId) return;
-
-                          event.preventDefault();
-                          handleCosplayTouchMove(event.clientX, event.clientY);
-                        }}
-                        onPointerUp={(event) => {
-                          if (event.pointerType !== 'touch') return;
-                          if (dragPointerIdRef.current !== event.pointerId) return;
-
-                          event.preventDefault();
-                          handleCosplayTouchEnd();
-                        }}
-                        onPointerCancel={(event) => {
-                          if (event.pointerType !== 'touch') return;
-                          if (dragPointerIdRef.current !== event.pointerId) return;
-
-                          handleCosplayTouchEnd();
-                        }}
-                        aria-label="Drag cosplay entry"
-                        title="Drag to another day"
-                        style={{ touchAction: 'none' }}
-                      >
-                        <GripVertical size={12} />
-                      </div>
+                      {renderCosplayRail(cosplayEntry.id, dayKey, 'left')}
                       <button
                         type="button"
                         className="min-w-0 flex-1 bg-white px-3 py-3 text-left transition-colors duration-150 hover:bg-slate-50 focus:outline-none"
@@ -223,6 +229,7 @@ export const DayColumnsView: React.FC<DayColumnsViewProps> = ({
                           {cosplayEntry.title}
                         </div>
                       </button>
+                      {renderCosplayRail(cosplayEntry.id, dayKey, 'right')}
                     </div>
                   ) : (
                     <button
