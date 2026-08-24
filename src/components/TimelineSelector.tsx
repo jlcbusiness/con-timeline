@@ -38,7 +38,7 @@ export const TimelineSelector: React.FC<Props> = ({ timelines, activeId, setActi
   };
 
   return (
-    <div className="relative shrink-0">
+    <div className="relative">
       <div className="flex items-center gap-2">
         <button
           type="button"

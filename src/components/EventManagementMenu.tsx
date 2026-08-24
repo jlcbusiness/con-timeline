@@ -77,7 +77,7 @@ export const EventManagementMenu: React.FC<EventManagementMenuProps> = ({
   };
 
   return (
-    <div className="relative shrink-0">
+    <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border border-gray-300 bg-white p-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-900 md:px-3 md:py-2"

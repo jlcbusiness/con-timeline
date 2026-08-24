@@ -768,7 +768,7 @@ export const Timeline: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-3">
+          <div className="flex items-center justify-end gap-2">
             <TimelineSelector
               timelines={timelines}
               activeId={activeId}
@@ -831,7 +831,7 @@ export const Timeline: React.FC = () => {
       </div>
 
       <div className="border-b bg-white px-3 py-3 md:hidden">
-        <div className="flex w-full flex-nowrap items-center justify-center gap-1 overflow-x-auto overflow-y-visible">
+        <div className="flex w-full flex-wrap items-center justify-center gap-0.5 overflow-visible">
           <TimelineSelector
             timelines={timelines}
             activeId={activeId}
@@ -854,7 +854,7 @@ export const Timeline: React.FC = () => {
           <button
             type="button"
             onClick={handleToggleViewMode}
-            className="inline-flex shrink-0 items-center justify-center rounded-md border border-gray-300 bg-white p-2 text-sm font-medium text-gray-800 hover:bg-gray-50"
+            className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white p-2 text-sm font-medium text-gray-800 hover:bg-gray-50"
             title={viewMode === 'timeline' ? 'Switch to day columns' : 'Return to timeline view'}
           >
             <CalendarDays size={16} className={viewMode === 'timeline' ? 'text-blue-600' : 'text-amber-500'} />
