@@ -2,6 +2,7 @@ import React from 'react';
 import { Edit3, Clock, GripVertical, ChevronLeft, ChevronRight, MapPin } from 'lucide-react';
 import type { TimelineEvent as TimelineEventType } from '../types/timeline';
 import { getTimePosition, getEventWidth, getEventBufferWidth } from '../utils/timelineUtils';
+import { PIXELS_PER_SLOT } from '../config/timeline';
 
 interface TimelineEventProps {
   event: TimelineEventType;
@@ -30,7 +31,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
   
   // Fixed positioning calculation to align with slot headers
   // Each slot is 64px high, and we add 4px margin from the top of each slot
-  const topPosition = event.position * 64 + 4;
+  const topPosition = event.position * PIXELS_PER_SLOT + 4;
 
   const formatTime = (date: Date): string => {
     return date.toLocaleTimeString('en-US', {
@@ -85,7 +86,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
         top: `${topPosition}px`,
         ['--event-width' as any]: `${Math.max(width, 80)}px`,
         width: 'var(--event-width)',
-        height: '56px', // Fixed height to fit within 64px slot with margins
+        height: '48px',
         backgroundColor: event.color,
         color: 'white'
       }}

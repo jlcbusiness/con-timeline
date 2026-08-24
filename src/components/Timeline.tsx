@@ -15,7 +15,7 @@ import { ManageTimelinesModal } from './ManageTimelinesModal';
 import { useTimelinePersistence } from '../hooks/useTimelinePersistence';
 import { readImportedEvents } from '../hooks/useEventPersistence';
 import { useCosplayEntryPersistence } from '../hooks/useCosplayEntryPersistence';
-import { PIXELS_PER_HOUR, DEFAULT_START_DATE, DEFAULT_END_DATE } from '../config/timeline';
+import { PIXELS_PER_HOUR, PIXELS_PER_SLOT, DEFAULT_START_DATE, DEFAULT_END_DATE } from '../config/timeline';
 import { useSupabaseSession } from '../hooks/useSupabaseSession';
 import { supabase } from '../lib/supabase';
 import { AccountMenu } from './AccountMenu';
@@ -127,7 +127,7 @@ export const Timeline: React.FC = () => {
   const colorOptions = getEventColors();
   const slotCount = 11;
   const deleteSlotIndex = 10;
-  const gridSlotHeight = 64;
+  const gridSlotHeight = PIXELS_PER_SLOT;
 
   // Event persistence
   const {
@@ -987,7 +987,7 @@ export const Timeline: React.FC = () => {
             <div className="flex-1 relative overflow-hidden">
               <div
                 ref={timelineContentRef}
-                className="h-full overflow-x-auto overflow-y-hidden scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100"
+                className="h-full overflow-x-auto overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100"
                 onScroll={handleScroll}
                 onWheel={handleWheelScroll}
               >

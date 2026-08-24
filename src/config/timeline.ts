@@ -1,5 +1,5 @@
 export const PIXELS_PER_HOUR = 240;
-export const PIXELS_PER_SLOT = 64;
+export const PIXELS_PER_SLOT = 56;
 export const EVENT_BUFFER_OPTIONS_MINUTES = [0, 30, 60, 120] as const;
 
 // Default timeline range (can be overridden by configuration or server data)
