@@ -833,7 +833,7 @@ export const Timeline: React.FC = () => {
       </div>
 
       <div className="border-b bg-white px-3 py-3 md:hidden">
-        <div className="relative flex w-full flex-wrap items-center justify-center gap-1 overflow-visible pr-11">
+        <div className="flex w-full min-w-max flex-nowrap items-center justify-start gap-1 overflow-x-auto overflow-y-visible">
           <TimelineSelector
             timelines={timelines}
             activeId={activeId}
@@ -873,7 +873,7 @@ export const Timeline: React.FC = () => {
           />
 
           {user && (
-            <div className="absolute right-0 top-0 shrink-0 whitespace-nowrap">
+            <div className="shrink-0 whitespace-nowrap">
               <AccountMenu user={user} onSignOut={handleSignOut} />
             </div>
           )}
