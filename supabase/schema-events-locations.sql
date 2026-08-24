@@ -95,3 +95,31 @@ create policy locations_select_policy on locations for select using (user_id = a
 create policy locations_insert_policy on locations for insert with check (user_id = auth.uid());
 create policy locations_update_policy on locations for update using (user_id = auth.uid()) with check (user_id = auth.uid());
 create policy locations_delete_policy on locations for delete using (user_id = auth.uid());
+
+-- Cosplay entries
+create table if not exists cosplay_entries (
+  id uuid primary key default gen_random_uuid(),
+  timeline_id uuid references timelines(id) on delete cascade,
+  user_id uuid not null,
+  day_key text not null,
+  title text not null,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create unique index if not exists idx_cosplay_entries_timeline_day on cosplay_entries(timeline_id, user_id, day_key);
+create index if not exists idx_cosplay_entries_timeline_id on cosplay_entries(timeline_id);
+create index if not exists idx_cosplay_entries_user_id on cosplay_entries(user_id);
+
+drop trigger if exists trg_cosplay_entries_timestamp on cosplay_entries;
+create trigger trg_cosplay_entries_timestamp before update on cosplay_entries for each row execute procedure trigger_set_timestamp();
+
+alter table cosplay_entries enable row level security;
+drop policy if exists cosplay_entries_select_policy on cosplay_entries;
+drop policy if exists cosplay_entries_insert_policy on cosplay_entries;
+drop policy if exists cosplay_entries_update_policy on cosplay_entries;
+drop policy if exists cosplay_entries_delete_policy on cosplay_entries;
+create policy cosplay_entries_select_policy on cosplay_entries for select using (user_id = auth.uid());
+create policy cosplay_entries_insert_policy on cosplay_entries for insert with check (user_id = auth.uid());
+create policy cosplay_entries_update_policy on cosplay_entries for update using (user_id = auth.uid()) with check (user_id = auth.uid());
+create policy cosplay_entries_delete_policy on cosplay_entries for delete using (user_id = auth.uid());

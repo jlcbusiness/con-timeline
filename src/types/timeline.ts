@@ -12,6 +12,14 @@ export interface TimelineEvent {
   updatedAt?: string;
 }
 
+export interface CosplayEntry {
+  id: string;
+  title: string;
+  dayKey: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface TimeSlot {
   time: Date;
   events: TimelineEvent[];

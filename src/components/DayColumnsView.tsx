@@ -1,14 +1,18 @@
 import React from 'react';
-import { Clock, MapPin } from 'lucide-react';
-import type { TimelineEvent as TimelineEventType } from '../types/timeline';
-import { formatDateHeader } from '../utils/timelineUtils';
+import { Clock, GripVertical, MapPin } from 'lucide-react';
+import type { CosplayEntry, TimelineEvent as TimelineEventType } from '../types/timeline';
+import { formatDateHeader, getDayKey } from '../utils/timelineUtils';
 
 interface DayColumnsViewProps {
   days: Date[];
   events: TimelineEventType[];
+  cosplayEntries: CosplayEntry[];
   selectedColor: string;
   columnWidth: number;
   onEventEdit: (event: TimelineEventType) => void;
+  onCosplayEntryCreate: (day: Date) => void;
+  onCosplayEntryEdit: (entry: CosplayEntry) => void;
+  onCosplayEntryMove: (entryId: string, targetDayKey: string) => void;
 }
 
 const normalizeColor = (color: string) => color.trim().toLowerCase();
@@ -44,9 +48,13 @@ const formatDuration = (startTime: Date, endTime: Date): string => {
 export const DayColumnsView: React.FC<DayColumnsViewProps> = ({
   days,
   events,
+  cosplayEntries,
   selectedColor,
   columnWidth,
-  onEventEdit
+  onEventEdit,
+  onCosplayEntryCreate,
+  onCosplayEntryEdit,
+  onCosplayEntryMove
 }) => {
   const selectedColorKey = normalizeColor(selectedColor);
   const filteredEvents = events
@@ -56,6 +64,22 @@ export const DayColumnsView: React.FC<DayColumnsViewProps> = ({
   const groupedEvents = days.map(day =>
     filteredEvents.filter(event => isSameDay(event.startTime, day))
   );
+
+  const cosplayEntriesByDay = new Map(cosplayEntries.map(entry => [entry.dayKey, entry]));
+  const handleCosplayDrop = (dayKey: string, dataTransfer: DataTransfer) => {
+    const rawPayload = dataTransfer.getData('application/x-cosplay-entry') || dataTransfer.getData('text/plain');
+
+    if (!rawPayload) return;
+
+    try {
+      const payload = JSON.parse(rawPayload) as { entryId?: string };
+      if (payload.entryId) {
+        onCosplayEntryMove(payload.entryId, dayKey);
+      }
+    } catch {
+      return;
+    }
+  };
 
   const boardWidth = Math.max(days.length * columnWidth, columnWidth);
 
@@ -83,14 +107,72 @@ export const DayColumnsView: React.FC<DayColumnsViewProps> = ({
       <div className="flex items-stretch" style={{ width: `${boardWidth}px` }}>
         {days.map((day, dayIndex) => {
           const dayEvents = groupedEvents[dayIndex];
+          const dayKey = getDayKey(day);
+          const cosplayEntry = cosplayEntriesByDay.get(dayKey);
 
           return (
             <section
               key={day.toISOString()}
               className="flex min-h-full flex-col border-r border-slate-200 bg-slate-50/80 last:border-r-0"
               style={{ width: `${columnWidth}px`, flex: `0 0 ${columnWidth}px` }}
+              onDragEnter={(event) => {
+                event.preventDefault();
+                handleCosplayDrop(dayKey, event.dataTransfer);
+              }}
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={(event) => {
+                event.preventDefault();
+                handleCosplayDrop(dayKey, event.dataTransfer);
+              }}
             >
               <div className="min-h-0 flex-1 p-3">
+                <div className="mb-3">
+                  {cosplayEntry ? (
+                    <div
+                      className="group flex min-h-[72px] w-full overflow-hidden rounded-2xl border border-slate-300 bg-white text-left shadow-sm transition-colors duration-150 focus-within:ring-2 focus-within:ring-slate-300"
+                      title={`${cosplayEntry.title}\nDouble-click to edit, drag the left rail to another day`}
+                    >
+                      <div
+                        className="flex min-h-full w-7 shrink-0 items-center justify-center rounded-l-2xl border-r border-fuchsia-200 bg-fuchsia-200 text-fuchsia-600 transition-colors duration-150 hover:bg-fuchsia-300 hover:text-fuchsia-700 active:cursor-grabbing"
+                        draggable
+                        onDragStart={(event) => {
+                          event.dataTransfer.effectAllowed = 'move';
+                          event.dataTransfer.setData('application/x-cosplay-entry', JSON.stringify({ entryId: cosplayEntry.id }));
+                          event.dataTransfer.setData('text/plain', JSON.stringify({ entryId: cosplayEntry.id }));
+                          if (event.currentTarget.parentElement) {
+                            event.dataTransfer.setDragImage(event.currentTarget.parentElement, 20, 20);
+                          }
+                        }}
+                        aria-label="Drag cosplay entry"
+                        title="Drag to another day"
+                        style={{ touchAction: 'none' }}
+                      >
+                        <GripVertical size={12} />
+                      </div>
+                      <button
+                        type="button"
+                        className="min-w-0 flex-1 bg-white px-3 py-3 text-left transition-colors duration-150 hover:bg-slate-50 focus:outline-none"
+                        onDoubleClick={() => onCosplayEntryEdit(cosplayEntry)}
+                      >
+                        <div className="truncate text-sm font-semibold text-slate-900">
+                          {cosplayEntry.title}
+                        </div>
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="flex min-h-[72px] w-full items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white/75 px-4 py-4 text-center text-sm text-slate-500 transition-colors hover:border-slate-400 hover:bg-white"
+                      onClick={() => onCosplayEntryCreate(day)}
+                      title="Add cosplay entry"
+                    >
+                      <div>
+                        <div className="font-medium text-slate-700">Cosplay Entry</div>
+                      </div>
+                    </button>
+                  )}
+                </div>
+
                 {dayEvents.length === 0 ? (
                   <div className="flex h-full min-h-[180px] items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white/75 px-4 py-6 text-center text-sm text-slate-500">
                     <div>

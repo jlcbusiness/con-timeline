@@ -28,6 +28,18 @@ export const formatDateHeader = (date: Date): string => {
   });
 };
 
+export const getDayKey = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+export const parseDayKey = (dayKey: string): Date => {
+  const [year, month, day] = dayKey.split('-').map(Number);
+  return new Date(year || 0, (month || 1) - 1, day || 1);
+};
+
 export const getEventDurationInHours = (startTime: Date, endTime: Date): number => {
   return (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
 };

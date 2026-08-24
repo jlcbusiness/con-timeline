@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { CalendarDays, Minus, Palette, Plus, RotateCcw, Save } from 'lucide-react';
-import type { TimelineEvent as TimelineEventType } from '../types/timeline';
+import type { CosplayEntry, TimelineEvent as TimelineEventType } from '../types/timeline';
 import { TimelineEvent } from './TimelineEvent';
 import { DayColumnsView } from './DayColumnsView';
 import { EventModal } from './EventModal';
+import { CosplayEntryModal } from './CosplayEntryModal';
 import { EventManagementMenu } from './EventManagementMenu';
 import { DragonConImporter } from './DragonConImporter';
 import { useDragAndResize } from '../hooks/useDragAndResize';
@@ -13,6 +14,7 @@ import { TimelineSelector } from './TimelineSelector';
 import { ManageTimelinesModal } from './ManageTimelinesModal';
 import { useTimelinePersistence } from '../hooks/useTimelinePersistence';
 import { readImportedEvents } from '../hooks/useEventPersistence';
+import { useCosplayEntryPersistence } from '../hooks/useCosplayEntryPersistence';
 import { PIXELS_PER_HOUR, DEFAULT_START_DATE, DEFAULT_END_DATE } from '../config/timeline';
 import { useSupabaseSession } from '../hooks/useSupabaseSession';
 import { supabase } from '../lib/supabase';
@@ -22,6 +24,7 @@ import {
   formatTimeSlot,
   formatDateHeader,
   findAvailablePosition,
+  getDayKey,
   getTimePosition,
   getEventColors
 } from '../utils/timelineUtils';
@@ -69,6 +72,9 @@ export const Timeline: React.FC = () => {
   const [dayColumnScale, setDayColumnScale] = useState(1);
   const [timelineViewportWidth, setTimelineViewportWidth] = useState(0);
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
+  const [isCosplayModalOpen, setIsCosplayModalOpen] = useState(false);
+  const [editingCosplayEntry, setEditingCosplayEntry] = useState<CosplayEntry | null>(null);
+  const [clickedCosplayDayKey, setClickedCosplayDayKey] = useState<string | null>(null);
 
   const timelineContentRef = useRef<HTMLDivElement>(null);
   const bottomDeleteTargetRef = useRef<HTMLDivElement>(null);
@@ -149,6 +155,15 @@ export const Timeline: React.FC = () => {
     exportLocations,
     importLocations
   } = useLocationPersistence(activeId);
+
+  const {
+    entries: cosplayEntries,
+    isLoading: cosplayEntriesLoading,
+    addEntry: addCosplayEntry,
+    updateEntry: updateCosplayEntry,
+    deleteEntry: deleteCosplayEntry,
+    moveEntry: moveCosplayEntry
+  } = useCosplayEntryPersistence(activeId, dayColumns);
 
   const buildTimelineSpan = (eventsToInspect: TimelineEventType[]) => {
     const datedEvents = eventsToInspect.filter(event => event.startTime && event.endTime);
@@ -521,6 +536,33 @@ export const Timeline: React.FC = () => {
     setLastSaved(new Date());
   };
 
+  const handleCosplayEntryCreate = (day: Date) => {
+    setEditingCosplayEntry(null);
+    setClickedCosplayDayKey(getDayKey(day));
+    setIsCosplayModalOpen(true);
+  };
+
+  const handleCosplayEntryEdit = (entry: CosplayEntry) => {
+    setEditingCosplayEntry(entry);
+    setClickedCosplayDayKey(entry.dayKey);
+    setIsCosplayModalOpen(true);
+  };
+
+  const handleCosplayEntrySave = (dayKey: string, title: string, entryId?: string) => {
+    if (entryId) {
+      updateCosplayEntry(entryId, title);
+    } else {
+      addCosplayEntry(dayKey, title);
+    }
+
+    setLastSaved(new Date());
+  };
+
+  const handleCosplayEntryDelete = (entryId: string) => {
+    deleteCosplayEntry(entryId);
+    setLastSaved(new Date());
+  };
+
   const handleImportEvents = async (file: File) => {
     const importedEvents = await readImportedEvents(file);
     if (importedEvents.length === 0) {
@@ -675,7 +717,7 @@ export const Timeline: React.FC = () => {
     jumpToDates.slice(mobileJumpToDateSplit)
   ].filter(row => row.length > 0);
 
-  if (timelinesLoading || eventsLoading || locationsLoading) {
+  if (timelinesLoading || eventsLoading || locationsLoading || cosplayEntriesLoading) {
     return (
       <div className="h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -1073,9 +1115,13 @@ export const Timeline: React.FC = () => {
               <DayColumnsView
                 days={dayColumns}
                 events={events.filter(event => normalizeColor(event.color) === normalizeColor(selectedColor))}
+                cosplayEntries={cosplayEntries}
                 selectedColor={selectedColor}
                 columnWidth={dayColumnWidth}
                 onEventEdit={handleEventEdit}
+                onCosplayEntryCreate={handleCosplayEntryCreate}
+                onCosplayEntryEdit={handleCosplayEntryEdit}
+                onCosplayEntryMove={moveCosplayEntry}
               />
             </div>
           </div>
@@ -1094,6 +1140,19 @@ export const Timeline: React.FC = () => {
         onAddLocation={addLocation}
         recentLocations={recentLocations}
         popularLocations={popularLocations}
+      />
+
+      <CosplayEntryModal
+        isOpen={isCosplayModalOpen}
+        onClose={() => {
+          setIsCosplayModalOpen(false);
+          setEditingCosplayEntry(null);
+          setClickedCosplayDayKey(null);
+        }}
+        onSave={handleCosplayEntrySave}
+        onDelete={handleCosplayEntryDelete}
+        entry={editingCosplayEntry}
+        dayKey={clickedCosplayDayKey}
       />
 
       {/* Dragon Con Importer Modal */}
