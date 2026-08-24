@@ -950,7 +950,7 @@ export const Timeline: React.FC = () => {
             {/* Time Labels */}
             <div className="w-fit flex-shrink-0 bg-gray-50 border-r">
               <div className="h-full flex flex-col">
-                <div className="h-12 border-b border-gray-200 bg-gray-50 md:bg-gray-50">
+                <div className="h-12 shrink-0 border-b border-gray-200 bg-gray-50 md:bg-gray-50">
                   <button
                     type="button"
                     onClick={() => {
@@ -968,7 +968,7 @@ export const Timeline: React.FC = () => {
                 {Array.from({ length: slotCount }, (_, i) => (
                   <div
                     key={i}
-                    className={`border-b border-gray-200 flex items-center justify-center px-[2mm] text-xs font-medium ${
+                    className={`shrink-0 border-b border-gray-200 flex items-center justify-center px-[2mm] text-xs font-medium ${
                       i === deleteSlotIndex ? 'bg-red-50 text-red-600' : 'text-gray-500'
                     }`}
                     style={{ height: `${gridSlotHeight}px` }}
