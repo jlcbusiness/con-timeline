@@ -350,7 +350,7 @@ export const Timeline: React.FC = () => {
   }));
 
   const spanViewControls = (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-wrap items-center gap-1">
       {viewMode === 'day-columns' && (
         <>
           <div className="hidden items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 md:flex">
@@ -768,7 +768,7 @@ export const Timeline: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-2">
+          <div className="flex items-center justify-end gap-1">
             <TimelineSelector
               timelines={timelines}
               activeId={activeId}
@@ -831,7 +831,7 @@ export const Timeline: React.FC = () => {
       </div>
 
       <div className="border-b bg-white px-3 py-3 md:hidden">
-        <div className="flex w-full flex-wrap items-center justify-center gap-0.5 overflow-visible">
+        <div className="flex w-full flex-wrap items-center justify-center gap-1 overflow-visible">
           <TimelineSelector
             timelines={timelines}
             activeId={activeId}
