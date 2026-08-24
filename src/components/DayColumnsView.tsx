@@ -133,7 +133,7 @@ export const DayColumnsView: React.FC<DayColumnsViewProps> = ({
                       title={`${cosplayEntry.title}\nDouble-click to edit, drag the left rail to another day`}
                     >
                       <div
-                        className="flex min-h-full w-7 shrink-0 items-center justify-center rounded-l-2xl border-r border-fuchsia-200 bg-fuchsia-200 text-fuchsia-600 transition-colors duration-150 hover:bg-fuchsia-300 hover:text-fuchsia-700 active:cursor-grabbing"
+                        className="flex min-h-full w-3.5 shrink-0 items-center justify-center rounded-l-2xl border-r border-fuchsia-200 bg-fuchsia-200 text-fuchsia-600 transition-colors duration-150 hover:bg-fuchsia-300 hover:text-fuchsia-700 active:cursor-grabbing"
                         draggable
                         onDragStart={(event) => {
                           event.dataTransfer.effectAllowed = 'move';
