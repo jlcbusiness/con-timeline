@@ -56,6 +56,12 @@ export const DayColumnsView: React.FC<DayColumnsViewProps> = ({
   onCosplayEntryEdit,
   onCosplayEntryMove
 }) => {
+  const dragTouchStateRef = React.useRef<{ activeEntryId: string | null; lastDayKey: string | null }>({
+    activeEntryId: null,
+    lastDayKey: null
+  });
+  const dragPointerIdRef = React.useRef<number | null>(null);
+
   const selectedColorKey = normalizeColor(selectedColor);
   const filteredEvents = events
     .filter(event => normalizeColor(event.color) === selectedColorKey)
@@ -79,6 +85,27 @@ export const DayColumnsView: React.FC<DayColumnsViewProps> = ({
     } catch {
       return;
     }
+  };
+
+  const handleCosplayTouchMove = (clientX: number, clientY: number) => {
+    if (!dragTouchStateRef.current.activeEntryId) return;
+
+    const element = document.elementFromPoint(clientX, clientY) as HTMLElement | null;
+    const targetSection = element?.closest('[data-cosplay-day-key]') as HTMLElement | null;
+    const targetDayKey = targetSection?.dataset.cosplayDayKey;
+
+    if (!targetDayKey || targetDayKey === dragTouchStateRef.current.lastDayKey) {
+      return;
+    }
+
+    dragTouchStateRef.current.lastDayKey = targetDayKey;
+    onCosplayEntryMove(dragTouchStateRef.current.activeEntryId, targetDayKey);
+  };
+
+  const handleCosplayTouchEnd = () => {
+    dragTouchStateRef.current.activeEntryId = null;
+    dragTouchStateRef.current.lastDayKey = null;
+    dragPointerIdRef.current = null;
   };
 
   const boardWidth = Math.max(days.length * columnWidth, columnWidth);
@@ -114,6 +141,7 @@ export const DayColumnsView: React.FC<DayColumnsViewProps> = ({
             <section
               key={day.toISOString()}
               className="flex min-h-full flex-col border-r border-slate-200 bg-slate-50/80 last:border-r-0"
+              data-cosplay-day-key={dayKey}
               style={{ width: `${columnWidth}px`, flex: `0 0 ${columnWidth}px` }}
               onDragEnter={(event) => {
                 event.preventDefault();
@@ -142,6 +170,43 @@ export const DayColumnsView: React.FC<DayColumnsViewProps> = ({
                           if (event.currentTarget.parentElement) {
                             event.dataTransfer.setDragImage(event.currentTarget.parentElement, 20, 20);
                           }
+                        }}
+                        onPointerDown={(event) => {
+                          if (event.pointerType !== 'touch') return;
+
+                          event.preventDefault();
+                          event.stopPropagation();
+                          dragPointerIdRef.current = event.pointerId;
+                          dragTouchStateRef.current.activeEntryId = cosplayEntry.id;
+                          dragTouchStateRef.current.lastDayKey = dayKey;
+                          const handleElement = event.currentTarget as HTMLElement;
+                          if (typeof handleElement.setPointerCapture === 'function') {
+                            try {
+                              handleElement.setPointerCapture(event.pointerId);
+                            } catch {
+                              // Ignore synthetic or unsupported capture failures.
+                            }
+                          }
+                        }}
+                        onPointerMove={(event) => {
+                          if (event.pointerType !== 'touch') return;
+                          if (dragPointerIdRef.current !== event.pointerId) return;
+
+                          event.preventDefault();
+                          handleCosplayTouchMove(event.clientX, event.clientY);
+                        }}
+                        onPointerUp={(event) => {
+                          if (event.pointerType !== 'touch') return;
+                          if (dragPointerIdRef.current !== event.pointerId) return;
+
+                          event.preventDefault();
+                          handleCosplayTouchEnd();
+                        }}
+                        onPointerCancel={(event) => {
+                          if (event.pointerType !== 'touch') return;
+                          if (dragPointerIdRef.current !== event.pointerId) return;
+
+                          handleCosplayTouchEnd();
                         }}
                         aria-label="Drag cosplay entry"
                         title="Drag to another day"
