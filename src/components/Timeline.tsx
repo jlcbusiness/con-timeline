@@ -823,7 +823,9 @@ export const Timeline: React.FC = () => {
             />
 
             {user && (
-              <AccountMenu user={user} onSignOut={handleSignOut} />
+              <div className="ml-auto shrink-0 whitespace-nowrap">
+                <AccountMenu user={user} onSignOut={handleSignOut} />
+              </div>
             )}
           </div>
 
@@ -870,7 +872,11 @@ export const Timeline: React.FC = () => {
             eventCount={events.length}
           />
 
-          {user && <AccountMenu user={user} onSignOut={handleSignOut} />}
+          {user && (
+            <div className="ml-auto shrink-0 whitespace-nowrap">
+              <AccountMenu user={user} onSignOut={handleSignOut} />
+            </div>
+          )}
         </div>
 
         <div className="mt-2 flex min-w-0 flex-col items-center justify-center gap-1">
