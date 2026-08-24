@@ -17,7 +17,8 @@ export const useDragAndResize = (
   onEventUpdate: (eventId: string, updates: Partial<TimelineEvent>) => void,
   onBatchUpdate: (updates: { eventId: string; updates: Partial<TimelineEvent> }[]) => void,
   startDate: Date,
-  endDate: Date = DEFAULT_END_DATE
+  endDate: Date = DEFAULT_END_DATE,
+  slotHeight: number = PIXELS_PER_SLOT
 ) => {
   const [dragState, setDragState] = useState<DragState>({
     isDragging: false,
@@ -58,7 +59,7 @@ export const useDragAndResize = (
     const timeChange = halfHourIncrements * 30 * 60 * 1000; // milliseconds (30 minutes)
     
     // Convert vertical movement to position change (PIXELS_PER_SLOT = 1 position)
-    const positionChange = Math.round(deltaY / PIXELS_PER_SLOT);
+    const positionChange = Math.round(deltaY / slotHeight);
 
     const originalEvent = dragState.originalEvent;
     // endDate comes from the hook parameter (fallback default in signature)
@@ -135,7 +136,7 @@ export const useDragAndResize = (
         }
       }
     }
-  }, [dragState, onEventUpdate, onBatchUpdate, events, startDate]);
+  }, [dragState, onEventUpdate, onBatchUpdate, events, startDate, slotHeight]);
 
   const endDrag = useCallback(() => {
     setDragState({

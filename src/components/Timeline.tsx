@@ -71,6 +71,7 @@ export const Timeline: React.FC = () => {
   const [selectedColor, setSelectedColor] = useState(DEFAULT_SELECTED_COLOR);
   const [dayColumnScale, setDayColumnScale] = useState(1);
   const [timelineViewportWidth, setTimelineViewportWidth] = useState(0);
+  const [timelineViewportHeight, setTimelineViewportHeight] = useState(0);
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
   const [isCosplayModalOpen, setIsCosplayModalOpen] = useState(false);
   const [editingCosplayEntry, setEditingCosplayEntry] = useState<CosplayEntry | null>(null);
@@ -127,7 +128,11 @@ export const Timeline: React.FC = () => {
   const colorOptions = getEventColors();
   const slotCount = 11;
   const deleteSlotIndex = 10;
-  const gridSlotHeight = PIXELS_PER_SLOT;
+  const timelineHeaderHeight = 48;
+  const timelineChromeHeight = 12;
+  const gridSlotHeight = isMobileViewport && timelineViewportHeight > 0
+    ? Math.max(40, Math.floor((timelineViewportHeight - timelineHeaderHeight - timelineChromeHeight) / slotCount))
+    : PIXELS_PER_SLOT;
 
   // Event persistence
   const {
@@ -256,7 +261,8 @@ export const Timeline: React.FC = () => {
     handleEventUpdate,
     handleBatchUpdate,
     startDate,
-    endDate
+    endDate,
+    gridSlotHeight
   );
 
   // Track scroll position for navigation
@@ -281,7 +287,9 @@ export const Timeline: React.FC = () => {
 
     const updateWidth = () => {
       const measuredWidth = element.getBoundingClientRect().width;
+      const measuredHeight = element.getBoundingClientRect().height;
       setTimelineViewportWidth(Math.max(measuredWidth, window.innerWidth));
+      setTimelineViewportHeight(Math.max(measuredHeight, 1));
     };
 
     updateWidth();
@@ -987,7 +995,7 @@ export const Timeline: React.FC = () => {
             <div className="flex-1 relative overflow-hidden">
               <div
                 ref={timelineContentRef}
-                className="h-full overflow-x-auto overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100"
+                className="h-full overflow-x-auto overflow-y-hidden scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100"
                 onScroll={handleScroll}
                 onWheel={handleWheelScroll}
               >
@@ -1070,6 +1078,7 @@ export const Timeline: React.FC = () => {
                         key={event.id}
                         event={event}
                         startDate={startDate}
+                        slotHeight={gridSlotHeight}
                         onEdit={handleEventEdit}
                         onDragStart={startDrag}
                         isDragging={dragState.isDragging && dragState.originalEvent?.id === event.id}
