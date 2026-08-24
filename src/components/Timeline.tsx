@@ -833,7 +833,7 @@ export const Timeline: React.FC = () => {
       </div>
 
       <div className="border-b bg-white px-3 py-3 md:hidden">
-        <div className="flex w-full flex-wrap items-center justify-center gap-1 overflow-visible">
+        <div className="flex w-full flex-nowrap items-center justify-center gap-1 overflow-x-auto overflow-y-visible">
           <TimelineSelector
             timelines={timelines}
             activeId={activeId}
