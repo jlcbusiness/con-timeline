@@ -145,7 +145,7 @@ export const DayColumnsView: React.FC<DayColumnsViewProps> = ({
 
   const renderCosplayRail = (entryId: string, currentDayKey: string, side: 'left' | 'right') => (
     <div
-      className={`flex min-h-full w-3.5 shrink-0 items-center justify-center bg-fuchsia-200 text-fuchsia-600 transition-colors duration-150 hover:bg-fuchsia-300 hover:text-fuchsia-700 active:cursor-grabbing ${side === 'left' ? 'rounded-l-2xl border-r border-fuchsia-200' : 'rounded-r-2xl border-l border-fuchsia-200'}`}
+      className={`flex min-h-full w-7 shrink-0 items-center justify-center bg-fuchsia-200 text-fuchsia-600 transition-colors duration-150 hover:bg-fuchsia-300 hover:text-fuchsia-700 active:cursor-grabbing ${side === 'left' ? 'rounded-l-2xl border-r border-fuchsia-200' : 'rounded-r-2xl border-l border-fuchsia-200'}`}
       draggable
       onDragStart={(event) => {
         event.dataTransfer.effectAllowed = 'move';
