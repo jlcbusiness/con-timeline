@@ -630,21 +630,21 @@ export const Timeline: React.FC = () => {
   };
 
   const getJumpTargetForDate = (day: Date) => {
-    const sameDayEventsBeforeSix = events
+    const sameDayEventsBeforeNine = events
       .filter(event => {
         const eventStart = event.startTime;
         return (
           eventStart.getFullYear() === day.getFullYear() &&
           eventStart.getMonth() === day.getMonth() &&
           eventStart.getDate() === day.getDate() &&
-          eventStart.getHours() < 6
+          eventStart.getHours() < 9
         );
       })
       .sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
 
-    return sameDayEventsBeforeSix[0]?.startTime ?? (() => {
+    return sameDayEventsBeforeNine[0]?.startTime ?? (() => {
       const fallback = new Date(day);
-      fallback.setHours(6, 0, 0, 0);
+      fallback.setHours(9, 0, 0, 0);
       return fallback;
     })();
   };
@@ -720,9 +720,9 @@ export const Timeline: React.FC = () => {
 
   const jumpToDates = [];
   const jumpDate = new Date(startDate);
-  jumpDate.setHours(6, 0, 0, 0);
+  jumpDate.setHours(9, 0, 0, 0);
   const lastJumpDate = new Date(endDate);
-  lastJumpDate.setHours(6, 0, 0, 0);
+  lastJumpDate.setHours(9, 0, 0, 0);
   while (jumpDate <= lastJumpDate) {
     const day = new Date(jumpDate);
     jumpToDates.push({
