@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { roundToNearestHalfHour, getTimePosition, cascadeEventPositions, sortEventsByStructure, findAvailablePosition, repackEventPositions } from '../timelineUtils';
+import { roundToNearestHalfHour, getTimePosition, cascadeEventPositions, sortEventsByStructure, findAvailablePosition, repackEventPositions, getIntangibleVisibleSegments } from '../timelineUtils';
 
 describe('timelineUtils', () => {
   it('rounds to nearest half hour correctly', () => {
@@ -115,8 +115,12 @@ describe('timelineUtils', () => {
     };
 
     expect(
-      findAvailablePosition([solidA, solidB, ghost] as any, new Date(2025, 7, 27, 10, 30), new Date(2025, 7, 27, 11))
+      findAvailablePosition([solidA, solidB, ghost] as any, new Date(2025, 7, 27, 10, 30), new Date(2025, 7, 27, 11), solidA as any)
     ).toBe(2);
+
+    expect(
+      findAvailablePosition([solidA, solidB, ghost] as any, new Date(2025, 7, 27, 10, 30), new Date(2025, 7, 27, 11), ghost as any)
+    ).toBe(0);
 
     expect(
       cascadeEventPositions([solidA, ghost] as any, solidA as any, { startTime: new Date(2025, 7, 27, 10, 30) })
@@ -137,7 +141,43 @@ describe('timelineUtils', () => {
     const updates = repackEventPositions(events as any, 'middle', { intangible: true });
 
     expect(updates).toEqual([
+      { eventId: 'middle', updates: { position: 0 } },
       { eventId: 'bottom', updates: { position: 1 } }
+    ]);
+  });
+
+  it('splits intangible visibility into uncovered segments', () => {
+    const event = {
+      id: 'ghost',
+      title: 'Ghost',
+      intangible: true,
+      startTime: new Date(2025, 8, 4, 10, 0),
+      endTime: new Date(2025, 8, 4, 12, 0),
+      position: 0
+    };
+
+    const blockers = [
+      {
+        id: 'block-1',
+        title: 'Block 1',
+        startTime: new Date(2025, 8, 4, 10, 0),
+        endTime: new Date(2025, 8, 4, 10, 30),
+        position: 0
+      },
+      {
+        id: 'block-2',
+        title: 'Block 2',
+        startTime: new Date(2025, 8, 4, 11, 0),
+        endTime: new Date(2025, 8, 4, 11, 30),
+        position: 0
+      }
+    ];
+
+    const segments = getIntangibleVisibleSegments(event as any, [event, ...blockers] as any);
+
+    expect(segments.map(segment => [segment.startTime.getHours(), segment.startTime.getMinutes(), segment.endTime.getHours(), segment.endTime.getMinutes()])).toEqual([
+      [10, 30, 11, 0],
+      [11, 30, 12, 0]
     ]);
   });
 });

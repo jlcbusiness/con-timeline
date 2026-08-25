@@ -1,5 +1,5 @@
 import React from 'react';
-import { Edit3, Clock, GripVertical, ChevronLeft, ChevronRight, MapPin, Lock } from 'lucide-react';
+import { Edit3, GripVertical, ChevronLeft, ChevronRight, MapPin, Lock } from 'lucide-react';
 import type { TimelineEvent as TimelineEventType } from '../types/timeline';
 import { getTimePosition, getEventWidth, getEventBufferWidth } from '../utils/timelineUtils';
 
@@ -30,7 +30,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
   const resizeWingOffset = resizeWingWidth / 2;
   const eventStackClass = event.intangible ? 'z-[5]' : bufferWidth > 0 ? 'z-30' : 'z-10';
   const timeLockedClass = event.lockTime ? 'ring-2 ring-white/40 ring-inset' : '';
-  const intangibleClass = event.intangible ? 'opacity-[0.35] saturate-50 grayscale' : '';
+  const intangibleClass = event.intangible ? 'opacity-[0.35] saturate-75' : '';
   const hoverClass = event.intangible ? 'hover:shadow-sm' : 'hover:shadow-md hover:z-40 hover:w-[calc(var(--event-width)+12px)]';
   
   // Fixed positioning calculation to align with slot headers
@@ -143,12 +143,10 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
         onPointerDown={(e) => handlePointerDown(e, 'move')}
       >
         {/* First line: Title with icons and edit button */}
-        <div className="flex items-center justify-between min-w-0">
+        <div className="flex items-start justify-between min-w-0 gap-1">
           <div className="flex items-center gap-1 min-w-0 flex-1">
-            <GripVertical size={10} className="flex-shrink-0 opacity-60" />
-            <Clock size={10} className="flex-shrink-0 opacity-80" />
-            <span className="truncate font-medium">{event.title}</span>
-            {event.lockTime && <Lock size={10} className="flex-shrink-0 opacity-90" />}
+            {!event.intangible && <GripVertical size={10} className="flex-shrink-0 opacity-60" />}
+            <span className={event.intangible ? 'sr-only' : 'truncate whitespace-nowrap font-medium'}>{event.title}</span>
           </div>
           
           <div className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-1">
@@ -158,10 +156,9 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
 
         {/* Second line: Location (if present) */}
         {event.location && (
-          <div className="flex items-center gap-1 mt-1 min-w-0">
+          <div className="flex items-start gap-1 mt-1 min-w-0">
             <div className="w-2.5"></div> {/* Spacer to align with title */}
-            <MapPin size={8} className="flex-shrink-0 opacity-80" />
-            <span className="truncate text-xs opacity-90">{event.location}</span>
+            <span className="whitespace-normal break-words text-xs leading-snug opacity-90">{event.location}</span>
           </div>
         )}
       </div>
@@ -214,6 +211,15 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
       {/* Visual feedback during drag/resize */}
       {(isDragging || isResizing) && (
         <div className="absolute -inset-1 border-2 border-white border-dashed rounded-md pointer-events-none"></div>
+      )}
+
+      {!event.intangible && event.lockTime && (
+        <div
+          className="absolute bottom-1 right-1 z-20 pointer-events-none rounded-full px-[1mm] py-[1mm]"
+          style={{ backgroundColor: event.color }}
+        >
+          <Lock size={10} className="opacity-90" />
+        </div>
       )}
     </div>
   );

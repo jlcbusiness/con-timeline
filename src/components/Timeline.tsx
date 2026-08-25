@@ -25,6 +25,7 @@ import {
   formatDateHeader,
   findAvailablePosition,
   repackEventPositions,
+  getIntangibleVisibleSegments,
   getDayKey,
   getTimePosition,
   getEventColors
@@ -540,14 +541,15 @@ export const Timeline: React.FC = () => {
         const position = findAvailablePosition(
           events.filter(e => e.id !== editingEvent.id),
           eventData.startTime,
-          eventData.endTime
+          eventData.endTime,
+          { ...editingEvent, ...eventData } as TimelineEventType
         );
 
         updateEvent(editingEvent.id, { ...eventData, position });
       }
     } else {
       // Create new event
-      const position = findAvailablePosition(events, eventData.startTime, eventData.endTime);
+      const position = findAvailablePosition(events, eventData.startTime, eventData.endTime, eventData as TimelineEventType);
       const newEvent: TimelineEventType = {
         ...eventData,
         id: typeof crypto !== 'undefined' && (crypto as any).randomUUID ? (crypto as any).randomUUID() : Date.now().toString(),
@@ -1104,6 +1106,38 @@ export const Timeline: React.FC = () => {
                         isResizing={dragState.isResizing && dragState.originalEvent?.id === event.id}
                       />
                     ))}
+
+                    {events
+                      .filter(event => event.intangible)
+                      .flatMap(event => {
+                        const visibleSegments = getIntangibleVisibleSegments(event, events);
+
+                        return visibleSegments.flatMap((segment) => {
+                          const leftPosition = getTimePosition(segment.startTime, startDate);
+                          const segmentWidth = Math.max(getTimePosition(segment.endTime, startDate) - leftPosition, 0);
+
+                          if (segmentWidth < 24) {
+                            return [];
+                          }
+
+                          return (
+                            <div
+                              key={`${event.id}-${segment.startTime.getTime()}-${segment.endTime.getTime()}`}
+                              className="absolute z-40 pointer-events-none flex items-center justify-center px-2 text-[11px] font-semibold"
+                              style={{
+                                left: `${leftPosition}px`,
+                                top: `${event.position * gridSlotHeight + 4}px`,
+                                width: `${segmentWidth}px`,
+                                height: `${Math.max(gridSlotHeight - 8, 40)}px`,
+                                color: `color-mix(in srgb, ${event.color} 60%, black)`,
+                                opacity: 0.35
+                              }}
+                            >
+                              <span className="whitespace-normal break-words text-center leading-snug">{event.title}</span>
+                            </div>
+                          );
+                        });
+                      })}
 
                     {(() => {
                       const now = new Date();

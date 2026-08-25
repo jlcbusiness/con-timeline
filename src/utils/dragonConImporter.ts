@@ -332,15 +332,23 @@ export const addDragonConEvents = (
       return;
     }
 
-    const position = findAvailablePosition(workingEvents, event.startTime, event.endTime);
+    const position = findAvailablePosition(workingEvents, event.startTime, event.endTime, event);
     const eventWithPosition = { ...event, position };
 
     const existingIndex = workingEvents.findIndex(existingEvent => eventKey(existingEvent) === key);
     if (existingIndex !== -1) {
       const existingEvent = workingEvents[existingIndex];
+      const importedEventUpdates = {
+        title: event.title,
+        description: event.description,
+        location: event.location,
+        startTime: event.startTime,
+        endTime: event.endTime,
+        updatedAt: new Date().toISOString()
+      } satisfies Partial<TimelineEvent>;
+
       const replacedEvent = {
-        ...eventWithPosition,
-        ...existingEvent,
+        ...importedEventUpdates,
         position: existingEvent.position,
         id: existingEvent.id,
         createdAt: existingEvent.createdAt,
@@ -352,13 +360,10 @@ export const addDragonConEvents = (
 
       if (updateEvent) {
         updateEvent(existingEvent.id, {
-          ...eventWithPosition,
+          ...importedEventUpdates,
           id: existingEvent.id,
           createdAt: existingEvent.createdAt,
-          color: existingEvent.color,
           position: existingEvent.position,
-          intangible: existingEvent.intangible,
-          lockTime: true,
           updatedAt: replacedEvent.updatedAt
         });
       }

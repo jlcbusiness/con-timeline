@@ -54,7 +54,9 @@ Speakers: Sasha Arbogast — , Bill Keel —`;
       startTime: new Date(2026, 8, 2, 23, 0),
       endTime: new Date(2026, 8, 3, 1, 0),
       color: '#10B981',
-      position: 0
+      position: 0,
+      intangible: true,
+      bufferBeforeMinutes: 30
     };
 
     const added: TimelineEvent[] = [];
@@ -70,12 +72,14 @@ Speakers: Sasha Arbogast — , Bill Keel —`;
     expect(added).toHaveLength(0);
     expect(updates).toHaveLength(1);
     expect(updates[0]?.eventId).toBe('existing-1');
-    expect(updates[0]?.updates.lockTime).toBe(true);
-    expect(updates[0]?.updates.color).toBe('#10B981');
     expect(updates[0]?.updates.position).toBe(0);
+    expect(updates[0]?.updates.color).toBeUndefined();
+    expect(updates[0]?.updates.lockTime).toBeUndefined();
+    expect(updates[0]?.updates.intangible).toBeUndefined();
+    expect(updates[0]?.updates.bufferBeforeMinutes).toBeUndefined();
   });
 
-  it('preserves intangible state on overwrite', () => {
+  it('overwrites imported source fields on duplicate matches', () => {
     const existingEvent: TimelineEvent = {
       id: 'existing-2',
       title: 'Artemis Spaceship Bridge Simulator',
@@ -85,7 +89,8 @@ Speakers: Sasha Arbogast — , Bill Keel —`;
       endTime: new Date(2026, 8, 3, 23, 55),
       color: '#6B7280',
       position: 3,
-      intangible: true
+      intangible: true,
+      bufferBeforeMinutes: 30
     };
 
     const updates: Array<{ eventId: string; updates: Partial<TimelineEvent> }> = [];
@@ -99,8 +104,11 @@ Speakers: Sasha Arbogast — , Bill Keel —`;
 
     expect(count).toBe(1);
     expect(updates).toHaveLength(1);
-    expect(updates[0]?.updates.intangible).toBe(true);
     expect(updates[0]?.updates.position).toBe(3);
+    expect(updates[0]?.updates.color).toBeUndefined();
+    expect(updates[0]?.updates.lockTime).toBeUndefined();
+    expect(updates[0]?.updates.intangible).toBeUndefined();
+    expect(updates[0]?.updates.bufferBeforeMinutes).toBeUndefined();
   });
 
   it('ignores guest-name lines that appear before the title in PDF extraction order', () => {

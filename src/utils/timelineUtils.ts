@@ -73,15 +73,25 @@ export const getLocationSortKey = (location?: string): string => {
 
 export const isIntangibleEvent = (event: TimelineEvent): boolean => event.intangible === true;
 
-const packSolidEventsByStructure = (events: TimelineEvent[]): TimelineEvent[] => {
+const getCollisionGroup = (event: TimelineEvent): 'tangible' | 'intangible' => (
+  isIntangibleEvent(event) ? 'intangible' : 'tangible'
+);
+
+const packEventsByStructure = (events: TimelineEvent[]): TimelineEvent[] => {
   const packedEvents: TimelineEvent[] = [];
 
-  sortEventsByStructure(events.filter(event => !isIntangibleEvent(event))).forEach(event => {
+  sortEventsForPackingGroup(events).forEach(event => {
     const position = findAvailablePosition(packedEvents, event.startTime, event.endTime);
     packedEvents.push({ ...event, position });
   });
 
   return packedEvents;
+};
+
+const buildPackedPositionMap = (events: TimelineEvent[]): Map<string, number> => {
+  return new Map(
+    packEventsByStructure(events).map(event => [event.id, event.position] as const)
+  );
 };
 
 const overlapsWithoutBuffer = (left: TimelineEvent, right: TimelineEvent): boolean => {
@@ -130,11 +140,8 @@ const sortClusterEvents = (events: TimelineEvent[]): TimelineEvent[] => {
   }).map(({ event }) => event);
 };
 
-export const sortEventsForPacking = (events: TimelineEvent[]): TimelineEvent[] => {
-  const intangibleEvents = events.filter(isIntangibleEvent);
-  const solidEvents = events.filter(event => !isIntangibleEvent(event));
-
-  const sortedByStart = [...solidEvents].sort((left, right) => {
+const sortEventsForPackingGroup = (events: TimelineEvent[]): TimelineEvent[] => {
+  const sortedByStart = [...events].sort((left, right) => {
     const leftStart = left.startTime.getTime();
     const rightStart = right.startTime.getTime();
     const leftDuration = getEventDurationInMinutes(left.startTime, left.endTime);
@@ -160,8 +167,14 @@ export const sortEventsForPacking = (events: TimelineEvent[]): TimelineEvent[] =
       clusterLongest: Math.max(...cluster.map(event => getEventDurationInMinutes(event.startTime, event.endTime)))
     }))
     .sort((left, right) => left.clusterStart - right.clusterStart || right.clusterLongest - left.clusterLongest)
-    .flatMap(({ cluster }) => sortClusterEvents(cluster))
-    .concat(intangibleEvents);
+    .flatMap(({ cluster }) => sortClusterEvents(cluster));
+};
+
+export const sortEventsForPacking = (events: TimelineEvent[]): TimelineEvent[] => {
+  const tangibleEvents = events.filter(event => !isIntangibleEvent(event));
+  const intangibleEvents = events.filter(isIntangibleEvent);
+
+  return sortEventsForPackingGroup(tangibleEvents).concat(sortEventsForPackingGroup(intangibleEvents));
 };
 
 export const sortEventsByStructure = (events: TimelineEvent[]): TimelineEvent[] => {
@@ -208,10 +221,12 @@ const eventsOverlapWithoutBuffer = (event1: TimelineEvent, event2: TimelineEvent
 export const findAvailablePosition = (
   events: TimelineEvent[],
   startTime: Date,
-  endTime: Date
+  endTime: Date,
+  groupEvent?: TimelineEvent
 ): number => {
+  const collisionGroup = groupEvent ? getCollisionGroup(groupEvent) : undefined;
   const overlappingEvents = events.filter(event => 
-    !isIntangibleEvent(event) &&
+    (collisionGroup ? getCollisionGroup(event) === collisionGroup : true) &&
     (startTime < event.endTime && endTime > getBufferedStartTime(event))
   );
   
@@ -237,12 +252,9 @@ export const cascadeEventPositions = (
   // Create the updated version of the changed event
   const updatedChangedEvent = { ...changedEvent, ...changedEventUpdates };
 
-  if (isIntangibleEvent(updatedChangedEvent)) {
-    return updates;
-  }
-  
   // Get all other events
-  const otherEvents = allEvents.filter(e => e.id !== changedEvent.id && !isIntangibleEvent(e));
+  const collisionGroup = getCollisionGroup(updatedChangedEvent);
+  const otherEvents = allEvents.filter(e => e.id !== changedEvent.id && getCollisionGroup(e) === collisionGroup);
   
   // Find events that overlap in time AND are in the same position as the changed event
   const directConflicts = otherEvents.filter(event => 
@@ -329,21 +341,91 @@ export const repackEventPositions = (
     event.id === changedEventId ? { ...event, ...changedEventUpdates } : event
   ));
 
-  const packedPositions = new Map(
-    packSolidEventsByStructure(updatedEvents).map(event => [event.id, event.position] as const)
-  );
+  const changedEventBeforeUpdate = allEvents.find(event => event.id === changedEventId);
+  const changedEventAfterUpdate = updatedEvents.find(event => event.id === changedEventId);
 
-  return updatedEvents
-    .filter(event => !isIntangibleEvent(event))
-    .flatMap(event => {
+  if (!changedEventAfterUpdate) {
+    return [];
+  }
+
+  const affectedGroups = new Set<'tangible' | 'intangible'>([
+    getCollisionGroup(changedEventAfterUpdate),
+    ...(changedEventBeforeUpdate ? [getCollisionGroup(changedEventBeforeUpdate)] : [])
+  ]);
+
+  const updates: { eventId: string; updates: Partial<TimelineEvent> }[] = [];
+
+  affectedGroups.forEach(group => {
+    const groupEvents = updatedEvents.filter(event => getCollisionGroup(event) === group);
+    const packedPositions = buildPackedPositionMap(groupEvents);
+
+    groupEvents.forEach(event => {
       const nextPosition = packedPositions.get(event.id);
 
       if (nextPosition == null || nextPosition === event.position) {
-        return [];
+        return;
       }
 
-      return [{ eventId: event.id, updates: { position: nextPosition } }];
+      updates.push({ eventId: event.id, updates: { position: nextPosition } });
     });
+  });
+
+  return updates;
+};
+
+export const getIntangibleVisibleSegments = (
+  event: TimelineEvent,
+  allEvents: TimelineEvent[]
+): Array<{ startTime: Date; endTime: Date }> => {
+  if (!event.intangible) {
+    return [{ startTime: event.startTime, endTime: event.endTime }];
+  }
+
+  const coveringIntervals = allEvents
+    .filter(otherEvent =>
+      otherEvent.id !== event.id &&
+      otherEvent.position === event.position &&
+      !isIntangibleEvent(otherEvent)
+    )
+    .map(otherEvent => ({
+      startTime: getBufferedStartTime(otherEvent) > event.startTime ? getBufferedStartTime(otherEvent) : event.startTime,
+      endTime: otherEvent.endTime < event.endTime ? otherEvent.endTime : event.endTime
+    }))
+    .filter(interval => interval.endTime > interval.startTime)
+    .sort((left, right) => left.startTime.getTime() - right.startTime.getTime() || left.endTime.getTime() - right.endTime.getTime());
+
+  const mergedCoveringIntervals: Array<{ startTime: Date; endTime: Date }> = [];
+
+  coveringIntervals.forEach(interval => {
+    const lastInterval = mergedCoveringIntervals[mergedCoveringIntervals.length - 1];
+    if (!lastInterval || interval.startTime > lastInterval.endTime) {
+      mergedCoveringIntervals.push({ ...interval });
+      return;
+    }
+
+    if (interval.endTime > lastInterval.endTime) {
+      lastInterval.endTime = interval.endTime;
+    }
+  });
+
+  const visibleSegments: Array<{ startTime: Date; endTime: Date }> = [];
+  let currentStart = new Date(event.startTime);
+
+  mergedCoveringIntervals.forEach(interval => {
+    if (interval.startTime > currentStart) {
+      visibleSegments.push({ startTime: new Date(currentStart), endTime: new Date(interval.startTime) });
+    }
+
+    if (interval.endTime > currentStart) {
+      currentStart = new Date(interval.endTime);
+    }
+  });
+
+  if (currentStart < event.endTime) {
+    visibleSegments.push({ startTime: new Date(currentStart), endTime: new Date(event.endTime) });
+  }
+
+  return visibleSegments.filter(segment => segment.endTime > segment.startTime);
 };
 
 export const getEventColors = (): string[] => [
