@@ -1,5 +1,5 @@
 import React from 'react';
-import { Edit3, Clock, GripVertical, ChevronLeft, ChevronRight, MapPin } from 'lucide-react';
+import { Edit3, Clock, GripVertical, ChevronLeft, ChevronRight, MapPin, Lock } from 'lucide-react';
 import type { TimelineEvent as TimelineEventType } from '../types/timeline';
 import { getTimePosition, getEventWidth, getEventBufferWidth } from '../utils/timelineUtils';
 
@@ -29,6 +29,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
   const resizeWingWidth = 12;
   const resizeWingOffset = resizeWingWidth / 2;
   const eventStackClass = bufferWidth > 0 ? 'z-30' : 'z-10';
+  const timeLockedClass = event.lockTime ? 'ring-2 ring-white/40 ring-inset' : '';
   
   // Fixed positioning calculation to align with slot headers
   // Each slot is 64px high, and we add 4px margin from the top of each slot
@@ -77,7 +78,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
 
   return (
     <div
-      className={`absolute ${eventStackClass} rounded-md shadow-sm border border-opacity-20 border-white group select-none touch-none transition-[width,transform,box-shadow] duration-150 ${
+      className={`absolute ${eventStackClass} ${timeLockedClass} rounded-md shadow-sm border border-opacity-20 border-white group select-none touch-none transition-[width,transform,box-shadow] duration-150 ${
         isDragging || isResizing 
           ? 'shadow-lg z-50 cursor-grabbing'
           : 'hover:shadow-md hover:z-40 hover:w-[calc(var(--event-width)+12px)] cursor-grab'
@@ -145,6 +146,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
             <GripVertical size={10} className="flex-shrink-0 opacity-60" />
             <Clock size={10} className="flex-shrink-0 opacity-80" />
             <span className="truncate font-medium">{event.title}</span>
+            {event.lockTime && <Lock size={10} className="flex-shrink-0 opacity-90" />}
           </div>
           
           <div className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-1">

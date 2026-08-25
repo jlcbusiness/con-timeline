@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, Clock, Palette, MapPin, Plus } from 'lucide-react';
+import { X, Calendar, Clock, Palette, MapPin, Plus, Lock } from 'lucide-react';
 import type { TimelineEvent, Location } from '../types/timeline';
 import { getEventColors, roundToNearestHalfHour } from '../utils/timelineUtils';
 import { EVENT_BUFFER_OPTIONS_MINUTES } from '../config/timeline';
@@ -38,6 +38,7 @@ export const EventModal: React.FC<EventModalProps> = ({
   const [endTimeValue, setEndTimeValue] = useState('');
   const [color, setColor] = useState('#3B82F6');
   const [bufferBeforeMinutes, setBufferBeforeMinutes] = useState(0);
+  const [lockTime, setLockTime] = useState(false);
   const [isCreateLocationOpen, setIsCreateLocationOpen] = useState(false);
   const [newLocationName, setNewLocationName] = useState('');
 
@@ -55,6 +56,7 @@ export const EventModal: React.FC<EventModalProps> = ({
       setEndTimeValue(formatTimeValue(event.endTime));
       setColor(event.color);
       setBufferBeforeMinutes(event.bufferBeforeMinutes ?? 0);
+      setLockTime(event.lockTime ?? false);
       setIsCreateLocationOpen(false);
       setNewLocationName('');
     } else if (initialStartTime) {
@@ -71,6 +73,7 @@ export const EventModal: React.FC<EventModalProps> = ({
       setEndTimeValue(formatTimeValue(end));
       setColor('#3B82F6'); // Use static color instead of colors[0]
       setBufferBeforeMinutes(0);
+      setLockTime(false);
       setIsCreateLocationOpen(false);
       setNewLocationName('');
     }
@@ -92,10 +95,13 @@ export const EventModal: React.FC<EventModalProps> = ({
       startTime,
       endTime,
       color,
-      bufferBeforeMinutes
+      bufferBeforeMinutes,
+      lockTime
     });
     onClose();
   };
+
+  const timeFieldsDisabled = lockTime;
 
   const handleDelete = () => {
     if (event && onDelete) {
@@ -327,7 +333,8 @@ export const EventModal: React.FC<EventModalProps> = ({
                   type="date"
                   value={startDateValue}
                   onChange={(e) => handleStartDateChange(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
+                  disabled={timeFieldsDisabled}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white disabled:bg-gray-100 disabled:text-gray-500"
                   required
                 />
               </div>
@@ -342,7 +349,8 @@ export const EventModal: React.FC<EventModalProps> = ({
                   type="time"
                   value={startTimeValue}
                   onChange={(e) => handleStartTimeChange(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
+                  disabled={timeFieldsDisabled}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white disabled:bg-gray-100 disabled:text-gray-500"
                   step="1800"
                   required
                 />
@@ -360,7 +368,8 @@ export const EventModal: React.FC<EventModalProps> = ({
                   type="date"
                   value={endDateValue}
                   onChange={(e) => handleEndDateChange(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
+                  disabled={timeFieldsDisabled}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white disabled:bg-gray-100 disabled:text-gray-500"
                   min={startDateValue}
                   required
                 />
@@ -376,12 +385,32 @@ export const EventModal: React.FC<EventModalProps> = ({
                   type="time"
                   value={endTimeValue}
                   onChange={(e) => handleEndTimeChange(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
+                  disabled={timeFieldsDisabled}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white disabled:bg-gray-100 disabled:text-gray-500"
                   step="1800"
                   min={endDateValue === startDateValue ? startTimeValue : undefined}
                   required
                 />
               </div>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3 rounded-md border border-gray-200 bg-gray-50 px-3 py-2">
+            <input
+              id="event-lock-time"
+              type="checkbox"
+              checked={lockTime}
+              onChange={(e) => setLockTime(e.target.checked)}
+              className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <div className="min-w-0">
+              <label htmlFor="event-lock-time" className="flex items-center gap-2 text-sm font-medium text-gray-900">
+                <Lock size={14} />
+                Lock time
+              </label>
+              <p className="text-xs text-gray-600">
+                Keeps the event on the same time range. You can still move it between slots or delete it.
+              </p>
             </div>
           </div>
 
@@ -417,7 +446,8 @@ export const EventModal: React.FC<EventModalProps> = ({
               id="buffer-before"
               value={bufferBeforeMinutes}
               onChange={(e) => setBufferBeforeMinutes(Number(e.target.value))}
-              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={timeFieldsDisabled}
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
             >
               {EVENT_BUFFER_OPTIONS_MINUTES.map(option => (
                 <option key={option} value={option}>

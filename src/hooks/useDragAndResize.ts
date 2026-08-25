@@ -66,8 +66,23 @@ export const useDragAndResize = (
 
     if (dragState.dragType === 'move') {
       // Moving the entire event
-      const newStartTime = new Date(originalEvent.startTime.getTime() + timeChange);
       const newPosition = Math.max(0, Math.min(10, originalEvent.position + positionChange));
+
+      if (originalEvent.lockTime) {
+        if (newPosition !== originalEvent.position) {
+          const updates = { position: newPosition };
+
+          onEventUpdate(originalEvent.id, updates);
+
+          const cascadeUpdates = cascadeEventPositions(events, originalEvent, updates);
+          if (cascadeUpdates.length > 0) {
+            onBatchUpdate(cascadeUpdates);
+          }
+        }
+        return;
+      }
+
+      const newStartTime = new Date(originalEvent.startTime.getTime() + timeChange);
 
       // Round to nearest half hour
       const roundedStartTime = roundToNearestHalfHour(newStartTime);
@@ -93,6 +108,8 @@ export const useDragAndResize = (
       }
 
     } else if (dragState.dragType === 'resize-start') {
+      if (originalEvent.lockTime) return;
+
       // Resizing from the start
       const newStartTime = new Date(originalEvent.startTime.getTime() + timeChange);
       const roundedStartTime = roundToNearestHalfHour(newStartTime);
@@ -115,6 +132,8 @@ export const useDragAndResize = (
       }
 
     } else if (dragState.dragType === 'resize-end') {
+      if (originalEvent.lockTime) return;
+
       // Resizing from the end
       const newEndTime = new Date(originalEvent.endTime.getTime() + timeChange);
       const roundedEndTime = roundToNearestHalfHour(newEndTime);

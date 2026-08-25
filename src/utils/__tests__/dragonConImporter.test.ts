@@ -26,6 +26,8 @@ Speakers: Sasha Arbogast — , Bill Keel —`;
     expect(events[1].title).toBe('Artemis Spaceship Bridge Simulator');
     expect(events[1].location).toBe('Westin 12th Floor');
     expect(events[1].description).toContain('Speakers: Sasha Arbogast');
+    expect(events[0].lockTime).toBe(true);
+    expect(events[1].lockTime).toBe(true);
   });
 
   it('parses the legacy one-line schedule format', () => {
@@ -37,6 +39,7 @@ Speakers: Sasha Arbogast — , Bill Keel —`;
     expect(events[0].title).toBe('Dragon Con Newbie Walking Tours');
     expect(events[0].location).toBe('Dragon Con');
     expect(events[0].startTime.getHours()).toBe(12);
+    expect(events[0].lockTime).toBe(true);
   });
 
   it('overwrites events that already exist by title and time', () => {
@@ -64,6 +67,7 @@ Speakers: Sasha Arbogast — , Bill Keel —`;
     expect(added).toHaveLength(0);
     expect(updates).toHaveLength(1);
     expect(updates[0]?.eventId).toBe('existing-1');
+    expect(updates[0]?.updates.lockTime).toBe(true);
   });
 
   it('ignores guest-name lines that appear before the title in PDF extraction order', () => {
@@ -80,5 +84,6 @@ Location: Marriott L401-L403`;
     expect(events[0].title).toBe('Cosmere on Apple +');
     expect(events[0].location).toBe('Marriott L401-L403');
     expect(events[0].description).not.toContain('Eugene Cordero');
+    expect(events[0].lockTime).toBe(true);
   });
 });

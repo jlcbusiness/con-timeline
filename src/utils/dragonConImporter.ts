@@ -180,7 +180,8 @@ const buildEvent = (
     startTime,
     endTime,
     color: category === 'general' ? color : colors[(index + category.length) % colors.length],
-    position: 0
+    position: 0,
+    lockTime: true
   };
 };
 
@@ -251,7 +252,8 @@ const parseLegacySchedule = (lines: string[], year: number) => {
       startTime: eventDate,
       endTime: endDate,
       color: categoryColors[category],
-      position: 0
+      position: 0,
+      lockTime: true
     }];
   });
 };
@@ -380,6 +382,7 @@ export const addDragonConEvents = (
           ...eventWithPosition,
           id: existingEvent.id,
           createdAt: existingEvent.createdAt,
+          lockTime: true,
           updatedAt: replacedEvent.updatedAt
         });
       }
