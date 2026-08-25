@@ -39,7 +39,7 @@ Speakers: Sasha Arbogast — , Bill Keel —`;
     expect(events[0].startTime.getHours()).toBe(12);
   });
 
-  it('skips events that already exist by title and time', () => {
+  it('overwrites events that already exist by title and time', () => {
     const existingEvent: TimelineEvent = {
       id: 'existing-1',
       title: 'Onesie Wednesday',
@@ -52,13 +52,33 @@ Speakers: Sasha Arbogast — , Bill Keel —`;
     };
 
     const added: TimelineEvent[] = [];
+    const updates: Array<{ eventId: string; updates: Partial<TimelineEvent> }> = [];
     const count = addDragonConEvents(
       `Dragon Con 2026 Schedule\nWednesday, Sep 2\nOnesie Wednesday\n11:00PM — 1:00AM\nLocation: Marriott Marquis`,
       [existingEvent],
-      (event) => added.push(event)
+      (event) => added.push(event),
+      (eventId, update) => updates.push({ eventId, updates: update })
     );
 
-    expect(count).toBe(0);
+    expect(count).toBe(1);
     expect(added).toHaveLength(0);
+    expect(updates).toHaveLength(1);
+    expect(updates[0]?.eventId).toBe('existing-1');
+  });
+
+  it('ignores guest-name lines that appear before the title in PDF extraction order', () => {
+    const schedule = `Dragon Con 2026 Schedule
+Saturday, Sep 5
+Eugene Cordero — , Marie Vibbert — , Jack Campbell —
+Cosmere on Apple +
+11:30AM — 12:30PM
+Location: Marriott L401-L403`;
+
+    const events = parseDragonConSchedule(schedule);
+
+    expect(events).toHaveLength(1);
+    expect(events[0].title).toBe('Cosmere on Apple +');
+    expect(events[0].location).toBe('Marriott L401-L403');
+    expect(events[0].description).not.toContain('Eugene Cordero');
   });
 });

@@ -9,6 +9,7 @@ interface DragonConImporterProps {
   onClose: () => void;
   existingEvents: TimelineEvent[];
   onAddEvent: (event: TimelineEvent) => void;
+  onUpdateEvent?: (eventId: string, updates: Partial<TimelineEvent>) => void;
   onAddLocations?: (locationNames: string[]) => Promise<void> | void;
 }
 
@@ -17,6 +18,7 @@ export const DragonConImporter: React.FC<DragonConImporterProps> = ({
   onClose,
   existingEvents,
   onAddEvent,
+  onUpdateEvent,
   onAddLocations
 }) => {
   const [scheduleText, setScheduleText] = useState('');
@@ -44,9 +46,9 @@ export const DragonConImporter: React.FC<DragonConImporterProps> = ({
 
     setIsImporting(true);
     try {
-      const eventCount = addDragonConEvents(scheduleText, existingEvents, onAddEvent);
+      const eventCount = addDragonConEvents(scheduleText, existingEvents, onAddEvent, onUpdateEvent);
       await persistLocations(scheduleText);
-      setImportResult(`Successfully imported ${eventCount} Dragon Con events!`);
+      setImportResult(`Successfully imported or updated ${eventCount} Dragon Con events!`);
       setScheduleText('');
 
       setTimeout(() => {

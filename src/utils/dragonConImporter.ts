@@ -1,5 +1,5 @@
 import type { TimelineEvent } from '../types/timeline';
-import { findAvailablePosition, getEventColors } from './timelineUtils';
+import { findAvailablePosition, getEventColors, sortEventsByStructure } from './timelineUtils';
 
 const DEFAULT_DRAGONCON_YEAR = 2026;
 
@@ -103,6 +103,21 @@ const buildEventDate = (day: Date, minutesFromMidnight: number) => {
 
 const normalizeLocation = (value: string) => value.replace(/^Location:\s*/i, '').replace(/\s+https?:\/\/.*$/i, '').trim();
 const normalizeSpeakers = (value: string) => value.replace(/^Speakers:\s*/i, '').trim();
+
+const isLikelyGuestListLine = (line: string) => (
+  line.includes('—')
+  && line.includes(',')
+  && /[A-Z][a-z]/.test(line)
+);
+
+const isLikelyTitleLine = (line: string) => (
+  !isNoiseLine(line)
+  && !parseDayHeading(line, DEFAULT_DRAGONCON_YEAR)
+  && !/^Location:\s*/i.test(line)
+  && !/^Speakers:\s*/i.test(line)
+  && !isLikelyGuestListLine(line)
+  && line.length <= 140
+);
 
 const categorizeTitle = (title: string) => {
   const lowerTitle = title.toLowerCase();
@@ -244,19 +259,23 @@ const parseLegacySchedule = (lines: string[], year: number) => {
 const parseBlockSchedule = (lines: string[], year: number) => {
   const events: TimelineEvent[] = [];
   let currentDay: Date | null = null;
-  let pendingTitle = '';
+  let preEventLines: string[] = [];
   let lastEvent: TimelineEvent | null = null;
 
-  const createEventFromPendingTitle = (line: string) => {
-    if (!currentDay || !pendingTitle) return false;
+  const createEventFromBufferedLines = (timeLine: string) => {
+    if (!currentDay) return false;
 
-    const timeRange = parseTimeRange(line);
+    const timeRange = parseTimeRange(timeLine);
     if (!timeRange) return false;
 
-    const event = buildEvent(pendingTitle, currentDay, timeRange, events.length, year);
+    const titleParts = preEventLines.filter(isLikelyTitleLine);
+    if (titleParts.length === 0) return false;
+
+    const title = titleParts[titleParts.length - 1].trim();
+    const event = buildEvent(title, currentDay, timeRange, events.length, year);
     events.push(event);
     lastEvent = event;
-    pendingTitle = '';
+    preEventLines = [];
     return true;
   };
 
@@ -266,12 +285,12 @@ const parseBlockSchedule = (lines: string[], year: number) => {
     const dayHeading = parseDayHeading(line, year);
     if (dayHeading) {
       currentDay = dayHeading;
-      pendingTitle = '';
+      preEventLines = [];
       lastEvent = null;
       return;
     }
 
-    if (createEventFromPendingTitle(line)) {
+    if (createEventFromBufferedLines(line)) {
       return;
     }
 
@@ -283,7 +302,7 @@ const parseBlockSchedule = (lines: string[], year: number) => {
         const event = buildEvent(title, currentDay, timeRange, events.length, year);
         events.push(event);
         lastEvent = event;
-        pendingTitle = '';
+        preEventLines = [];
         return;
       }
     }
@@ -301,13 +320,8 @@ const parseBlockSchedule = (lines: string[], year: number) => {
       return;
     }
 
-    if (currentDay && !pendingTitle) {
-      pendingTitle = line;
-      return;
-    }
-
-    if (currentDay && pendingTitle) {
-      pendingTitle = `${pendingTitle} ${line}`.trim();
+    if (currentDay) {
+      preEventLines.push(line);
     }
   });
 
@@ -332,24 +346,48 @@ const eventKey = (event: TimelineEvent) => [
 export const addDragonConEvents = (
   scheduleText: string,
   existingEvents: TimelineEvent[],
-  addEvent: (event: TimelineEvent) => void
+  addEvent: (event: TimelineEvent) => void,
+  updateEvent?: (eventId: string, updates: Partial<TimelineEvent>) => void
 ) => {
-  const newEvents = parseDragonConSchedule(scheduleText);
-  const existingKeys = new Set(existingEvents.map(eventKey));
+  const newEvents = sortEventsByStructure(parseDragonConSchedule(scheduleText));
   const importedKeys = new Set<string>();
   let importedCount = 0;
 
   newEvents.forEach(event => {
     const key = eventKey(event);
-    if (existingKeys.has(key) || importedKeys.has(key)) {
+    if (importedKeys.has(key)) {
       return;
     }
 
     const position = findAvailablePosition(existingEvents, event.startTime, event.endTime);
     const eventWithPosition = { ...event, position };
 
-    addEvent(eventWithPosition);
-    existingEvents.push(eventWithPosition);
+    const existingIndex = existingEvents.findIndex(existingEvent => eventKey(existingEvent) === key);
+    if (existingIndex !== -1) {
+      const existingEvent = existingEvents[existingIndex];
+      const replacedEvent = {
+        ...existingEvent,
+        ...eventWithPosition,
+        id: existingEvent.id,
+        createdAt: existingEvent.createdAt,
+        updatedAt: new Date().toISOString()
+      };
+
+      existingEvents[existingIndex] = replacedEvent;
+
+      if (updateEvent) {
+        updateEvent(existingEvent.id, {
+          ...eventWithPosition,
+          id: existingEvent.id,
+          createdAt: existingEvent.createdAt,
+          updatedAt: replacedEvent.updatedAt
+        });
+      }
+    } else {
+      addEvent(eventWithPosition);
+      existingEvents.push(eventWithPosition);
+    }
+
     importedKeys.add(key);
     importedCount++;
   });

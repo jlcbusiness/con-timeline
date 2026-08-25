@@ -44,6 +44,113 @@ export const getEventDurationInHours = (startTime: Date, endTime: Date): number 
   return (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
 };
 
+export const getEventDurationInMinutes = (startTime: Date, endTime: Date): number => {
+  return (endTime.getTime() - startTime.getTime()) / (1000 * 60);
+};
+
+const VENUE_GROUP_ORDER = [
+  'marriott',
+  'westin',
+  'hyatt',
+  'hilton',
+  'courtland grand',
+  'mart',
+  'streaming'
+];
+
+export const getVenueGroupRank = (location?: string): number => {
+  if (!location?.trim()) return VENUE_GROUP_ORDER.length;
+
+  const normalizedLocation = location.trim().toLowerCase();
+  const matchedIndex = VENUE_GROUP_ORDER.findIndex(group => normalizedLocation.startsWith(group) || normalizedLocation.includes(` ${group}`));
+
+  return matchedIndex === -1 ? VENUE_GROUP_ORDER.length : matchedIndex;
+};
+
+export const getLocationSortKey = (location?: string): string => {
+  return location?.trim().toLowerCase() || '';
+};
+
+const overlapsWithoutBuffer = (left: TimelineEvent, right: TimelineEvent): boolean => {
+  return left.startTime < right.endTime && left.endTime > right.startTime;
+};
+
+const getConnectedOverlapCluster = (
+  seed: TimelineEvent,
+  events: TimelineEvent[],
+  visited: Set<string>
+): TimelineEvent[] => {
+  const cluster: TimelineEvent[] = [];
+  const stack = [seed];
+
+  while (stack.length > 0) {
+    const current = stack.pop();
+    if (!current || visited.has(current.id)) continue;
+
+    visited.add(current.id);
+    cluster.push(current);
+
+    events.forEach(candidate => {
+      if (!visited.has(candidate.id) && overlapsWithoutBuffer(current, candidate)) {
+        stack.push(candidate);
+      }
+    });
+  }
+
+  return cluster;
+};
+
+const sortClusterEvents = (events: TimelineEvent[]): TimelineEvent[] => {
+  return [...events].map((event, sourceIndex) => ({ event, sourceIndex })).sort((left, right) => {
+    const leftDuration = getEventDurationInMinutes(left.event.startTime, left.event.endTime);
+    const rightDuration = getEventDurationInMinutes(right.event.startTime, right.event.endTime);
+    const leftVenueRank = getVenueGroupRank(left.event.location);
+    const rightVenueRank = getVenueGroupRank(right.event.location);
+    const leftLocationKey = getLocationSortKey(left.event.location);
+    const rightLocationKey = getLocationSortKey(right.event.location);
+
+    return rightDuration - leftDuration
+      || leftVenueRank - rightVenueRank
+      || leftLocationKey.localeCompare(rightLocationKey)
+      || left.event.startTime.getTime() - right.event.startTime.getTime()
+      || left.sourceIndex - right.sourceIndex;
+  }).map(({ event }) => event);
+};
+
+export const sortEventsForPacking = (events: TimelineEvent[]): TimelineEvent[] => {
+  const sortedByStart = [...events].sort((left, right) => {
+    const leftStart = left.startTime.getTime();
+    const rightStart = right.startTime.getTime();
+    const leftDuration = getEventDurationInMinutes(left.startTime, left.endTime);
+    const rightDuration = getEventDurationInMinutes(right.startTime, right.endTime);
+
+    return leftStart - rightStart
+      || rightDuration - leftDuration
+      || left.endTime.getTime() - right.endTime.getTime();
+  });
+
+  const clusters: TimelineEvent[][] = [];
+  const visited = new Set<string>();
+
+  sortedByStart.forEach(event => {
+    if (visited.has(event.id)) return;
+    clusters.push(getConnectedOverlapCluster(event, sortedByStart, visited));
+  });
+
+  return clusters
+    .map(cluster => ({
+      cluster,
+      clusterStart: Math.min(...cluster.map(event => event.startTime.getTime())),
+      clusterLongest: Math.max(...cluster.map(event => getEventDurationInMinutes(event.startTime, event.endTime)))
+    }))
+    .sort((left, right) => left.clusterStart - right.clusterStart || right.clusterLongest - left.clusterLongest)
+    .flatMap(({ cluster }) => sortClusterEvents(cluster));
+};
+
+export const sortEventsByStructure = (events: TimelineEvent[]): TimelineEvent[] => {
+  return sortEventsForPacking(events);
+};
+
 export const getBufferedStartTime = (event: TimelineEvent): Date => {
   const bufferBeforeMinutes = event.bufferBeforeMinutes ?? 0;
   return new Date(event.startTime.getTime() - bufferBeforeMinutes * 60 * 1000);
@@ -127,7 +234,23 @@ export const cascadeEventPositions = (
   }
   
   // For each conflicting event, find it a new position
-  directConflicts.forEach(conflictingEvent => {
+  const sortedConflicts = [...directConflicts].sort((left, right) => {
+    const leftDuration = getEventDurationInMinutes(left.startTime, left.endTime);
+    const rightDuration = getEventDurationInMinutes(right.startTime, right.endTime);
+    const leftVenueRank = getVenueGroupRank(left.location);
+    const rightVenueRank = getVenueGroupRank(right.location);
+    const leftLocationKey = getLocationSortKey(left.location);
+    const rightLocationKey = getLocationSortKey(right.location);
+
+    return rightDuration - leftDuration
+      || leftVenueRank - rightVenueRank
+      || leftLocationKey.localeCompare(rightLocationKey)
+      || left.position - right.position
+      || left.startTime.getTime() - right.startTime.getTime()
+      || left.endTime.getTime() - right.endTime.getTime();
+  });
+
+  sortedConflicts.forEach(conflictingEvent => {
     // Create a temporary list of events to check against (excluding the conflicting event)
     const eventsToCheckAgainst = [
       updatedChangedEvent, // The changed event is now in this position
