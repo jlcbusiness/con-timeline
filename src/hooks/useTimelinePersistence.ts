@@ -12,8 +12,8 @@ export interface TimelineMeta {
 }
 
 const ACTIVE_KEY = 'active-timeline-id';
-const LEGACY_START_DATE = '2025-08-27T01:00:00';
-const LEGACY_END_DATE = '2025-09-02T23:00:00';
+const LEGACY_START_DATE = '2026-08-26T01:00:00';
+const LEGACY_END_DATE = '2026-09-07T23:00:00';
 
 const uuid = () => (typeof crypto !== 'undefined' && (crypto as any).randomUUID ? (crypto as any).randomUUID() : Date.now().toString());
 

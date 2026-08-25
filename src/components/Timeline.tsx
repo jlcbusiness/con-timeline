@@ -1175,6 +1175,10 @@ export const Timeline: React.FC = () => {
         onClose={() => setIsDragonConImporterOpen(false)}
         existingEvents={events}
         onAddEvent={handleDragonConEventAdd}
+        onAddLocations={async (locationNames) => {
+          if (locationNames.length === 0) return;
+          await mergeLocations(locationNames, activeId || undefined);
+        }}
       />
     </div>
   );

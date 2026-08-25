@@ -1,110 +1,358 @@
 import type { TimelineEvent } from '../types/timeline';
 import { findAvailablePosition, getEventColors } from './timelineUtils';
 
-export const parseDragonConSchedule = (scheduleText: string): TimelineEvent[] => {
-  const lines = scheduleText.split('\n').filter(line => line.trim());
-  const events: TimelineEvent[] = [];
+const DEFAULT_DRAGONCON_YEAR = 2026;
+
+const MONTH_INDEX: Record<string, number> = {
+  jan: 0,
+  january: 0,
+  feb: 1,
+  february: 1,
+  mar: 2,
+  march: 2,
+  apr: 3,
+  april: 3,
+  may: 4,
+  jun: 5,
+  june: 5,
+  jul: 6,
+  july: 6,
+  aug: 7,
+  august: 7,
+  sep: 8,
+  sept: 8,
+  september: 8,
+  oct: 9,
+  october: 9,
+  nov: 10,
+  november: 10,
+  dec: 11,
+  december: 11
+};
+
+const WEEKDAY_REGEX = /^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),\s+([A-Za-z]+)\s+(\d{1,2})$/i;
+const LEGACY_EVENT_REGEX = /^(.+?)\s*-\s*(\w+),\s*(\w+)\s+(\d+)\s+(.+)$/;
+const TITLE_AND_TIME_REGEX = /^(.*?)\s+(\d{1,2}:\d{2}\s*(?:AM|PM)\s*[—-]\s*\d{1,2}:\d{2}\s*(?:AM|PM))$/i;
+const TIME_RANGE_REGEX = /(\d{1,2}):(\d{2})\s*(AM|PM)\s*[—-]\s*(\d{1,2}):(\d{2})\s*(AM|PM)/i;
+
+const normalizeLines = (scheduleText: string) =>
+  scheduleText
+    .replace(/\r\n?/g, '\n')
+    .replace(/\u00a0/g, ' ')
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean);
+
+const inferYear = (scheduleText: string, fallbackYear = DEFAULT_DRAGONCON_YEAR) => {
+  const headerMatch = scheduleText.match(/Dragon Con\s+(20\d{2})/i);
+  return headerMatch ? Number(headerMatch[1]) : fallbackYear;
+};
+
+const monthIndexFor = (month: string) => MONTH_INDEX[month.toLowerCase()] ?? MONTH_INDEX[month.slice(0, 3).toLowerCase()];
+
+const isNoiseLine = (line: string) => (
+  /^Dragon Con\s+20\d{2}\b/i.test(line)
+  || /^Print Schedule$/i.test(line)
+  || /^Location:\s*$/i.test(line)
+  || /^Speakers:\s*$/i.test(line)
+  || /^\d+ of \d+\b/i.test(line)
+  || /https?:\/\//i.test(line)
+);
+
+const parseDayHeading = (line: string, year: number) => {
+  const match = line.match(WEEKDAY_REGEX);
+  if (!match) return null;
+
+  const [, , monthName, dayString] = match;
+  const monthIndex = monthIndexFor(monthName);
+  if (monthIndex === undefined) return null;
+
+  return new Date(year, monthIndex, Number(dayString), 0, 0, 0, 0);
+};
+
+const parseClockTime = (hourString: string, minuteString: string, meridiem: string) => {
+  let hour = Number(hourString);
+  const minute = Number(minuteString);
+
+  if (meridiem.toUpperCase() === 'PM' && hour !== 12) {
+    hour += 12;
+  } else if (meridiem.toUpperCase() === 'AM' && hour === 12) {
+    hour = 0;
+  }
+
+  return hour * 60 + minute;
+};
+
+const parseTimeRange = (text: string) => {
+  const match = text.match(TIME_RANGE_REGEX);
+  if (!match) return null;
+
+  const [, startHour, startMinute, startMeridiem, endHour, endMinute, endMeridiem] = match;
+
+  return {
+    startMinutes: parseClockTime(startHour, startMinute, startMeridiem),
+    endMinutes: parseClockTime(endHour, endMinute, endMeridiem)
+  };
+};
+
+const buildEventDate = (day: Date, minutesFromMidnight: number) => {
+  const eventDate = new Date(day);
+  eventDate.setHours(Math.floor(minutesFromMidnight / 60), minutesFromMidnight % 60, 0, 0);
+  return eventDate;
+};
+
+const normalizeLocation = (value: string) => value.replace(/^Location:\s*/i, '').replace(/\s+https?:\/\/.*$/i, '').trim();
+const normalizeSpeakers = (value: string) => value.replace(/^Speakers:\s*/i, '').trim();
+
+const categorizeTitle = (title: string) => {
+  const lowerTitle = title.toLowerCase();
+
+  if (lowerTitle.includes('star trek') || lowerTitle.includes('trek')) return 'startrek';
+  if (lowerTitle.includes('buffy') || lowerTitle.includes('hellmouth')) return 'buffy';
+  if (lowerTitle.includes('bones')) return 'bones';
+  if (lowerTitle.includes('arrowverse') || lowerTitle.includes('arrow')) return 'arrowverse';
+  if (lowerTitle.includes('back to the future')) return 'bttf';
+  if (lowerTitle.includes('science') || lowerTitle.includes('physics') || lowerTitle.includes('astronomy')) return 'science';
+  if (lowerTitle.includes('nsdm') || lowerTitle.includes('military') || lowerTitle.includes('war')) return 'military';
+  if (lowerTitle.includes('sewing') || lowerTitle.includes('fiber') || lowerTitle.includes('craft')) return 'crafts';
+  if (lowerTitle.includes('monty python')) return 'python';
+  if (lowerTitle.includes('dragon con')) return 'dragoncon';
+
+  return 'general';
+};
+
+const getDurationMinutes = (title: string) => {
+  const lowerTitle = title.toLowerCase();
+
+  if (lowerTitle.includes('workshop') || lowerTitle.includes('megagame') || lowerTitle.includes('singalong')) {
+    return 90;
+  }
+
+  if (lowerTitle.includes('live') || lowerTitle.includes('karaoke')) {
+    return 120;
+  }
+
+  return 60;
+};
+
+const buildEvent = (
+  title: string,
+  day: Date,
+  timeRange: { startMinutes: number; endMinutes: number },
+  index: number,
+  year: number,
+  location?: string,
+  speakers?: string
+): TimelineEvent => {
   const colors = getEventColors();
+  const startTime = buildEventDate(day, timeRange.startMinutes);
+  const endTime = buildEventDate(day, timeRange.endMinutes);
+
+  if (endTime <= startTime) {
+    endTime.setDate(endTime.getDate() + 1);
+  }
+
+  const category = categorizeTitle(title);
+  const color = colors[index % colors.length];
+
+  return {
+    id: `dragoncon-${year}-${index}-${Date.now()}`,
+    title: title.trim(),
+    description: speakers
+      ? `Dragon Con ${year} - ${day.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}. Speakers: ${speakers}`
+      : `Dragon Con ${year} - ${day.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}`,
+    location,
+    startTime,
+    endTime,
+    color: category === 'general' ? color : colors[(index + category.length) % colors.length],
+    position: 0
+  };
+};
+
+const mergeParsedEvents = (events: TimelineEvent[]) => {
+  const merged = new Map<string, TimelineEvent>();
+
+  events.forEach(event => {
+    const key = [event.title.trim().toLowerCase(), event.startTime.toISOString(), event.endTime.toISOString()].join('|');
+    const existing = merged.get(key);
+
+    if (!existing) {
+      merged.set(key, event);
+      return;
+    }
+
+    merged.set(key, {
+      ...existing,
+      ...event,
+      location: event.location || existing.location,
+      description: event.description || existing.description
+    });
+  });
+
+  return Array.from(merged.values());
+};
+
+const parseLegacySchedule = (lines: string[], year: number) => {
+  const colors = getEventColors();
+  const categoryColors: Record<string, string> = {};
   let colorIndex = 0;
 
-  // Track categories for consistent coloring
-  const categoryColors: { [key: string]: string } = {};
+  return lines.flatMap((line, index) => {
+    const match = line.match(LEGACY_EVENT_REGEX);
+    if (!match) return [];
 
-  lines.forEach((line, index) => {
-    const trimmedLine = line.trim();
-    if (!trimmedLine) return;
+    const [, title, dayOfWeek, month, day, timeText] = match;
+    const timeMatch = timeText.match(/(\d+):(\d+)\s*(AM|PM)/i);
+    if (!timeMatch) return [];
 
-    // Parse the line format: "Event Title - Day, Month Date Time"
-    const match = trimmedLine.match(/^(.+?)\s*-\s*(\w+),\s*(\w+)\s+(\d+)\s+(.+)$/);
-    if (!match) return;
+    const [, hourString, minuteString, meridiem] = timeMatch;
+    const monthIndex = monthIndexFor(month);
+    if (monthIndex === undefined) return [];
 
-    const [, title, dayOfWeek, month, day, timeStr] = match;
-    
-    // Parse time (handle both 12-hour format with AM/PM)
-    const timeMatch = timeStr.match(/(\d+):(\d+)\s*(AM|PM)/i);
-    if (!timeMatch) return;
+    let hour = Number(hourString);
+    const minute = Number(minuteString);
 
-    const [, hourStr, minuteStr, ampm] = timeMatch;
-    let hour = parseInt(hourStr);
-    const minute = parseInt(minuteStr);
-
-    // Convert to 24-hour format
-    if (ampm.toUpperCase() === 'PM' && hour !== 12) {
+    if (meridiem.toUpperCase() === 'PM' && hour !== 12) {
       hour += 12;
-    } else if (ampm.toUpperCase() === 'AM' && hour === 12) {
+    } else if (meridiem.toUpperCase() === 'AM' && hour === 12) {
       hour = 0;
     }
 
-    // Create date (2025 - FIXED: Use month 8 for September instead of 7 for August)
-    const eventDate = new Date(2025, 8, parseInt(day), hour, minute); // September = month 8
-    
-    // Default 1-hour duration, but adjust for some known longer events
-    let duration = 60; // minutes
-    if (title.toLowerCase().includes('workshop') || 
-        title.toLowerCase().includes('megagame') ||
-        title.toLowerCase().includes('singalong')) {
-      duration = 90;
-    }
-    if (title.toLowerCase().includes('live') || 
-        title.toLowerCase().includes('karaoke')) {
-      duration = 120;
-    }
+    const eventDate = new Date(year, monthIndex, Number(day), hour, minute, 0, 0);
+    const durationMinutes = getDurationMinutes(title);
+    const endDate = new Date(eventDate.getTime() + durationMinutes * 60 * 1000);
 
-    const endDate = new Date(eventDate.getTime() + duration * 60 * 1000);
-
-    // Determine category for consistent coloring
-    let category = 'general';
-    const lowerTitle = title.toLowerCase();
-    
-    if (lowerTitle.includes('star trek') || lowerTitle.includes('trek')) category = 'startrek';
-    else if (lowerTitle.includes('buffy') || lowerTitle.includes('hellmouth')) category = 'buffy';
-    else if (lowerTitle.includes('bones')) category = 'bones';
-    else if (lowerTitle.includes('arrowverse') || lowerTitle.includes('arrow')) category = 'arrowverse';
-    else if (lowerTitle.includes('back to the future')) category = 'bttf';
-    else if (lowerTitle.includes('science') || lowerTitle.includes('physics') || lowerTitle.includes('astronomy')) category = 'science';
-    else if (lowerTitle.includes('nsdm') || lowerTitle.includes('military') || lowerTitle.includes('war')) category = 'military';
-    else if (lowerTitle.includes('sewing') || lowerTitle.includes('fiber') || lowerTitle.includes('craft')) category = 'crafts';
-    else if (lowerTitle.includes('monty python')) category = 'python';
-    else if (lowerTitle.includes('dragon con')) category = 'dragoncon';
-
-    // Assign consistent colors to categories
+    const category = categorizeTitle(title);
     if (!categoryColors[category]) {
       categoryColors[category] = colors[colorIndex % colors.length];
       colorIndex++;
     }
 
-    const event: TimelineEvent = {
-      id: `dragoncon-${index}-${Date.now()}`,
+    return [{
+      id: `dragoncon-legacy-${year}-${index}-${Date.now()}`,
       title: title.trim(),
-      description: `Dragon Con 2025 - ${dayOfWeek}, ${month} ${day}`,
+      description: `Dragon Con ${year} - ${dayOfWeek}, ${month} ${day}`,
       location: 'Dragon Con',
       startTime: eventDate,
       endTime: endDate,
       color: categoryColors[category],
-      position: 0 // Will be calculated when added
-    };
+      position: 0
+    }];
+  });
+};
 
+const parseBlockSchedule = (lines: string[], year: number) => {
+  const events: TimelineEvent[] = [];
+  let currentDay: Date | null = null;
+  let pendingTitle = '';
+  let lastEvent: TimelineEvent | null = null;
+
+  const createEventFromPendingTitle = (line: string) => {
+    if (!currentDay || !pendingTitle) return false;
+
+    const timeRange = parseTimeRange(line);
+    if (!timeRange) return false;
+
+    const event = buildEvent(pendingTitle, currentDay, timeRange, events.length, year);
     events.push(event);
+    lastEvent = event;
+    pendingTitle = '';
+    return true;
+  };
+
+  lines.forEach(line => {
+    if (isNoiseLine(line)) return;
+
+    const dayHeading = parseDayHeading(line, year);
+    if (dayHeading) {
+      currentDay = dayHeading;
+      pendingTitle = '';
+      lastEvent = null;
+      return;
+    }
+
+    if (createEventFromPendingTitle(line)) {
+      return;
+    }
+
+    const titleAndTimeMatch = line.match(TITLE_AND_TIME_REGEX);
+    if (titleAndTimeMatch && currentDay) {
+      const [, title, timeText] = titleAndTimeMatch;
+      const timeRange = parseTimeRange(timeText);
+      if (timeRange) {
+        const event = buildEvent(title, currentDay, timeRange, events.length, year);
+        events.push(event);
+        lastEvent = event;
+        pendingTitle = '';
+        return;
+      }
+    }
+
+    const locationMatch = line.match(/^Location:\s*(.+)$/i);
+    if (locationMatch && lastEvent) {
+      lastEvent.location = normalizeLocation(locationMatch[0]);
+      return;
+    }
+
+    const speakersMatch = line.match(/^Speakers:\s*(.+)$/i);
+    if (speakersMatch && lastEvent) {
+      const speakers = normalizeSpeakers(speakersMatch[0]);
+      lastEvent.description = `${lastEvent.description || ''}${lastEvent.description ? ' ' : ''}Speakers: ${speakers}`.trim();
+      return;
+    }
+
+    if (currentDay && !pendingTitle) {
+      pendingTitle = line;
+      return;
+    }
+
+    if (currentDay && pendingTitle) {
+      pendingTitle = `${pendingTitle} ${line}`.trim();
+    }
   });
 
   return events;
 };
 
+export const parseDragonConSchedule = (scheduleText: string): TimelineEvent[] => {
+  const lines = normalizeLines(scheduleText);
+  const year = inferYear(scheduleText);
+  const legacyEvents = parseLegacySchedule(lines, year);
+  const blockEvents = parseBlockSchedule(lines, year);
+
+  return mergeParsedEvents([...legacyEvents, ...blockEvents]);
+};
+
+const eventKey = (event: TimelineEvent) => [
+  event.title.trim().toLowerCase(),
+  event.startTime.toISOString(),
+  event.endTime.toISOString()
+].join('|');
+
 export const addDragonConEvents = (
-  scheduleText: string, 
+  scheduleText: string,
   existingEvents: TimelineEvent[],
   addEvent: (event: TimelineEvent) => void
 ) => {
   const newEvents = parseDragonConSchedule(scheduleText);
-  
+  const existingKeys = new Set(existingEvents.map(eventKey));
+  const importedKeys = new Set<string>();
+  let importedCount = 0;
+
   newEvents.forEach(event => {
-    // Find available position for each event
+    const key = eventKey(event);
+    if (existingKeys.has(key) || importedKeys.has(key)) {
+      return;
+    }
+
     const position = findAvailablePosition(existingEvents, event.startTime, event.endTime);
     const eventWithPosition = { ...event, position };
-    
+
     addEvent(eventWithPosition);
-    existingEvents.push(eventWithPosition); // Update for next position calculation
+    existingEvents.push(eventWithPosition);
+    importedKeys.add(key);
+    importedCount++;
   });
 
-  return newEvents.length;
+  return importedCount;
 };

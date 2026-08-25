@@ -1,24 +1,43 @@
 import React, { useState } from 'react';
 import { Upload, Calendar, Sparkles, X } from 'lucide-react';
 import type { TimelineEvent } from '../types/timeline';
-import { addDragonConEvents } from '../utils/dragonConImporter';
+import { addDragonConEvents, parseDragonConSchedule } from '../utils/dragonConImporter';
+import { extractDragonConScheduleTextFromPdf } from '../utils/dragonConPdf';
 
 interface DragonConImporterProps {
   isOpen: boolean;
   onClose: () => void;
   existingEvents: TimelineEvent[];
   onAddEvent: (event: TimelineEvent) => void;
+  onAddLocations?: (locationNames: string[]) => Promise<void> | void;
 }
 
 export const DragonConImporter: React.FC<DragonConImporterProps> = ({
   isOpen,
   onClose,
   existingEvents,
-  onAddEvent
+  onAddEvent,
+  onAddLocations
 }) => {
   const [scheduleText, setScheduleText] = useState('');
   const [isImporting, setIsImporting] = useState(false);
+  const [isLoadingPdf, setIsLoadingPdf] = useState(false);
   const [importResult, setImportResult] = useState<string | null>(null);
+
+  const persistLocations = async (text: string) => {
+    if (!onAddLocations) return;
+
+    const importedEvents = parseDragonConSchedule(text);
+    const locationNames = Array.from(new Set(
+      importedEvents
+        .map(event => event.location?.trim())
+        .filter((location): location is string => Boolean(location) && location !== 'Dragon Con')
+    ));
+
+    if (locationNames.length > 0) {
+      await onAddLocations(locationNames);
+    }
+  };
 
   const handleImport = async () => {
     if (!scheduleText.trim()) return;
@@ -26,10 +45,10 @@ export const DragonConImporter: React.FC<DragonConImporterProps> = ({
     setIsImporting(true);
     try {
       const eventCount = addDragonConEvents(scheduleText, existingEvents, onAddEvent);
+      await persistLocations(scheduleText);
       setImportResult(`Successfully imported ${eventCount} Dragon Con events!`);
       setScheduleText('');
 
-      // Auto-close after 2 seconds
       setTimeout(() => {
         onClose();
         setImportResult(null);
@@ -38,6 +57,23 @@ export const DragonConImporter: React.FC<DragonConImporterProps> = ({
       setImportResult('Failed to import events. Please check the format.');
     } finally {
       setIsImporting(false);
+    }
+  };
+
+  const handlePdfUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsLoadingPdf(true);
+    try {
+      const extractedText = await extractDragonConScheduleTextFromPdf(file);
+      setScheduleText(extractedText);
+    } catch (error) {
+      console.error('Failed to read PDF:', error);
+      setImportResult('Failed to read the PDF. Please try another file.');
+    } finally {
+      setIsLoadingPdf(false);
+      event.target.value = '';
     }
   };
 
@@ -87,26 +123,39 @@ export const DragonConImporter: React.FC<DragonConImporterProps> = ({
                   How to Import Your Dragon Con Schedule
                 </h3>
                 <ul className="text-sm text-purple-800 space-y-1">
-                  <li>• Copy your schedule from the Dragon Con app or website</li>
-                  <li>• Paste it in the text area below</li>
-                  <li>• Events should be in format: "Event Title - Day, Month Date Time"</li>
-                  <li>• Each event should be on a separate line</li>
+                  <li>• Upload the Dragon Con PDF or paste the extracted text</li>
+                  <li>• The importer reads event titles, times, and locations from the schedule</li>
+                  <li>• It also supports the older one-line text format</li>
+                  <li>• Each event should appear as a separate block or line</li>
                 </ul>
               </div>
 
               <div>
-                <div className="flex items-center justify-between mb-2">
+                <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <label htmlFor="schedule-text" className="block text-sm font-medium text-gray-700">
-                    Dragon Con Schedule Text
+                    Dragon Con Schedule Text or PDF Extract
                   </label>
-                  <button
-                    type="button"
-                    onClick={handlePasteFromClipboard}
-                    className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1 transition-colors"
-                  >
-                    <Upload size={12} />
-                    Paste from Clipboard
-                  </button>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={handlePasteFromClipboard}
+                      className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1 transition-colors"
+                    >
+                      <Upload size={12} />
+                      Paste from Clipboard
+                    </button>
+                    <label className="flex cursor-pointer items-center gap-1 text-xs text-blue-600 transition-colors hover:text-blue-700">
+                      <Upload size={12} />
+                      {isLoadingPdf ? 'Reading PDF...' : 'Upload PDF'}
+                      <input
+                        type="file"
+                        accept=".pdf"
+                        onChange={handlePdfUpload}
+                        className="hidden"
+                        disabled={isLoadingPdf}
+                      />
+                    </label>
+                  </div>
                 </div>
                 <textarea
                   id="schedule-text"
@@ -127,16 +176,16 @@ Skies Over Dragon Con - Thursday, Sep 1 8:30 PM"
                 <ul className="text-sm text-gray-600 space-y-1">
                   <li>• Automatically categorizes events by type (Star Trek, Science, etc.)</li>
                   <li>• Assigns consistent colors to event categories</li>
-                  <li>• Sets appropriate durations (workshops = 90min, shows = 2hrs)</li>
+                  <li>• Infers event durations when only a start time is present</li>
                   <li>• Finds optimal positioning to avoid overlaps</li>
-                  <li>• Adds Dragon Con location to all events</li>
+                  <li>• Keeps real locations from the PDF and ignores duplicates</li>
                 </ul>
               </div>
 
               <div className="flex gap-3 pt-4">
                 <button
                   onClick={handleImport}
-                  disabled={!scheduleText.trim() || isImporting}
+                  disabled={!scheduleText.trim() || isImporting || isLoadingPdf}
                   className="flex-1 bg-purple-600 text-white py-2 px-4 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {isImporting ? (
