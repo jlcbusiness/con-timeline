@@ -219,21 +219,6 @@ export const EventModal: React.FC<EventModalProps> = ({
             />
           </div>
 
-          <div>
-            <label htmlFor="event-description" className="block text-sm font-medium text-gray-700 mb-2">
-              Description (Optional)
-            </label>
-            <textarea
-              id="event-description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white resize-none"
-              placeholder="Enter event description"
-              rows={3}
-              autoComplete="off"
-            />
-          </div>
-
           <div className="relative">
             <label htmlFor="event-location" className="block text-sm font-medium text-gray-700 mb-2">
               <MapPin size={16} className="inline mr-1" />
@@ -321,6 +306,29 @@ export const EventModal: React.FC<EventModalProps> = ({
             </div>
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              <Palette size={16} className="inline mr-1" />
+              Color
+            </label>
+            <div className="flex gap-2 flex-wrap">
+              {colors.map((colorOption) => (
+                <button
+                  key={colorOption}
+                  type="button"
+                  onClick={() => setColor(colorOption)}
+                  className={`w-8 h-8 rounded-full border-2 transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+                    color === colorOption
+                      ? 'border-gray-800 scale-110'
+                      : 'border-gray-300 hover:border-gray-500'
+                  }`}
+                  style={{ backgroundColor: colorOption }}
+                  aria-label={`Select color ${colorOption}`}
+                />
+              ))}
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-3">
               <div>
@@ -395,6 +403,27 @@ export const EventModal: React.FC<EventModalProps> = ({
             </div>
           </div>
 
+          <div>
+            <label htmlFor="buffer-before" className="block text-sm font-medium text-gray-700 mb-2">
+              <Clock size={16} className="inline mr-1" />
+              Waiting Buffer
+            </label>
+            <select
+              id="buffer-before"
+              value={bufferBeforeMinutes}
+              onChange={(e) => setBufferBeforeMinutes(Number(e.target.value))}
+              disabled={timeFieldsDisabled}
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
+            >
+              {EVENT_BUFFER_OPTIONS_MINUTES.map(option => (
+                <option key={option} value={option}>
+                  {option === 0 ? 'None' : option === 30 ? '30 min' : option === 60 ? '1 hr' : '2 hrs'}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-gray-500">Reserves time before the event so other events avoid it.</p>
+          </div>
+
           <div className="flex items-start gap-3 rounded-md border border-gray-200 bg-gray-50 px-3 py-2">
             <input
               id="event-lock-time"
@@ -415,47 +444,18 @@ export const EventModal: React.FC<EventModalProps> = ({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <Palette size={16} className="inline mr-1" />
-              Color
+            <label htmlFor="event-description" className="block text-sm font-medium text-gray-700 mb-2">
+              Description (Optional)
             </label>
-            <div className="flex gap-2 flex-wrap">
-              {colors.map((colorOption) => (
-                <button
-                  key={colorOption}
-                  type="button"
-                  onClick={() => setColor(colorOption)}
-                  className={`w-8 h-8 rounded-full border-2 transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
-                    color === colorOption
-                      ? 'border-gray-800 scale-110'
-                      : 'border-gray-300 hover:border-gray-500'
-                  }`}
-                  style={{ backgroundColor: colorOption }}
-                  aria-label={`Select color ${colorOption}`}
-                />
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label htmlFor="buffer-before" className="block text-sm font-medium text-gray-700 mb-2">
-              <Clock size={16} className="inline mr-1" />
-              Waiting Buffer
-            </label>
-            <select
-              id="buffer-before"
-              value={bufferBeforeMinutes}
-              onChange={(e) => setBufferBeforeMinutes(Number(e.target.value))}
-              disabled={timeFieldsDisabled}
-              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
-            >
-              {EVENT_BUFFER_OPTIONS_MINUTES.map(option => (
-                <option key={option} value={option}>
-                  {option === 0 ? 'None' : option === 30 ? '30 min' : option === 60 ? '1 hr' : '2 hrs'}
-                </option>
-              ))}
-            </select>
-            <p className="mt-1 text-xs text-gray-500">Reserves time before the event so other events avoid it.</p>
+            <textarea
+              id="event-description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white resize-none"
+              placeholder="Enter event description"
+              rows={3}
+              autoComplete="off"
+            />
           </div>
 
           <div className="flex flex-col gap-3 pt-4 sm:flex-row">

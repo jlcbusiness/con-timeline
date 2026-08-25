@@ -28,6 +28,8 @@ Speakers: Sasha Arbogast — , Bill Keel —`;
     expect(events[1].description).toContain('Speakers: Sasha Arbogast');
     expect(events[0].lockTime).toBe(true);
     expect(events[1].lockTime).toBe(true);
+    expect(events[0].color).toBe('#6B7280');
+    expect(events[1].color).toBe('#6B7280');
   });
 
   it('parses the legacy one-line schedule format', () => {
@@ -40,6 +42,7 @@ Speakers: Sasha Arbogast — , Bill Keel —`;
     expect(events[0].location).toBe('Dragon Con');
     expect(events[0].startTime.getHours()).toBe(12);
     expect(events[0].lockTime).toBe(true);
+    expect(events[0].color).toBe('#6B7280');
   });
 
   it('overwrites events that already exist by title and time', () => {
@@ -68,6 +71,7 @@ Speakers: Sasha Arbogast — , Bill Keel —`;
     expect(updates).toHaveLength(1);
     expect(updates[0]?.eventId).toBe('existing-1');
     expect(updates[0]?.updates.lockTime).toBe(true);
+    expect(updates[0]?.updates.color).toBe('#10B981');
   });
 
   it('ignores guest-name lines that appear before the title in PDF extraction order', () => {

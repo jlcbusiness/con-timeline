@@ -1,7 +1,8 @@
 import type { TimelineEvent } from '../types/timeline';
-import { findAvailablePosition, getEventColors, sortEventsByStructure } from './timelineUtils';
+import { findAvailablePosition, sortEventsByStructure } from './timelineUtils';
 
 const DEFAULT_DRAGONCON_YEAR = 2026;
+const DRAGONCON_IMPORT_COLOR = '#6B7280';
 
 const MONTH_INDEX: Record<string, number> = {
   jan: 0,
@@ -119,23 +120,6 @@ const isLikelyTitleLine = (line: string) => (
   && line.length <= 140
 );
 
-const categorizeTitle = (title: string) => {
-  const lowerTitle = title.toLowerCase();
-
-  if (lowerTitle.includes('star trek') || lowerTitle.includes('trek')) return 'startrek';
-  if (lowerTitle.includes('buffy') || lowerTitle.includes('hellmouth')) return 'buffy';
-  if (lowerTitle.includes('bones')) return 'bones';
-  if (lowerTitle.includes('arrowverse') || lowerTitle.includes('arrow')) return 'arrowverse';
-  if (lowerTitle.includes('back to the future')) return 'bttf';
-  if (lowerTitle.includes('science') || lowerTitle.includes('physics') || lowerTitle.includes('astronomy')) return 'science';
-  if (lowerTitle.includes('nsdm') || lowerTitle.includes('military') || lowerTitle.includes('war')) return 'military';
-  if (lowerTitle.includes('sewing') || lowerTitle.includes('fiber') || lowerTitle.includes('craft')) return 'crafts';
-  if (lowerTitle.includes('monty python')) return 'python';
-  if (lowerTitle.includes('dragon con')) return 'dragoncon';
-
-  return 'general';
-};
-
 const getDurationMinutes = (title: string) => {
   const lowerTitle = title.toLowerCase();
 
@@ -159,16 +143,12 @@ const buildEvent = (
   location?: string,
   speakers?: string
 ): TimelineEvent => {
-  const colors = getEventColors();
   const startTime = buildEventDate(day, timeRange.startMinutes);
   const endTime = buildEventDate(day, timeRange.endMinutes);
 
   if (endTime <= startTime) {
     endTime.setDate(endTime.getDate() + 1);
   }
-
-  const category = categorizeTitle(title);
-  const color = colors[index % colors.length];
 
   return {
     id: `dragoncon-${year}-${index}-${Date.now()}`,
@@ -179,7 +159,7 @@ const buildEvent = (
     location,
     startTime,
     endTime,
-    color: category === 'general' ? color : colors[(index + category.length) % colors.length],
+    color: DRAGONCON_IMPORT_COLOR,
     position: 0,
     lockTime: true
   };
@@ -209,10 +189,6 @@ const mergeParsedEvents = (events: TimelineEvent[]) => {
 };
 
 const parseLegacySchedule = (lines: string[], year: number) => {
-  const colors = getEventColors();
-  const categoryColors: Record<string, string> = {};
-  let colorIndex = 0;
-
   return lines.flatMap((line, index) => {
     const match = line.match(LEGACY_EVENT_REGEX);
     if (!match) return [];
@@ -238,12 +214,6 @@ const parseLegacySchedule = (lines: string[], year: number) => {
     const durationMinutes = getDurationMinutes(title);
     const endDate = new Date(eventDate.getTime() + durationMinutes * 60 * 1000);
 
-    const category = categorizeTitle(title);
-    if (!categoryColors[category]) {
-      categoryColors[category] = colors[colorIndex % colors.length];
-      colorIndex++;
-    }
-
     return [{
       id: `dragoncon-legacy-${year}-${index}-${Date.now()}`,
       title: title.trim(),
@@ -251,7 +221,7 @@ const parseLegacySchedule = (lines: string[], year: number) => {
       location: 'Dragon Con',
       startTime: eventDate,
       endTime: endDate,
-      color: categoryColors[category],
+      color: DRAGONCON_IMPORT_COLOR,
       position: 0,
       lockTime: true
     }];
@@ -368,10 +338,11 @@ export const addDragonConEvents = (
     if (existingIndex !== -1) {
       const existingEvent = existingEvents[existingIndex];
       const replacedEvent = {
-        ...existingEvent,
         ...eventWithPosition,
+        ...existingEvent,
         id: existingEvent.id,
         createdAt: existingEvent.createdAt,
+        color: existingEvent.color,
         updatedAt: new Date().toISOString()
       };
 
@@ -382,6 +353,7 @@ export const addDragonConEvents = (
           ...eventWithPosition,
           id: existingEvent.id,
           createdAt: existingEvent.createdAt,
+          color: existingEvent.color,
           lockTime: true,
           updatedAt: replacedEvent.updatedAt
         });
