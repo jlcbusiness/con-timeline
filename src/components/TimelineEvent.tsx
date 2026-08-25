@@ -28,8 +28,10 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
   const bufferWidth = getEventBufferWidth(event);
   const resizeWingWidth = 12;
   const resizeWingOffset = resizeWingWidth / 2;
-  const eventStackClass = bufferWidth > 0 ? 'z-30' : 'z-10';
+  const eventStackClass = event.intangible ? 'z-[5]' : bufferWidth > 0 ? 'z-30' : 'z-10';
   const timeLockedClass = event.lockTime ? 'ring-2 ring-white/40 ring-inset' : '';
+  const intangibleClass = event.intangible ? 'opacity-[0.35] saturate-50 grayscale' : '';
+  const hoverClass = event.intangible ? 'hover:shadow-sm' : 'hover:shadow-md hover:z-40 hover:w-[calc(var(--event-width)+12px)]';
   
   // Fixed positioning calculation to align with slot headers
   // Each slot is 64px high, and we add 4px margin from the top of each slot
@@ -78,10 +80,10 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
 
   return (
     <div
-      className={`absolute ${eventStackClass} ${timeLockedClass} rounded-md shadow-sm border border-opacity-20 border-white group select-none touch-none transition-[width,transform,box-shadow] duration-150 ${
+      className={`absolute ${eventStackClass} ${intangibleClass} ${timeLockedClass} rounded-md shadow-sm border border-opacity-20 border-white group select-none touch-none transition-[width,transform,box-shadow] duration-150 ${
         isDragging || isResizing 
           ? 'shadow-lg z-50 cursor-grabbing'
-          : 'hover:shadow-md hover:z-40 hover:w-[calc(var(--event-width)+12px)] cursor-grab'
+          : `${hoverClass} cursor-grab`
       }`}
       style={{
         left: `${leftPosition}px`,

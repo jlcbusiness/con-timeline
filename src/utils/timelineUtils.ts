@@ -71,6 +71,19 @@ export const getLocationSortKey = (location?: string): string => {
   return location?.trim().toLowerCase() || '';
 };
 
+export const isIntangibleEvent = (event: TimelineEvent): boolean => event.intangible === true;
+
+const packSolidEventsByStructure = (events: TimelineEvent[]): TimelineEvent[] => {
+  const packedEvents: TimelineEvent[] = [];
+
+  sortEventsByStructure(events.filter(event => !isIntangibleEvent(event))).forEach(event => {
+    const position = findAvailablePosition(packedEvents, event.startTime, event.endTime);
+    packedEvents.push({ ...event, position });
+  });
+
+  return packedEvents;
+};
+
 const overlapsWithoutBuffer = (left: TimelineEvent, right: TimelineEvent): boolean => {
   return left.startTime < right.endTime && left.endTime > right.startTime;
 };
@@ -118,7 +131,10 @@ const sortClusterEvents = (events: TimelineEvent[]): TimelineEvent[] => {
 };
 
 export const sortEventsForPacking = (events: TimelineEvent[]): TimelineEvent[] => {
-  const sortedByStart = [...events].sort((left, right) => {
+  const intangibleEvents = events.filter(isIntangibleEvent);
+  const solidEvents = events.filter(event => !isIntangibleEvent(event));
+
+  const sortedByStart = [...solidEvents].sort((left, right) => {
     const leftStart = left.startTime.getTime();
     const rightStart = right.startTime.getTime();
     const leftDuration = getEventDurationInMinutes(left.startTime, left.endTime);
@@ -144,7 +160,8 @@ export const sortEventsForPacking = (events: TimelineEvent[]): TimelineEvent[] =
       clusterLongest: Math.max(...cluster.map(event => getEventDurationInMinutes(event.startTime, event.endTime)))
     }))
     .sort((left, right) => left.clusterStart - right.clusterStart || right.clusterLongest - left.clusterLongest)
-    .flatMap(({ cluster }) => sortClusterEvents(cluster));
+    .flatMap(({ cluster }) => sortClusterEvents(cluster))
+    .concat(intangibleEvents);
 };
 
 export const sortEventsByStructure = (events: TimelineEvent[]): TimelineEvent[] => {
@@ -194,6 +211,7 @@ export const findAvailablePosition = (
   endTime: Date
 ): number => {
   const overlappingEvents = events.filter(event => 
+    !isIntangibleEvent(event) &&
     (startTime < event.endTime && endTime > getBufferedStartTime(event))
   );
   
@@ -218,9 +236,13 @@ export const cascadeEventPositions = (
   
   // Create the updated version of the changed event
   const updatedChangedEvent = { ...changedEvent, ...changedEventUpdates };
+
+  if (isIntangibleEvent(updatedChangedEvent)) {
+    return updates;
+  }
   
   // Get all other events
-  const otherEvents = allEvents.filter(e => e.id !== changedEvent.id);
+  const otherEvents = allEvents.filter(e => e.id !== changedEvent.id && !isIntangibleEvent(e));
   
   // Find events that overlap in time AND are in the same position as the changed event
   const directConflicts = otherEvents.filter(event => 
@@ -296,6 +318,32 @@ export const cascadeEventPositions = (
   });
   
   return updates;
+};
+
+export const repackEventPositions = (
+  allEvents: TimelineEvent[],
+  changedEventId: string,
+  changedEventUpdates: Partial<TimelineEvent>
+): { eventId: string; updates: Partial<TimelineEvent> }[] => {
+  const updatedEvents = allEvents.map(event => (
+    event.id === changedEventId ? { ...event, ...changedEventUpdates } : event
+  ));
+
+  const packedPositions = new Map(
+    packSolidEventsByStructure(updatedEvents).map(event => [event.id, event.position] as const)
+  );
+
+  return updatedEvents
+    .filter(event => !isIntangibleEvent(event))
+    .flatMap(event => {
+      const nextPosition = packedPositions.get(event.id);
+
+      if (nextPosition == null || nextPosition === event.position) {
+        return [];
+      }
+
+      return [{ eventId: event.id, updates: { position: nextPosition } }];
+    });
 };
 
 export const getEventColors = (): string[] => [

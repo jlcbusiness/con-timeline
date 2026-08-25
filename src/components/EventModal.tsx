@@ -39,6 +39,7 @@ export const EventModal: React.FC<EventModalProps> = ({
   const [color, setColor] = useState('#3B82F6');
   const [bufferBeforeMinutes, setBufferBeforeMinutes] = useState(0);
   const [lockTime, setLockTime] = useState(false);
+  const [intangible, setIntangible] = useState(false);
   const [isCreateLocationOpen, setIsCreateLocationOpen] = useState(false);
   const [newLocationName, setNewLocationName] = useState('');
 
@@ -57,6 +58,7 @@ export const EventModal: React.FC<EventModalProps> = ({
       setColor(event.color);
       setBufferBeforeMinutes(event.bufferBeforeMinutes ?? 0);
       setLockTime(event.lockTime ?? false);
+      setIntangible(event.intangible ?? false);
       setIsCreateLocationOpen(false);
       setNewLocationName('');
     } else if (initialStartTime) {
@@ -74,6 +76,7 @@ export const EventModal: React.FC<EventModalProps> = ({
       setColor('#3B82F6'); // Use static color instead of colors[0]
       setBufferBeforeMinutes(0);
       setLockTime(false);
+      setIntangible(false);
       setIsCreateLocationOpen(false);
       setNewLocationName('');
     }
@@ -96,7 +99,8 @@ export const EventModal: React.FC<EventModalProps> = ({
       endTime,
       color,
       bufferBeforeMinutes,
-      lockTime
+      lockTime,
+      intangible
     });
     onClose();
   };
@@ -439,6 +443,24 @@ export const EventModal: React.FC<EventModalProps> = ({
               </label>
               <p className="text-xs text-gray-600">
                 Keeps the event on the same time range. You can still move it between slots or delete it.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3 rounded-md border border-gray-200 bg-gray-50 px-3 py-2">
+            <input
+              id="event-intangible"
+              type="checkbox"
+              checked={intangible}
+              onChange={(e) => setIntangible(e.target.checked)}
+              className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <div className="min-w-0">
+              <label htmlFor="event-intangible" className="flex items-center gap-2 text-sm font-medium text-gray-900">
+                Intangible
+              </label>
+              <p className="text-xs text-gray-600">
+                Fades the event and keeps it out of collision and automatic sorting.
               </p>
             </div>
           </div>

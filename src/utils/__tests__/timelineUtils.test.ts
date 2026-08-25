@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { roundToNearestHalfHour, getTimePosition, cascadeEventPositions, sortEventsByStructure } from '../timelineUtils';
+import { roundToNearestHalfHour, getTimePosition, cascadeEventPositions, sortEventsByStructure, findAvailablePosition, repackEventPositions } from '../timelineUtils';
 
 describe('timelineUtils', () => {
   it('rounds to nearest half hour correctly', () => {
@@ -87,6 +87,57 @@ describe('timelineUtils', () => {
       'cluster-a-short',
       'cluster-b-long',
       'cluster-b-short'
+    ]);
+  });
+
+  it('ignores intangible events when finding positions, cascading, and sorting solid events', () => {
+    const ghost = {
+      id: 'ghost',
+      title: 'Ghost',
+      intangible: true,
+      startTime: new Date(2025, 7, 27, 10),
+      endTime: new Date(2025, 7, 27, 11),
+      position: 2
+    };
+    const solidA = {
+      id: 'solid-a',
+      title: 'Solid A',
+      startTime: new Date(2025, 7, 27, 10),
+      endTime: new Date(2025, 7, 27, 11),
+      position: 0
+    };
+    const solidB = {
+      id: 'solid-b',
+      title: 'Solid B',
+      startTime: new Date(2025, 7, 27, 10, 15),
+      endTime: new Date(2025, 7, 27, 10, 45),
+      position: 1
+    };
+
+    expect(
+      findAvailablePosition([solidA, solidB, ghost] as any, new Date(2025, 7, 27, 10, 30), new Date(2025, 7, 27, 11))
+    ).toBe(2);
+
+    expect(
+      cascadeEventPositions([solidA, ghost] as any, solidA as any, { startTime: new Date(2025, 7, 27, 10, 30) })
+    ).toEqual([]);
+
+    expect(
+      sortEventsByStructure([ghost, solidB, solidA] as any).map(event => event.id)
+    ).toEqual(['solid-a', 'solid-b', 'ghost']);
+  });
+
+  it('repacks solid events when an event becomes intangible', () => {
+    const events = [
+      { id: 'top', title: 'Top', startTime: new Date(2025, 8, 4, 10), endTime: new Date(2025, 8, 4, 11), position: 0 },
+      { id: 'middle', title: 'Middle', startTime: new Date(2025, 8, 4, 10, 15), endTime: new Date(2025, 8, 4, 11, 15), position: 1 },
+      { id: 'bottom', title: 'Bottom', startTime: new Date(2025, 8, 4, 10, 30), endTime: new Date(2025, 8, 4, 11, 30), position: 2 }
+    ];
+
+    const updates = repackEventPositions(events as any, 'middle', { intangible: true });
+
+    expect(updates).toEqual([
+      { eventId: 'bottom', updates: { position: 1 } }
     ]);
   });
 });

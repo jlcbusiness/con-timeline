@@ -24,6 +24,7 @@ import {
   formatTimeSlot,
   formatDateHeader,
   findAvailablePosition,
+  repackEventPositions,
   getDayKey,
   getTimePosition,
   getEventColors
@@ -518,14 +519,32 @@ export const Timeline: React.FC = () => {
 
   const handleEventSave = (eventData: Omit<TimelineEventType, 'id' | 'position'>) => {
     if (editingEvent) {
-      // Update existing event
-      const position = findAvailablePosition(
-        events.filter(e => e.id !== editingEvent.id),
-        eventData.startTime,
-        eventData.endTime
-      );
+      const nextEvent = { ...editingEvent, ...eventData };
 
-      updateEvent(editingEvent.id, { ...eventData, position });
+      if (editingEvent.intangible !== nextEvent.intangible) {
+        const repackUpdates = repackEventPositions(events, editingEvent.id, eventData);
+        const positionForEditedEvent = repackUpdates.find(update => update.eventId === editingEvent.id)?.updates.position ?? editingEvent.position;
+
+        batchUpdateEvents([
+          {
+            eventId: editingEvent.id,
+            updates: {
+              ...eventData,
+              position: positionForEditedEvent
+            }
+          },
+          ...repackUpdates.filter(update => update.eventId !== editingEvent.id)
+        ]);
+      } else {
+        // Update existing event
+        const position = findAvailablePosition(
+          events.filter(e => e.id !== editingEvent.id),
+          eventData.startTime,
+          eventData.endTime
+        );
+
+        updateEvent(editingEvent.id, { ...eventData, position });
+      }
     } else {
       // Create new event
       const position = findAvailablePosition(events, eventData.startTime, eventData.endTime);

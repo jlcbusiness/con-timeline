@@ -322,6 +322,7 @@ export const addDragonConEvents = (
   updateEvent?: (eventId: string, updates: Partial<TimelineEvent>) => void
 ) => {
   const newEvents = sortEventsByStructure(parseDragonConSchedule(scheduleText));
+  const workingEvents = existingEvents.map(event => ({ ...event }));
   const importedKeys = new Set<string>();
   let importedCount = 0;
 
@@ -331,22 +332,23 @@ export const addDragonConEvents = (
       return;
     }
 
-    const position = findAvailablePosition(existingEvents, event.startTime, event.endTime);
+    const position = findAvailablePosition(workingEvents, event.startTime, event.endTime);
     const eventWithPosition = { ...event, position };
 
-    const existingIndex = existingEvents.findIndex(existingEvent => eventKey(existingEvent) === key);
+    const existingIndex = workingEvents.findIndex(existingEvent => eventKey(existingEvent) === key);
     if (existingIndex !== -1) {
-      const existingEvent = existingEvents[existingIndex];
+      const existingEvent = workingEvents[existingIndex];
       const replacedEvent = {
         ...eventWithPosition,
         ...existingEvent,
+        position: existingEvent.position,
         id: existingEvent.id,
         createdAt: existingEvent.createdAt,
         color: existingEvent.color,
         updatedAt: new Date().toISOString()
       };
 
-      existingEvents[existingIndex] = replacedEvent;
+      workingEvents[existingIndex] = replacedEvent;
 
       if (updateEvent) {
         updateEvent(existingEvent.id, {
@@ -354,13 +356,15 @@ export const addDragonConEvents = (
           id: existingEvent.id,
           createdAt: existingEvent.createdAt,
           color: existingEvent.color,
+          position: existingEvent.position,
+          intangible: existingEvent.intangible,
           lockTime: true,
           updatedAt: replacedEvent.updatedAt
         });
       }
     } else {
       addEvent(eventWithPosition);
-      existingEvents.push(eventWithPosition);
+      workingEvents.push(eventWithPosition);
     }
 
     importedKeys.add(key);

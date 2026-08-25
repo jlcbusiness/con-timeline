@@ -72,6 +72,35 @@ Speakers: Sasha Arbogast — , Bill Keel —`;
     expect(updates[0]?.eventId).toBe('existing-1');
     expect(updates[0]?.updates.lockTime).toBe(true);
     expect(updates[0]?.updates.color).toBe('#10B981');
+    expect(updates[0]?.updates.position).toBe(0);
+  });
+
+  it('preserves intangible state on overwrite', () => {
+    const existingEvent: TimelineEvent = {
+      id: 'existing-2',
+      title: 'Artemis Spaceship Bridge Simulator',
+      description: 'Dragon Con 2026 - Thursday, Sep 3',
+      location: 'Westin 12th Floor',
+      startTime: new Date(2026, 8, 3, 19, 0),
+      endTime: new Date(2026, 8, 3, 23, 55),
+      color: '#6B7280',
+      position: 3,
+      intangible: true
+    };
+
+    const updates: Array<{ eventId: string; updates: Partial<TimelineEvent> }> = [];
+
+    const count = addDragonConEvents(
+      `Dragon Con 2026 Schedule\nThursday, Sep 3\nArtemis Spaceship Bridge Simulator\n7:00PM — 11:55PM\nLocation: Westin 12th Floor`,
+      [existingEvent],
+      () => undefined,
+      (eventId, update) => updates.push({ eventId, updates: update })
+    );
+
+    expect(count).toBe(1);
+    expect(updates).toHaveLength(1);
+    expect(updates[0]?.updates.intangible).toBe(true);
+    expect(updates[0]?.updates.position).toBe(3);
   });
 
   it('ignores guest-name lines that appear before the title in PDF extraction order', () => {
