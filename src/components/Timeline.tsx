@@ -24,6 +24,7 @@ import {
   formatTimeSlot,
   formatDateHeader,
   findAvailablePosition,
+  cascadeEventPositions,
   repackEventPositions,
   getIntangibleVisibleSegments,
   getDayKey,
@@ -254,6 +255,7 @@ export const Timeline: React.FC = () => {
     }
 
     const nextEvent = { ...existingEvent, ...updates };
+    const hasExplicitPosition = typeof updates.position === 'number';
 
     if (existingEvent.intangible !== nextEvent.intangible) {
       const repackUpdates = repackEventPositions(events, eventId, updates);
@@ -269,6 +271,13 @@ export const Timeline: React.FC = () => {
         },
         ...repackUpdates.filter(update => update.eventId !== eventId)
       ]);
+    } else if (hasExplicitPosition) {
+      updateEvent(eventId, updates);
+
+      const cascadeUpdates = cascadeEventPositions(events, existingEvent, updates);
+      if (cascadeUpdates.length > 0) {
+        batchUpdateEvents(cascadeUpdates);
+      }
     } else {
       const position = findAvailablePosition(
         events.filter(event => event.id !== eventId),

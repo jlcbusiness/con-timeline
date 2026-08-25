@@ -429,15 +429,15 @@ export const getIntangibleVisibleSegments = (
 };
 
 export const getEventColors = (): string[] => [
-  '#3B82F6', // Blue
-  '#EF4444', // Red
-  '#10B981', // Green
-  '#F59E0B', // Yellow
-  '#8B5CF6', // Purple
-  '#F97316', // Orange
-  '#06B6D4', // Cyan
-  '#84CC16', // Lime
-  '#6B7280', // Grey - NEW 9th color!
+  '#dc2626', // Red
+  '#fb923c', // Orange
+  '#facc15', // Yellow
+  '#22c55e', // Green
+  '#06b6d4', // Cyan
+  '#3b82f6', // Blue
+  '#8b5cf6', // Purple
+  '#c026d3', // Magenta / Fuchsia
+  '#6b7280', // Grey - last
 ];
 
 // UNIFIED POSITIONING FUNCTION - used by both headers and events

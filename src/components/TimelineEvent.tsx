@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Edit3, GripVertical, ChevronLeft, ChevronRight, MapPin, Lock } from 'lucide-react';
+import { Edit3, GripVertical, ChevronLeft, ChevronRight, MapPin, Lock, Palette, ChevronRight as ChevronRightIcon } from 'lucide-react';
 import type { TimelineEvent as TimelineEventType } from '../types/timeline';
-import { getTimePosition, getEventWidth, getEventBufferWidth } from '../utils/timelineUtils';
+import { getTimePosition, getEventWidth, getEventBufferWidth, getEventColors } from '../utils/timelineUtils';
 
 const openContextMenuClosers = new Set<() => void>();
 let contextMenuBlockerInstalled = false;
@@ -71,6 +71,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
   const hostRef = useRef<HTMLDivElement>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [tooltipStyle, setTooltipStyle] = useState<React.CSSProperties | null>(null);
+  const [isColorSubmenuOpen, setIsColorSubmenuOpen] = useState(false);
 
   // Use the unified positioning functions
   const leftPosition = getTimePosition(event.startTime, startDate);
@@ -158,6 +159,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
   const closeContextMenu = () => {
     setContextMenu(null);
     openContextMenuClosers.delete(closeContextMenu);
+    setIsColorSubmenuOpen(false);
   };
 
   const toggleLockTime = () => {
@@ -167,6 +169,14 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
 
   const toggleIntangible = () => {
     onUpdateEvent(event.id, { intangible: !event.intangible });
+    closeContextMenu();
+  };
+
+  const colorChoices = getEventColors();
+
+  const updateEventColor = (color: string) => {
+    onUpdateEvent(event.id, { color });
+    setIsColorSubmenuOpen(false);
     closeContextMenu();
   };
 
@@ -403,7 +413,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
         <div
           ref={menuRef}
           data-event-context-menu="true"
-          className="fixed z-[9999] min-w-52 overflow-hidden rounded-md border border-gray-200 bg-white py-1 shadow-xl"
+          className="fixed z-[9999] min-w-52 overflow-visible rounded-md border border-gray-200 bg-white py-1 shadow-xl"
           style={{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }}
           role="menu"
           aria-label={`Event actions for ${event.title}`}
@@ -428,6 +438,47 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
             <span>Intangible</span>
             <span className="text-xs text-gray-500">{event.intangible ? 'ON' : 'off'}</span>
           </button>
+          <div
+            className="relative"
+            onMouseEnter={() => setIsColorSubmenuOpen(true)}
+            onMouseLeave={() => setIsColorSubmenuOpen(false)}
+          >
+            <button
+              type="button"
+              role="menuitem"
+              aria-haspopup="menu"
+              aria-expanded={isColorSubmenuOpen}
+              className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+            >
+              <span className="flex items-center gap-2">
+                <Palette size={14} className="text-gray-500" />
+                <span>Color</span>
+              </span>
+              <ChevronRightIcon size={14} className="text-gray-400" />
+            </button>
+
+            {isColorSubmenuOpen && (
+              <div
+                className="absolute left-full top-0 z-[10000] ml-1 w-[7.75rem] rounded-md border border-gray-200 bg-white p-2 shadow-xl"
+                onMouseEnter={() => setIsColorSubmenuOpen(true)}
+                onMouseLeave={() => setIsColorSubmenuOpen(false)}
+              >
+                <div className="grid grid-cols-3 place-items-center gap-2">
+                  {colorChoices.map(color => (
+                    <button
+                      key={color}
+                      type="button"
+                      onClick={() => updateEventColor(color)}
+                      className={`h-8 w-8 rounded-md border transition-transform hover:scale-105 ${event.color === color ? 'border-gray-900 ring-2 ring-gray-300' : 'border-gray-200'}`}
+                      style={{ backgroundColor: color }}
+                      aria-label={`Set event color to ${color}`}
+                      title={color}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>,
         document.body
       )}
