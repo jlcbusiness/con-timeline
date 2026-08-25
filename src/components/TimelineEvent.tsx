@@ -69,6 +69,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
   const menuRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
   const hostRef = useRef<HTMLDivElement>(null);
+  const colorSubmenuCloseTimer = useRef<number | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [tooltipStyle, setTooltipStyle] = useState<React.CSSProperties | null>(null);
   const [isColorSubmenuOpen, setIsColorSubmenuOpen] = useState(false);
@@ -180,6 +181,26 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
     closeContextMenu();
   };
 
+  const openColorSubmenu = () => {
+    if (colorSubmenuCloseTimer.current !== null) {
+      window.clearTimeout(colorSubmenuCloseTimer.current);
+      colorSubmenuCloseTimer.current = null;
+    }
+
+    setIsColorSubmenuOpen(true);
+  };
+
+  const closeColorSubmenuSoon = () => {
+    if (colorSubmenuCloseTimer.current !== null) {
+      window.clearTimeout(colorSubmenuCloseTimer.current);
+    }
+
+    colorSubmenuCloseTimer.current = window.setTimeout(() => {
+      setIsColorSubmenuOpen(false);
+      colorSubmenuCloseTimer.current = null;
+    }, 140);
+  };
+
   useEffect(() => {
     if (!contextMenu) return;
 
@@ -225,6 +246,14 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
       window.removeEventListener('resize', handleScrollOrResize);
     };
   }, [tooltipStyle]);
+
+  useEffect(() => {
+    return () => {
+      if (colorSubmenuCloseTimer.current !== null) {
+        window.clearTimeout(colorSubmenuCloseTimer.current);
+      }
+    };
+  }, []);
 
   return (
     <div
@@ -440,8 +469,8 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
           </button>
           <div
             className="relative"
-            onMouseEnter={() => setIsColorSubmenuOpen(true)}
-            onMouseLeave={() => setIsColorSubmenuOpen(false)}
+            onMouseEnter={openColorSubmenu}
+            onMouseLeave={closeColorSubmenuSoon}
           >
             <button
               type="button"
@@ -460,8 +489,8 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
             {isColorSubmenuOpen && (
               <div
                 className="absolute left-full top-0 z-[10000] ml-1 w-[7.75rem] rounded-md border border-gray-200 bg-white p-2 shadow-xl"
-                onMouseEnter={() => setIsColorSubmenuOpen(true)}
-                onMouseLeave={() => setIsColorSubmenuOpen(false)}
+                onMouseEnter={openColorSubmenu}
+                onMouseLeave={closeColorSubmenuSoon}
               >
                 <div className="grid grid-cols-3 place-items-center gap-2">
                   {colorChoices.map(color => (

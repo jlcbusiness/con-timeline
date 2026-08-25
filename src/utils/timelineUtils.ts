@@ -431,9 +431,9 @@ export const getIntangibleVisibleSegments = (
 export const getEventColors = (): string[] => [
   '#dc2626', // Red
   '#fb923c', // Orange
-  '#facc15', // Yellow
-  '#22c55e', // Green
-  '#06b6d4', // Cyan
+  '#ffc800', // Yellow
+  '#57c14e', // Green
+  '#41cbf1', // Cyan
   '#3b82f6', // Blue
   '#8b5cf6', // Purple
   '#c026d3', // Magenta / Fuchsia
