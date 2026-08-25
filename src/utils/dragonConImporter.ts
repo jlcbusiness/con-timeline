@@ -4,6 +4,16 @@ import { findAvailablePosition, sortEventsByStructure } from './timelineUtils';
 const DEFAULT_DRAGONCON_YEAR = 2026;
 const DRAGONCON_IMPORT_COLOR = '#6B7280';
 
+const createUuid = () => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+
+  return '10000000-1000-4000-8000-100000000000'.replace(/[018]/g, char =>
+    (Number(char) ^ (Math.random() * 16 & 15) >> (Number(char) / 4)).toString(16)
+  );
+};
+
 const MONTH_INDEX: Record<string, number> = {
   jan: 0,
   january: 0,
@@ -138,7 +148,6 @@ const buildEvent = (
   title: string,
   day: Date,
   timeRange: { startMinutes: number; endMinutes: number },
-  index: number,
   year: number,
   location?: string,
   speakers?: string
@@ -151,7 +160,7 @@ const buildEvent = (
   }
 
   return {
-    id: `dragoncon-${year}-${index}-${Date.now()}`,
+    id: createUuid(),
     title: title.trim(),
     description: speakers
       ? `Dragon Con ${year} - ${day.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}. Speakers: ${speakers}`
@@ -189,7 +198,7 @@ const mergeParsedEvents = (events: TimelineEvent[]) => {
 };
 
 const parseLegacySchedule = (lines: string[], year: number) => {
-  return lines.flatMap((line, index) => {
+  return lines.flatMap((line) => {
     const match = line.match(LEGACY_EVENT_REGEX);
     if (!match) return [];
 
@@ -215,7 +224,7 @@ const parseLegacySchedule = (lines: string[], year: number) => {
     const endDate = new Date(eventDate.getTime() + durationMinutes * 60 * 1000);
 
     return [{
-      id: `dragoncon-legacy-${year}-${index}-${Date.now()}`,
+      id: createUuid(),
       title: title.trim(),
       description: `Dragon Con ${year} - ${dayOfWeek}, ${month} ${day}`,
       location: 'Dragon Con',
@@ -244,7 +253,7 @@ const parseBlockSchedule = (lines: string[], year: number) => {
     if (titleParts.length === 0) return false;
 
     const title = titleParts[titleParts.length - 1].trim();
-    const event = buildEvent(title, currentDay, timeRange, events.length, year);
+    const event = buildEvent(title, currentDay, timeRange, year);
     events.push(event);
     lastEvent = event;
     preEventLines = [];
@@ -271,7 +280,7 @@ const parseBlockSchedule = (lines: string[], year: number) => {
       const [, title, timeText] = titleAndTimeMatch;
       const timeRange = parseTimeRange(timeText);
       if (timeRange) {
-        const event = buildEvent(title, currentDay, timeRange, events.length, year);
+        const event = buildEvent(title, currentDay, timeRange, year);
         events.push(event);
         lastEvent = event;
         preEventLines = [];
