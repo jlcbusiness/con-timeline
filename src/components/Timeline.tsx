@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
 import { CalendarDays, Minus, Palette, Plus, RotateCcw, Save } from 'lucide-react';
 import type { CosplayEntry, TimelineEvent as TimelineEventType } from '../types/timeline';
 import { TimelineEvent } from './TimelineEvent';
@@ -80,6 +80,8 @@ export const Timeline: React.FC = () => {
   const [clickedCosplayDayKey, setClickedCosplayDayKey] = useState<string | null>(null);
 
   const timelineContentRef = useRef<HTMLDivElement>(null);
+  const initialScrollTimelineIdRef = useRef<string | null>(null);
+  const initialScrollFrameRef = useRef<number | null>(null);
 
   // Timeline persistence (must initialize before event persistence so active id is set)
   const {
@@ -469,22 +471,42 @@ export const Timeline: React.FC = () => {
     </div>
   );
 
-  // Center the current date whenever the active timeline's calendar span changes.
-  useEffect(() => {
+  // Set the initial horizontal position from the first event, or the first hour if there are no events.
+  useLayoutEffect(() => {
     if (viewMode !== 'timeline') return;
 
-    if (!eventsLoading && !locationsLoading && timelineContentRef.current) {
-      const now = new Date();
-      if (now >= startDate && now <= endDate) {
-        const hoursFromStart = (now.getTime() - startDate.getTime()) / (1000 * 60 * 60);
-        const scrollLeft = hoursFromStart * PIXELS_PER_HOUR - 400;
-        const finalScrollLeft = Math.max(0, scrollLeft);
-
-        timelineContentRef.current.scrollLeft = finalScrollLeft;
-        setScrollPosition(finalScrollLeft);
-      }
+    if (initialScrollFrameRef.current !== null) {
+      window.cancelAnimationFrame(initialScrollFrameRef.current);
+      initialScrollFrameRef.current = null;
     }
-  }, [timelineStartDate, timelineEndDate, eventsLoading, locationsLoading, viewMode]);
+
+    if (!eventsLoading && !locationsLoading && timelineContentRef.current) {
+      const timelineId = activeTimeline?.id ?? null;
+      if (initialScrollTimelineIdRef.current === timelineId) return;
+
+      const firstEvent = [...events].sort((left, right) => left.startTime.getTime() - right.startTime.getTime())[0];
+      const targetTime = firstEvent?.startTime ?? startDate;
+      const scrollLeft = Math.max(0, getTimePosition(targetTime, startDate));
+
+      initialScrollFrameRef.current = window.requestAnimationFrame(() => {
+        initialScrollFrameRef.current = window.requestAnimationFrame(() => {
+          if (!timelineContentRef.current) return;
+
+          timelineContentRef.current.scrollLeft = scrollLeft;
+          setScrollPosition(scrollLeft);
+          initialScrollTimelineIdRef.current = timelineId;
+          initialScrollFrameRef.current = null;
+        });
+      });
+    }
+
+    return () => {
+      if (initialScrollFrameRef.current !== null) {
+        window.cancelAnimationFrame(initialScrollFrameRef.current);
+        initialScrollFrameRef.current = null;
+      }
+    };
+  }, [activeTimeline?.id, events, eventsLoading, locationsLoading, viewMode, startDate]);
 
   // Global pointer event handlers for drag and resize
   useEffect(() => {
