@@ -349,7 +349,6 @@ export const addDragonConEvents = (
       const existingEvent = workingEvents[existingIndex];
       const importedEventUpdates = {
         title: event.title,
-        description: event.description,
         location: event.location,
         startTime: event.startTime,
         endTime: event.endTime,

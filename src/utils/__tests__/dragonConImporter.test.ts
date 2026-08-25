@@ -109,6 +109,7 @@ Speakers: Sasha Arbogast — , Bill Keel —`;
     expect(updates[0]?.updates.lockTime).toBeUndefined();
     expect(updates[0]?.updates.intangible).toBeUndefined();
     expect(updates[0]?.updates.bufferBeforeMinutes).toBeUndefined();
+    expect(updates[0]?.updates.description).toBeUndefined();
   });
 
   it('ignores guest-name lines that appear before the title in PDF extraction order', () => {

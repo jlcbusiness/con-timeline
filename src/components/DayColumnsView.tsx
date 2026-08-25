@@ -258,7 +258,7 @@ export const DayColumnsView: React.FC<DayColumnsViewProps> = ({
                       <button
                         key={event.id}
                         type="button"
-                        className={`group w-full overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-slate-300 ${event.intangible ? 'opacity-[0.55] saturate-50 grayscale' : ''}`}
+                        className={`group w-full overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-slate-300 ${event.intangible ? 'opacity-[0.65] saturate-75' : ''}`}
                         onClick={() => onEventEdit(event)}
                         onDoubleClick={() => onEventEdit(event)}
                         title={`${event.title}\n${formatTime(event.startTime)} - ${formatTime(event.endTime)} (${formatDuration(event.startTime, event.endTime)})${event.location ? `\n${event.location}` : ''}${event.description ? `\n${event.description}` : ''}`}
