@@ -1,13 +1,56 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Edit3, GripVertical, ChevronLeft, ChevronRight, MapPin, Lock } from 'lucide-react';
 import type { TimelineEvent as TimelineEventType } from '../types/timeline';
 import { getTimePosition, getEventWidth, getEventBufferWidth } from '../utils/timelineUtils';
+
+const openContextMenuClosers = new Set<() => void>();
+let contextMenuBlockerInstalled = false;
+
+const closeAllContextMenus = () => {
+  openContextMenuClosers.forEach(close => close());
+};
+
+const isNodeInsideAnyContextMenu = (target: EventTarget | null) => {
+  if (!(target instanceof Node)) return false;
+
+  return Array.from(document.querySelectorAll('[data-event-context-menu="true"]')).some(element =>
+    element.contains(target)
+  );
+};
+
+const installContextMenuBlocker = () => {
+  if (contextMenuBlockerInstalled) return;
+
+  const handlePointerDownCapture = (event: PointerEvent) => {
+    if (openContextMenuClosers.size === 0) return;
+    if (isNodeInsideAnyContextMenu(event.target)) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    closeAllContextMenus();
+  };
+
+  const handleContextMenuCapture = (event: MouseEvent) => {
+    if (openContextMenuClosers.size === 0) return;
+    if (isNodeInsideAnyContextMenu(event.target)) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    closeAllContextMenus();
+  };
+
+  document.addEventListener('pointerdown', handlePointerDownCapture, true);
+  document.addEventListener('contextmenu', handleContextMenuCapture, true);
+  contextMenuBlockerInstalled = true;
+};
 
 interface TimelineEventProps {
   event: TimelineEventType;
   startDate: Date;
   slotHeight: number;
   onEdit: (event: TimelineEventType) => void;
+  onUpdateEvent: (eventId: string, updates: Partial<TimelineEventType>) => void;
   onDragStart: (event: TimelineEventType, clientX: number, clientY: number, type: 'move' | 'resize-start' | 'resize-end') => void;
   isDragging?: boolean;
   isResizing?: boolean;
@@ -18,10 +61,17 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
   startDate,
   slotHeight,
   onEdit,
+  onUpdateEvent,
   onDragStart,
   isDragging = false,
   isResizing = false
 }) => {
+  const menuRef = useRef<HTMLDivElement>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
+  const hostRef = useRef<HTMLDivElement>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const [tooltipStyle, setTooltipStyle] = useState<React.CSSProperties | null>(null);
+
   // Use the unified positioning functions
   const leftPosition = getTimePosition(event.startTime, startDate);
   const width = getEventWidth(event.startTime, event.endTime);
@@ -30,7 +80,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
   const resizeWingOffset = resizeWingWidth / 2;
   const eventStackClass = event.intangible ? 'z-[5]' : bufferWidth > 0 ? 'z-30' : 'z-10';
   const timeLockedClass = event.lockTime ? 'ring-2 ring-white/40 ring-inset' : '';
-  const intangibleClass = event.intangible ? 'opacity-[0.35] saturate-75' : '';
+  const intangibleBodyClass = event.intangible ? 'opacity-[0.35] saturate-75' : '';
   const hoverClass = event.intangible ? 'hover:shadow-sm' : 'hover:shadow-md hover:z-40 hover:w-[calc(var(--event-width)+12px)]';
   
   // Fixed positioning calculation to align with slot headers
@@ -78,9 +128,98 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
     onEdit(event);
   };
 
+  const updateTooltipPosition = () => {
+    const hostElement = hostRef.current;
+    if (!hostElement) return;
+
+    const rect = hostElement.getBoundingClientRect();
+    const viewportPadding = 8;
+    const visibleLeft = Math.max(rect.left, viewportPadding);
+    const visibleRight = Math.min(rect.right, window.innerWidth - viewportPadding);
+    const centerX = visibleRight > visibleLeft
+      ? visibleLeft + (visibleRight - visibleLeft) / 2
+      : rect.left + rect.width / 2;
+
+    setTooltipStyle({
+      position: 'fixed',
+      left: `${centerX}px`,
+      top: `${rect.top}px`,
+      transform: 'translate(-50%, calc(-100% - 0.5rem))'
+    });
+  };
+
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    closeAllContextMenus();
+    setContextMenu({ x: e.clientX, y: e.clientY });
+  };
+
+  const closeContextMenu = () => {
+    setContextMenu(null);
+    openContextMenuClosers.delete(closeContextMenu);
+  };
+
+  const toggleLockTime = () => {
+    onUpdateEvent(event.id, { lockTime: !event.lockTime });
+    closeContextMenu();
+  };
+
+  const toggleIntangible = () => {
+    onUpdateEvent(event.id, { intangible: !event.intangible });
+    closeContextMenu();
+  };
+
+  useEffect(() => {
+    if (!contextMenu) return;
+
+    openContextMenuClosers.add(closeContextMenu);
+    installContextMenuBlocker();
+
+    const handlePointerDown = (pointerEvent: PointerEvent) => {
+      if (menuRef.current && !menuRef.current.contains(pointerEvent.target as Node)) {
+        closeContextMenu();
+      }
+    };
+
+    const handleKeyDown = (keyboardEvent: KeyboardEvent) => {
+      if (keyboardEvent.key === 'Escape') {
+        closeContextMenu();
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+      openContextMenuClosers.delete(closeContextMenu);
+    };
+  }, [contextMenu]);
+
+  useEffect(() => {
+    const handleScrollOrResize = () => {
+      if (tooltipStyle) {
+        updateTooltipPosition();
+      }
+    };
+
+    if (!tooltipStyle) return;
+
+    window.addEventListener('scroll', handleScrollOrResize, true);
+    window.addEventListener('resize', handleScrollOrResize);
+
+    return () => {
+      window.removeEventListener('scroll', handleScrollOrResize, true);
+      window.removeEventListener('resize', handleScrollOrResize);
+    };
+  }, [tooltipStyle]);
+
   return (
     <div
-      className={`absolute ${eventStackClass} ${intangibleClass} ${timeLockedClass} rounded-md shadow-sm border border-opacity-20 border-white group select-none touch-none transition-[width,transform,box-shadow] duration-150 ${
+      ref={hostRef}
+      className={`absolute ${eventStackClass} ${timeLockedClass} rounded-md shadow-sm border border-opacity-20 border-white group select-none touch-none transition-[width,transform,box-shadow] duration-150 ${
         isDragging || isResizing 
           ? 'shadow-lg z-50 cursor-grabbing'
           : `${hoverClass} cursor-grab`
@@ -91,122 +230,160 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
         ['--event-width' as any]: `${Math.max(width, 80)}px`,
         width: 'var(--event-width)',
         height: `${Math.max(slotHeight - 8, 40)}px`,
-        backgroundColor: event.color,
+        backgroundColor: event.intangible ? 'transparent' : event.color,
         color: 'white'
       }}
       onDoubleClick={handleDoubleClick}
+      onContextMenu={handleContextMenu}
+      onMouseEnter={updateTooltipPosition}
+      onMouseMove={updateTooltipPosition}
+      onMouseLeave={() => setTooltipStyle(null)}
       title={`${event.title}${event.location ? ` @ ${event.location}` : ''}\n${formatTime(event.startTime)} - ${formatTime(event.endTime)}\n${getDuration()}\nDouble-click to edit, drag to move, drag edges to resize`}
     >
-      {bufferWidth > 0 && (
+      <div
+        className={`absolute inset-0 rounded-md overflow-hidden ${intangibleBodyClass}`}
+        style={{ backgroundColor: event.intangible ? event.color : 'transparent' }}
+      >
+        {bufferWidth > 0 && (
+          <div
+            className="absolute top-0 bottom-0 z-20 rounded-l-md pointer-events-none"
+            style={{
+              left: `${-bufferWidth}px`,
+              width: `${bufferWidth}px`,
+              backgroundColor: event.color,
+              opacity: 0.18,
+              borderLeft: '1px solid rgba(255, 255, 255, 0.35)',
+              borderTopLeftRadius: '0.375rem',
+              borderBottomLeftRadius: '0.375rem'
+            }}
+          />
+        )}
+
+        {/* Under-wing left shadow for contrast on white gaps */}
         <div
-          className="absolute top-0 bottom-0 z-20 rounded-l-md pointer-events-none"
+          className="absolute top-0 bottom-0 z-0 rounded-l-md opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity pointer-events-none"
           style={{
-            left: `${-bufferWidth}px`,
-            width: `${bufferWidth}px`,
-            backgroundColor: event.color,
-            opacity: 0.18,
-            borderLeft: '1px solid rgba(255, 255, 255, 0.35)',
-            borderTopLeftRadius: '0.375rem',
-            borderBottomLeftRadius: '0.375rem'
+            left: `${-resizeWingOffset}px`,
+            width: `${resizeWingWidth}px`,
+            backgroundColor: event.color
           }}
         />
-      )}
 
-      {/* Under-wing left shadow for contrast on white gaps */}
-      <div
-        className="absolute top-0 bottom-0 z-0 rounded-l-md opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity pointer-events-none"
-        style={{
-          left: `${-resizeWingOffset}px`,
-          width: `${resizeWingWidth}px`,
-          backgroundColor: event.color
-        }}
-      />
-
-      {/* Resize handle - Start */}
-      <div
-        className="absolute top-0 bottom-0 z-30 cursor-ew-resize opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-colors bg-white/25 hover:bg-white/40 rounded-l-md flex items-center justify-center touch-none"
-        style={{
-          left: `${-resizeWingOffset}px`,
-          width: `${resizeWingWidth}px`
-        }}
-        onMouseDown={(e) => handleMouseDown(e, 'resize-start')}
-        onPointerDown={(e) => handlePointerDown(e, 'resize-start')}
-        title="Drag to resize start time"
-      >
-        <ChevronLeft size={10} className="text-white" />
-      </div>
-
-      {/* Main event content */}
-      <div
-        className="flex flex-col justify-center h-full px-3 py-2 text-xs font-medium cursor-grab active:cursor-grabbing touch-none"
-        onMouseDown={(e) => handleMouseDown(e, 'move')}
-        onPointerDown={(e) => handlePointerDown(e, 'move')}
-      >
-        {/* First line: Title with icons and edit button */}
-        <div className="flex items-start justify-between min-w-0 gap-1">
-          <div className="flex items-center gap-1 min-w-0 flex-1">
-            {!event.intangible && <GripVertical size={10} className="flex-shrink-0 opacity-60" />}
-            <span className={event.intangible ? 'sr-only' : 'truncate whitespace-nowrap font-medium'}>{event.title}</span>
-          </div>
-          
-          <div className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-1">
-            <Edit3 size={10} />
-          </div>
+        {/* Resize handle - Start */}
+        <div
+          className="absolute top-0 bottom-0 z-30 cursor-ew-resize opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-colors bg-white/25 hover:bg-white/40 rounded-l-md flex items-center justify-center touch-none"
+          style={{
+            left: `${-resizeWingOffset}px`,
+            width: `${resizeWingWidth}px`
+          }}
+          onMouseDown={(e) => handleMouseDown(e, 'resize-start')}
+          onPointerDown={(e) => handlePointerDown(e, 'resize-start')}
+          title="Drag to resize start time"
+        >
+          <ChevronLeft size={10} className="text-white" />
         </div>
 
-        {/* Second line: Location (if present) */}
-        {event.location && (
-          <div className="flex items-start gap-1 mt-1 min-w-0">
-            <div className="w-2.5"></div> {/* Spacer to align with title */}
-            <span className="whitespace-normal break-words text-xs leading-snug opacity-90">{event.location}</span>
+        {/* Main event content */}
+        <div
+          className="flex flex-col justify-center h-full px-3 py-2 text-xs font-medium cursor-grab active:cursor-grabbing touch-none"
+          onMouseDown={(e) => handleMouseDown(e, 'move')}
+          onPointerDown={(e) => handlePointerDown(e, 'move')}
+        >
+          {/* First line: Title with icons and edit button */}
+          <div className="flex items-start justify-between min-w-0 gap-1">
+            <div className="flex items-center gap-1 min-w-0 flex-1">
+              {!event.intangible && <GripVertical size={10} className="flex-shrink-0 opacity-60" />}
+              <span className={event.intangible ? 'sr-only' : 'truncate whitespace-nowrap font-medium'}>{event.title}</span>
+            </div>
+            
+            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-1">
+              <Edit3 size={10} />
+            </div>
           </div>
-        )}
+
+          {/* Second line: Location (if present) */}
+          {event.location && (
+            <div className="flex items-start gap-1 mt-1 min-w-0">
+              <div className="w-2.5"></div> {/* Spacer to align with title */}
+              {event.intangible ? (
+                <span className="sr-only">{event.location}</span>
+              ) : (
+                <span className="whitespace-normal break-words text-xs leading-snug opacity-90">{event.location}</span>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Under-wing right shadow for contrast on white gaps */}
+        <div
+          className="absolute top-0 bottom-0 z-0 rounded-r-md opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity pointer-events-none"
+          style={{
+            right: `${-resizeWingOffset}px`,
+            width: `${resizeWingWidth}px`,
+            backgroundColor: event.color
+          }}
+        />
+
+        {/* Resize handle - End */}
+        <div
+          className="absolute top-0 bottom-0 z-30 cursor-ew-resize opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-colors bg-white/25 hover:bg-white/40 rounded-r-md flex items-center justify-center touch-none"
+          style={{
+            right: `${-resizeWingOffset}px`,
+            width: `${resizeWingWidth}px`
+          }}
+          onMouseDown={(e) => handleMouseDown(e, 'resize-end')}
+          onPointerDown={(e) => handlePointerDown(e, 'resize-end')}
+          title="Drag to resize end time"
+        >
+          <ChevronRight size={10} className="text-white" />
+        </div>
       </div>
 
-      {/* Under-wing right shadow for contrast on white gaps */}
-      <div
-        className="absolute top-0 bottom-0 z-0 rounded-r-md opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity pointer-events-none"
-        style={{
-          right: `${-resizeWingOffset}px`,
-          width: `${resizeWingWidth}px`,
-          backgroundColor: event.color
-        }}
-      />
-
-      {/* Resize handle - End */}
-      <div
-        className="absolute top-0 bottom-0 z-30 cursor-ew-resize opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-colors bg-white/25 hover:bg-white/40 rounded-r-md flex items-center justify-center touch-none"
-        style={{
-          right: `${-resizeWingOffset}px`,
-          width: `${resizeWingWidth}px`
-        }}
-        onMouseDown={(e) => handleMouseDown(e, 'resize-end')}
-        onPointerDown={(e) => handlePointerDown(e, 'resize-end')}
-        title="Drag to resize end time"
-      >
-        <ChevronRight size={10} className="text-white" />
-      </div>
+      {event.intangible && event.location?.trim() && (
+        <div
+          className="absolute inset-x-0 bottom-1 z-20 pointer-events-none flex items-end px-2 text-[11px] font-medium"
+          style={{ color: `color-mix(in srgb, ${event.color} 60%, black)`, opacity: 0.35 }}
+        >
+          <span className="min-w-0 flex-1 truncate whitespace-nowrap text-left leading-snug">
+            {event.location}
+          </span>
+          {((event.endTime.getTime() - event.startTime.getTime()) / (1000 * 60 * 60)) >= 2 && (
+            <span className="flex-shrink-0 whitespace-nowrap text-right leading-snug">
+              {event.location}
+            </span>
+          )}
+        </div>
+      )}
       
       {/* Enhanced tooltip on hover */}
-      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-20">
-        <div className="font-medium">{event.title}</div>
-        <div className="text-gray-300">
-          {formatTime(event.startTime)} - {formatTime(event.endTime)} ({getDuration()})
-        </div>
-        {event.location && (
-          <div className="text-gray-300 flex items-center gap-1">
-            <MapPin size={10} />
-            {event.location}
+      {tooltipStyle && createPortal(
+        <div
+          ref={tooltipRef}
+          className="pointer-events-none z-[9998] rounded shadow-lg bg-gray-900 text-white text-xs whitespace-nowrap"
+          style={tooltipStyle}
+        >
+          <div className="px-3 py-2 rounded">
+            <div className="font-medium">{event.title}</div>
+            <div className="text-gray-300">
+              {formatTime(event.startTime)} - {formatTime(event.endTime)} ({getDuration()})
+            </div>
+            {event.location && (
+              <div className="text-gray-300 flex items-center gap-1">
+                <MapPin size={10} />
+                {event.location}
+              </div>
+            )}
+            {event.description && (
+              <div className="text-gray-300 mt-1 max-w-xs">{event.description}</div>
+            )}
+            <div className="text-gray-400 text-xs mt-1">
+              Double-click to edit • Drag to move • Drag edges to resize
+            </div>
           </div>
-        )}
-        {event.description && (
-          <div className="text-gray-300 mt-1 max-w-xs">{event.description}</div>
-        )}
-        <div className="text-gray-400 text-xs mt-1">
-          Double-click to edit • Drag to move • Drag edges to resize
-        </div>
-        <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
-      </div>
+          <div className="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+        </div>,
+        document.body
+      )}
 
       {/* Visual feedback during drag/resize */}
       {(isDragging || isResizing) && (
@@ -220,6 +397,39 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
         >
           <Lock size={10} className="opacity-90" />
         </div>
+      )}
+
+      {contextMenu && createPortal(
+        <div
+          ref={menuRef}
+          data-event-context-menu="true"
+          className="fixed z-[9999] min-w-52 overflow-hidden rounded-md border border-gray-200 bg-white py-1 shadow-xl"
+          style={{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }}
+          role="menu"
+          aria-label={`Event actions for ${event.title}`}
+        >
+          <button
+            type="button"
+            role="menuitemcheckbox"
+            aria-checked={event.lockTime}
+            onClick={toggleLockTime}
+            className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+          >
+            <span>Lock</span>
+            <span className="text-xs text-gray-500">{event.lockTime ? 'ON' : 'off'}</span>
+          </button>
+          <button
+            type="button"
+            role="menuitemcheckbox"
+            aria-checked={event.intangible}
+            onClick={toggleIntangible}
+            className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+          >
+            <span>Intangible</span>
+            <span className="text-xs text-gray-500">{event.intangible ? 'ON' : 'off'}</span>
+          </button>
+        </div>,
+        document.body
       )}
     </div>
   );

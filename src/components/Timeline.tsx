@@ -245,9 +245,41 @@ export const Timeline: React.FC = () => {
 
   const { recentLocations, popularLocations } = getLocationSuggestions();
 
-  // Handle event updates for drag and resize
+  // Handle event updates for drag, resize, modal edits, and context-menu toggles
   const handleEventUpdate = (eventId: string, updates: Partial<TimelineEventType>) => {
-    updateEvent(eventId, updates);
+    const existingEvent = events.find(event => event.id === eventId);
+
+    if (!existingEvent) {
+      return;
+    }
+
+    const nextEvent = { ...existingEvent, ...updates };
+
+    if (existingEvent.intangible !== nextEvent.intangible) {
+      const repackUpdates = repackEventPositions(events, eventId, updates);
+      const positionForEditedEvent = repackUpdates.find(update => update.eventId === eventId)?.updates.position ?? existingEvent.position;
+
+      batchUpdateEvents([
+        {
+          eventId,
+          updates: {
+            ...updates,
+            position: positionForEditedEvent
+          }
+        },
+        ...repackUpdates.filter(update => update.eventId !== eventId)
+      ]);
+    } else {
+      const position = findAvailablePosition(
+        events.filter(event => event.id !== eventId),
+        nextEvent.startTime,
+        nextEvent.endTime,
+        nextEvent
+      );
+
+      updateEvent(eventId, { ...updates, position });
+    }
+
     setLastSaved(new Date());
   };
 
@@ -520,33 +552,7 @@ export const Timeline: React.FC = () => {
 
   const handleEventSave = (eventData: Omit<TimelineEventType, 'id' | 'position'>) => {
     if (editingEvent) {
-      const nextEvent = { ...editingEvent, ...eventData };
-
-      if (editingEvent.intangible !== nextEvent.intangible) {
-        const repackUpdates = repackEventPositions(events, editingEvent.id, eventData);
-        const positionForEditedEvent = repackUpdates.find(update => update.eventId === editingEvent.id)?.updates.position ?? editingEvent.position;
-
-        batchUpdateEvents([
-          {
-            eventId: editingEvent.id,
-            updates: {
-              ...eventData,
-              position: positionForEditedEvent
-            }
-          },
-          ...repackUpdates.filter(update => update.eventId !== editingEvent.id)
-        ]);
-      } else {
-        // Update existing event
-        const position = findAvailablePosition(
-          events.filter(e => e.id !== editingEvent.id),
-          eventData.startTime,
-          eventData.endTime,
-          { ...editingEvent, ...eventData } as TimelineEventType
-        );
-
-        updateEvent(editingEvent.id, { ...eventData, position });
-      }
+      handleEventUpdate(editingEvent.id, eventData);
     } else {
       // Create new event
       const position = findAvailablePosition(events, eventData.startTime, eventData.endTime, eventData as TimelineEventType);
@@ -1075,7 +1081,8 @@ export const Timeline: React.FC = () => {
                             left: `${leftPosition}px`,
                             width: '240px'
                           }}
-                          onClick={() => handleTimeSlotClick(slot)}
+                          onDoubleClick={() => handleTimeSlotClick(slot)}
+                          title="Double-click to create new event"
                         >
                           {!dragState.isDragging && !dragState.isResizing && (
                             <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
@@ -1101,6 +1108,7 @@ export const Timeline: React.FC = () => {
                         startDate={startDate}
                         slotHeight={gridSlotHeight}
                         onEdit={handleEventEdit}
+                        onUpdateEvent={handleEventUpdate}
                         onDragStart={startDrag}
                         isDragging={dragState.isDragging && dragState.originalEvent?.id === event.id}
                         isResizing={dragState.isResizing && dragState.originalEvent?.id === event.id}
@@ -1133,7 +1141,9 @@ export const Timeline: React.FC = () => {
                                 opacity: 0.35
                               }}
                             >
-                              <span className="whitespace-normal break-words text-center leading-snug">{event.title}</span>
+                                <span className={`whitespace-normal break-words text-center leading-snug ${event.location?.trim() ? '-translate-y-px' : ''}`}>
+                                  {event.title}
+                                </span>
                             </div>
                           );
                         });
