@@ -65,7 +65,6 @@ export const Timeline: React.FC = () => {
   const [manageEditTimelineId, setManageEditTimelineId] = useState<string | null>(null);
   const [manageEditSection, setManageEditSection] = useState<'timeline' | 'locations'>('timeline');
   const [manageMode, setManageMode] = useState<'manage' | 'edit' | null>(null);
-  const [isDraggingOverDeleteTarget, setIsDraggingOverDeleteTarget] = useState(false);
   const [editingEvent, setEditingEvent] = useState<TimelineEventType | undefined>();
   const [clickedTime, setClickedTime] = useState<Date | undefined>();
   const [scrollPosition, setScrollPosition] = useState(0);
@@ -81,14 +80,6 @@ export const Timeline: React.FC = () => {
   const [clickedCosplayDayKey, setClickedCosplayDayKey] = useState<string | null>(null);
 
   const timelineContentRef = useRef<HTMLDivElement>(null);
-  const bottomDeleteTargetRef = useRef<HTMLDivElement>(null);
-
-  const isPointInsideBottomDeleteTarget = (clientX: number, clientY: number) => {
-    if (!bottomDeleteTargetRef.current) return false;
-
-    const rect = bottomDeleteTargetRef.current.getBoundingClientRect();
-    return clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom;
-  };
 
   // Timeline persistence (must initialize before event persistence so active id is set)
   const {
@@ -130,7 +121,6 @@ export const Timeline: React.FC = () => {
     : Math.max(fittedDayColumnWidth, 1) * dayColumnScale;
   const colorOptions = getEventColors();
   const slotCount = 11;
-  const deleteSlotIndex = 10;
   const timelineHeaderHeight = 48;
   const timelineChromeHeight = 12;
   const gridSlotHeight = isMobileViewport && timelineViewportHeight > 0
@@ -500,26 +490,12 @@ export const Timeline: React.FC = () => {
       if (dragState.isDragging || dragState.isResizing) {
         e.preventDefault();
         handleMouseMove(e.clientX, e.clientY);
-
-        if (dragState.isDragging) {
-          setIsDraggingOverDeleteTarget(isPointInsideBottomDeleteTarget(e.clientX, e.clientY));
-        }
       }
     };
 
     const handleGlobalPointerUp = (e: PointerEvent) => {
       if (dragState.isDragging || dragState.isResizing) {
         e.preventDefault();
-
-        if (dragState.isDragging && dragState.originalEvent && isPointInsideBottomDeleteTarget(e.clientX, e.clientY)) {
-          const confirmed = window.confirm(`Delete event "${dragState.originalEvent.title}"?`);
-          if (confirmed) {
-            deleteEvent(dragState.originalEvent.id);
-            setLastSaved(new Date());
-          }
-        }
-
-        setIsDraggingOverDeleteTarget(false);
         endDrag();
       }
     };
@@ -1012,17 +988,13 @@ export const Timeline: React.FC = () => {
                 {Array.from({ length: slotCount }, (_, i) => (
                   <div
                     key={i}
-                    className={`shrink-0 border-b border-gray-200 flex items-center justify-center px-[2mm] text-xs font-medium ${
-                      i === deleteSlotIndex ? 'bg-red-50 text-red-600' : 'text-gray-500'
-                    }`}
+                    className="shrink-0 border-b border-gray-200 flex items-center justify-center px-[2mm] text-xs font-medium text-gray-500"
                     style={{ height: `${gridSlotHeight}px` }}
                   >
-                    {i === deleteSlotIndex ? 'Delete' : (
-                      <>
-                        <span className="md:hidden">{i + 1}</span>
-                        <span className="hidden md:inline">Slot {i + 1}</span>
-                      </>
-                    )}
+                    <>
+                      <span className="md:hidden">{i + 1}</span>
+                      <span className="hidden md:inline">Slot {i + 1}</span>
+                    </>
                   </div>
                 ))}
               </div>
@@ -1118,6 +1090,7 @@ export const Timeline: React.FC = () => {
                         slotHeight={gridSlotHeight}
                         onEdit={handleEventEdit}
                         onUpdateEvent={handleEventUpdate}
+                        onDeleteEvent={handleEventDelete}
                         onDragStart={startDrag}
                         isDragging={dragState.isDragging && dragState.originalEvent?.id === event.id}
                         isResizing={dragState.isResizing && dragState.originalEvent?.id === event.id}
@@ -1175,15 +1148,6 @@ export const Timeline: React.FC = () => {
                       return null;
                     })()}
 
-                    <div
-                      ref={bottomDeleteTargetRef}
-                      className={`absolute left-0 right-0 z-0 border-t border-red-200 flex items-center justify-center text-sm font-medium transition-colors ${
-                        isDraggingOverDeleteTarget ? 'bg-red-200 text-red-800' : 'bg-red-50 text-red-600'
-                      }`}
-                      style={{ top: `${deleteSlotIndex * gridSlotHeight}px`, height: `${gridSlotHeight}px` }}
-                    >
-                      {isDraggingOverDeleteTarget ? 'Drop here to delete' : 'Delete'}
-                    </div>
                   </div>
                 </div>
               </div>

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Edit3, GripVertical, ChevronLeft, ChevronRight, MapPin, Lock, Palette, ChevronRight as ChevronRightIcon } from 'lucide-react';
+import { Edit3, GripVertical, ChevronLeft, ChevronRight, MapPin, Lock, ChevronRight as ChevronRightIcon } from 'lucide-react';
 import type { TimelineEvent as TimelineEventType } from '../types/timeline';
 import { getTimePosition, getEventWidth, getEventBufferWidth, getEventColors } from '../utils/timelineUtils';
 
@@ -51,6 +51,7 @@ interface TimelineEventProps {
   slotHeight: number;
   onEdit: (event: TimelineEventType) => void;
   onUpdateEvent: (eventId: string, updates: Partial<TimelineEventType>) => void;
+  onDeleteEvent: (eventId: string) => void;
   onDragStart: (event: TimelineEventType, clientX: number, clientY: number, type: 'move' | 'resize-start' | 'resize-end') => void;
   isDragging?: boolean;
   isResizing?: boolean;
@@ -62,6 +63,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
   slotHeight,
   onEdit,
   onUpdateEvent,
+  onDeleteEvent,
   onDragStart,
   isDragging = false,
   isResizing = false
@@ -171,6 +173,15 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
   const toggleIntangible = () => {
     onUpdateEvent(event.id, { intangible: !event.intangible });
     closeContextMenu();
+  };
+
+  const handleDelete = () => {
+    closeContextMenu();
+
+    const confirmed = window.confirm(`Delete event "${event.title}"?`);
+    if (!confirmed) return;
+
+    onDeleteEvent(event.id);
   };
 
   const colorChoices = getEventColors();
@@ -479,10 +490,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
               aria-expanded={isColorSubmenuOpen}
               className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
             >
-              <span className="flex items-center gap-2">
-                <Palette size={14} className="text-gray-500" />
-                <span>Color</span>
-              </span>
+              <span>Color</span>
               <ChevronRightIcon size={14} className="text-gray-400" />
             </button>
 
@@ -508,6 +516,14 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
               </div>
             )}
           </div>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={handleDelete}
+            className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm text-red-700 hover:bg-red-50"
+          >
+            <span>Delete</span>
+          </button>
         </div>,
         document.body
       )}
