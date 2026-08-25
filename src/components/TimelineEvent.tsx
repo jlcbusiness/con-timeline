@@ -240,25 +240,25 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
       onMouseLeave={() => setTooltipStyle(null)}
       title={`${event.title}${event.location ? ` @ ${event.location}` : ''}\n${formatTime(event.startTime)} - ${formatTime(event.endTime)}\n${getDuration()}\nDouble-click to edit, drag to move, drag edges to resize`}
     >
+      {bufferWidth > 0 && (
+        <div
+          className="absolute top-0 bottom-0 z-0 rounded-l-md pointer-events-none"
+          style={{
+            left: `${-bufferWidth}px`,
+            width: `${bufferWidth}px`,
+            backgroundColor: event.color,
+            opacity: 0.18,
+            borderLeft: '1px solid rgba(255, 255, 255, 0.35)',
+            borderTopLeftRadius: '0.375rem',
+            borderBottomLeftRadius: '0.375rem'
+          }}
+        />
+      )}
+
       <div
-        className={`absolute inset-0 rounded-md overflow-hidden ${intangibleBodyClass}`}
+        className={`absolute inset-0 z-10 rounded-md overflow-hidden ${intangibleBodyClass}`}
         style={{ backgroundColor: event.intangible ? event.color : 'transparent' }}
       >
-        {bufferWidth > 0 && (
-          <div
-            className="absolute top-0 bottom-0 z-20 rounded-l-md pointer-events-none"
-            style={{
-              left: `${-bufferWidth}px`,
-              width: `${bufferWidth}px`,
-              backgroundColor: event.color,
-              opacity: 0.18,
-              borderLeft: '1px solid rgba(255, 255, 255, 0.35)',
-              borderTopLeftRadius: '0.375rem',
-              borderBottomLeftRadius: '0.375rem'
-            }}
-          />
-        )}
-
         {/* Under-wing left shadow for contrast on white gaps */}
         <div
           className="absolute top-0 bottom-0 z-0 rounded-l-md opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity pointer-events-none"

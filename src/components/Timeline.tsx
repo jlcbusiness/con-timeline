@@ -1131,14 +1131,14 @@ export const Timeline: React.FC = () => {
                           return (
                             <div
                               key={`${event.id}-${segment.startTime.getTime()}-${segment.endTime.getTime()}`}
-                              className="absolute z-40 pointer-events-none flex items-center justify-center px-2 text-[11px] font-semibold"
+                              className="absolute z-50 pointer-events-none flex items-center justify-center px-2 text-[11px] font-semibold"
                               style={{
                                 left: `${leftPosition}px`,
                                 top: `${event.position * gridSlotHeight + 4}px`,
                                 width: `${segmentWidth}px`,
                                 height: `${Math.max(gridSlotHeight - 8, 40)}px`,
                                 color: `color-mix(in srgb, ${event.color} 60%, black)`,
-                                opacity: 0.35
+                                opacity: 0.8
                               }}
                             >
                                 <span className={`whitespace-normal break-words text-center leading-snug ${event.location?.trim() ? '-translate-y-px' : ''}`}>

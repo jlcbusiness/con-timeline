@@ -180,4 +180,31 @@ describe('timelineUtils', () => {
       [11, 30, 12, 0]
     ]);
   });
+
+  it('does not treat tangible buffer time as blocking intangible visibility', () => {
+    const event = {
+      id: 'ghost',
+      title: 'Ghost',
+      intangible: true,
+      startTime: new Date(2025, 8, 4, 10, 0),
+      endTime: new Date(2025, 8, 4, 12, 0),
+      position: 0
+    };
+
+    const bufferedBlocker = {
+      id: 'buffered-blocker',
+      title: 'Buffered Blocker',
+      startTime: new Date(2025, 8, 4, 10, 30),
+      endTime: new Date(2025, 8, 4, 11, 0),
+      bufferBeforeMinutes: 30,
+      position: 0
+    };
+
+    const segments = getIntangibleVisibleSegments(event as any, [event, bufferedBlocker] as any);
+
+    expect(segments.map(segment => [segment.startTime.getHours(), segment.startTime.getMinutes(), segment.endTime.getHours(), segment.endTime.getMinutes()])).toEqual([
+      [10, 0, 10, 30],
+      [11, 0, 12, 0]
+    ]);
+  });
 });

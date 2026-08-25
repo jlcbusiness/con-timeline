@@ -388,7 +388,7 @@ export const getIntangibleVisibleSegments = (
       !isIntangibleEvent(otherEvent)
     )
     .map(otherEvent => ({
-      startTime: getBufferedStartTime(otherEvent) > event.startTime ? getBufferedStartTime(otherEvent) : event.startTime,
+      startTime: otherEvent.startTime > event.startTime ? otherEvent.startTime : event.startTime,
       endTime: otherEvent.endTime < event.endTime ? otherEvent.endTime : event.endTime
     }))
     .filter(interval => interval.endTime > interval.startTime)
