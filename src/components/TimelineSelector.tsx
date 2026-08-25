@@ -6,7 +6,7 @@ interface Props {
   timelines: TimelineMeta[];
   activeId: string | null;
   setActiveId: (id: string | null) => void;
-  onCreate: (name: string, startDate: string, endDate: string) => void;
+  onCreate: (name: string, startDate: string, endDate: string, slotCount?: number) => void;
   onEditCurrent: () => void;
   onManage: () => void;
 }

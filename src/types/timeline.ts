@@ -6,7 +6,7 @@ export interface TimelineEvent {
   startTime: Date;
   endTime: Date;
   color: string;
-  position: number; // 0-9 for vertical stacking (10 slots)
+  position: number; // zero-based vertical stacking slot
   bufferBeforeMinutes?: number;
   lockTime?: boolean;
   intangible?: boolean;

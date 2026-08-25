@@ -11,7 +11,7 @@ interface Props {
   activeId: string | null;
   setActiveId: (id: string | null) => void;
   renameTimeline: (id: string, name: string) => void;
-  updateTimelineDates: (id: string, startDate: string, endDate: string) => void;
+  updateTimelineDates: (id: string, startDate: string, endDate: string, slotCount: number) => void;
   locations: Location[];
   onAddLocation: (name: string) => Location;
   onUpdateLocation: (locationId: string, name: string) => void;
@@ -144,11 +144,16 @@ export const ManageTimelinesModal: React.FC<Props> = ({ isOpen, onClose, mode, t
                   const name = String(formData.get('name')).trim();
                   const startDate = String(formData.get('startDate'));
                   const endDate = String(formData.get('endDate'));
+                  const slotCount = Number(formData.get('slotCount'));
                   if (!name || !startDate || !endDate || endDate < startDate) return;
+                  if (!Number.isFinite(slotCount) || slotCount < 1) return;
 
                   renameTimeline(editingTimeline.id, name);
-                  updateTimelineDates(editingTimeline.id, `${startDate}T01:00:00`, `${endDate}T23:00:00`);
+                  updateTimelineDates(editingTimeline.id, `${startDate}T01:00:00`, `${endDate}T23:00:00`, Math.floor(slotCount));
                   setEditingTimeline(null);
+                  if (directEditMode) {
+                    onClose();
+                  }
                 }}
               >
                 <label className="block text-sm font-medium text-gray-700">
@@ -165,6 +170,18 @@ export const ManageTimelinesModal: React.FC<Props> = ({ isOpen, onClose, mode, t
                     <input name="endDate" type="date" defaultValue={editingTimeline.endDate.slice(0, 10)} className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-gray-900" required />
                   </label>
                 </div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Number of slots
+                  <input
+                    name="slotCount"
+                    type="number"
+                    min={1}
+                    max={24}
+                    defaultValue={editingTimeline.slotCount}
+                    className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-gray-900"
+                    required
+                  />
+                </label>
                 <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-between">
                   <div className="flex flex-col gap-3 sm:flex-row">
                     <button

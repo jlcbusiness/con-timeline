@@ -7,6 +7,7 @@ export interface TimelineMeta {
   createdAt: string;
   startDate: string;
   endDate: string;
+  slotCount: number;
   archived?: boolean;
   archivedAt?: string | null;
 }
@@ -14,6 +15,7 @@ export interface TimelineMeta {
 const ACTIVE_KEY = 'active-timeline-id';
 const LEGACY_START_DATE = '2026-08-26T01:00:00';
 const LEGACY_END_DATE = '2026-09-07T23:00:00';
+const DEFAULT_SLOT_COUNT = 11;
 
 const uuid = () => (typeof crypto !== 'undefined' && (crypto as any).randomUUID ? (crypto as any).randomUUID() : Date.now().toString());
 
@@ -26,6 +28,7 @@ const mapTimelineRow = (timeline: any): TimelineMeta => ({
   createdAt: timeline.created_at || new Date().toISOString(),
   startDate: timeline.start_date || LEGACY_START_DATE,
   endDate: timeline.end_date || LEGACY_END_DATE,
+  slotCount: Number.isFinite(Number(timeline.slot_count)) ? Number(timeline.slot_count) : DEFAULT_SLOT_COUNT,
   archived: Boolean(timeline.archived),
   archivedAt: timeline.archived_at || null
 });
@@ -72,6 +75,7 @@ export const useTimelinePersistence = () => {
               name: 'Default Timeline',
               start_date: LEGACY_START_DATE,
               end_date: LEGACY_END_DATE,
+              slot_count: DEFAULT_SLOT_COUNT,
               archived: false,
               archived_at: null
             };
@@ -104,6 +108,7 @@ export const useTimelinePersistence = () => {
             name: 'Default Timeline',
             start_date: LEGACY_START_DATE,
             end_date: LEGACY_END_DATE,
+            slot_count: DEFAULT_SLOT_COUNT,
             archived: false,
             archived_at: null
           };
@@ -173,14 +178,15 @@ export const useTimelinePersistence = () => {
     if (!supabase) return;
   }, [timelines, isLoaded]);
 
-  const createTimeline = async (name: string, startDate: string, endDate: string) => {
+  const createTimeline = async (name: string, startDate: string, endDate: string, slotCount = DEFAULT_SLOT_COUNT) => {
     const id = uuid();
     const newMeta: TimelineMeta = {
       id,
       name: name || 'Untitled',
       createdAt: new Date().toISOString(),
       startDate,
-      endDate
+      endDate,
+      slotCount
     };
     setTimelines(prev => [...prev, newMeta]);
     setActiveId(id);
@@ -197,6 +203,7 @@ export const useTimelinePersistence = () => {
           name: newMeta.name,
           start_date: startDate,
           end_date: endDate,
+          slot_count: slotCount,
           archived: false,
           archived_at: null
         });
@@ -236,8 +243,8 @@ export const useTimelinePersistence = () => {
     }
   };
 
-  const updateTimelineDates = (id: string, startDate: string, endDate: string) => {
-    setTimelines(prev => prev.map(t => t.id === id ? { ...t, startDate, endDate } : t));
+  const updateTimelineDates = (id: string, startDate: string, endDate: string, slotCount: number) => {
+    setTimelines(prev => prev.map(t => t.id === id ? { ...t, startDate, endDate, slotCount } : t));
 
     if (supabase) {
       void supabase.auth.getUser().then(async ({ data }: any) => {
@@ -245,7 +252,7 @@ export const useTimelinePersistence = () => {
         if (!user) return;
 
         const { error } = await supabase.from('timelines')
-          .update({ start_date: startDate, end_date: endDate })
+          .update({ start_date: startDate, end_date: endDate, slot_count: slotCount })
           .eq('id', id)
           .eq('user_id', user.id);
 

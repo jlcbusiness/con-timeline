@@ -77,20 +77,20 @@ const getCollisionGroup = (event: TimelineEvent): 'tangible' | 'intangible' => (
   isIntangibleEvent(event) ? 'intangible' : 'tangible'
 );
 
-const packEventsByStructure = (events: TimelineEvent[]): TimelineEvent[] => {
+const packEventsByStructure = (events: TimelineEvent[], maxSlots = 11): TimelineEvent[] => {
   const packedEvents: TimelineEvent[] = [];
 
   sortEventsForPackingGroup(events).forEach(event => {
-    const position = findAvailablePosition(packedEvents, event.startTime, event.endTime);
+    const position = findAvailablePosition(packedEvents, event.startTime, event.endTime, event, maxSlots);
     packedEvents.push({ ...event, position });
   });
 
   return packedEvents;
 };
 
-const buildPackedPositionMap = (events: TimelineEvent[]): Map<string, number> => {
+const buildPackedPositionMap = (events: TimelineEvent[], maxSlots = 11): Map<string, number> => {
   return new Map(
-    packEventsByStructure(events).map(event => [event.id, event.position] as const)
+    packEventsByStructure(events, maxSlots).map(event => [event.id, event.position] as const)
   );
 };
 
@@ -217,12 +217,13 @@ const eventsOverlapWithoutBuffer = (event1: TimelineEvent, event2: TimelineEvent
   return event1.startTime < event2.endTime && event1.endTime > event2.startTime;
 };
 
-// Find available position for a single event (now supports 10 slots: 0-9)
+// Find available position for a single event.
 export const findAvailablePosition = (
   events: TimelineEvent[],
   startTime: Date,
   endTime: Date,
-  groupEvent?: TimelineEvent
+  groupEvent?: TimelineEvent,
+  maxSlots = 11
 ): number => {
   const collisionGroup = groupEvent ? getCollisionGroup(groupEvent) : undefined;
   const overlappingEvents = events.filter(event => 
@@ -232,7 +233,7 @@ export const findAvailablePosition = (
   
   const usedPositions = new Set(overlappingEvents.map(e => e.position));
   
-  for (let i = 0; i < 10; i++) { // Changed from 8 to 10
+  for (let i = 0; i < maxSlots; i++) {
     if (!usedPositions.has(i)) {
       return i;
     }
@@ -241,11 +242,12 @@ export const findAvailablePosition = (
   return 0; // Fallback to position 0 if all positions are taken
 };
 
-// Simplified and more reliable cascading algorithm (now supports 10 slots)
+// Simplified and more reliable cascading algorithm.
 export const cascadeEventPositions = (
   allEvents: TimelineEvent[],
   changedEvent: TimelineEvent,
-  changedEventUpdates: Partial<TimelineEvent>
+  changedEventUpdates: Partial<TimelineEvent>,
+  maxSlots = 11
 ): { eventId: string; updates: Partial<TimelineEvent> }[] => {
   const updates: { eventId: string; updates: Partial<TimelineEvent> }[] = [];
   
@@ -295,7 +297,7 @@ export const cascadeEventPositions = (
     let newPosition = 0;
     let positionFound = false;
     
-    for (let pos = 0; pos < 10 && !positionFound; pos++) { // Changed from 8 to 10
+    for (let pos = 0; pos < maxSlots && !positionFound; pos++) {
       // Check if this position has any time conflicts
       const hasConflict = eventsToCheckAgainst.some(otherEvent => 
         otherEvent.position === pos && eventsOverlapWithoutBuffer(conflictingEvent, otherEvent)
@@ -309,7 +311,7 @@ export const cascadeEventPositions = (
     
     // If we couldn't find a free position, use the last slot
     if (!positionFound) {
-      newPosition = 9; // Changed from 7 to 9
+      newPosition = Math.max(0, maxSlots - 1);
     }
     
     // Only add update if position actually changes
@@ -335,7 +337,8 @@ export const cascadeEventPositions = (
 export const repackEventPositions = (
   allEvents: TimelineEvent[],
   changedEventId: string,
-  changedEventUpdates: Partial<TimelineEvent>
+  changedEventUpdates: Partial<TimelineEvent>,
+  maxSlots = 11
 ): { eventId: string; updates: Partial<TimelineEvent> }[] => {
   const updatedEvents = allEvents.map(event => (
     event.id === changedEventId ? { ...event, ...changedEventUpdates } : event
@@ -357,7 +360,7 @@ export const repackEventPositions = (
 
   affectedGroups.forEach(group => {
     const groupEvents = updatedEvents.filter(event => getCollisionGroup(event) === group);
-    const packedPositions = buildPackedPositionMap(groupEvents);
+    const packedPositions = buildPackedPositionMap(groupEvents, maxSlots);
 
     groupEvents.forEach(event => {
       const nextPosition = packedPositions.get(event.id);

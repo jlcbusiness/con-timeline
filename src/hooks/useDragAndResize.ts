@@ -18,7 +18,8 @@ export const useDragAndResize = (
   onBatchUpdate: (updates: { eventId: string; updates: Partial<TimelineEvent> }[]) => void,
   startDate: Date,
   endDate: Date = DEFAULT_END_DATE,
-  slotHeight: number = PIXELS_PER_SLOT
+  slotHeight: number = PIXELS_PER_SLOT,
+  slotCount: number = 11
 ) => {
   const [dragState, setDragState] = useState<DragState>({
     isDragging: false,
@@ -66,7 +67,7 @@ export const useDragAndResize = (
 
     if (dragState.dragType === 'move') {
       // Moving the entire event
-      const newPosition = Math.max(0, Math.min(10, originalEvent.position + positionChange));
+      const newPosition = Math.max(0, Math.min(Math.max(0, slotCount - 1), originalEvent.position + positionChange));
 
       if (originalEvent.lockTime) {
         if (newPosition !== originalEvent.position) {
@@ -74,7 +75,7 @@ export const useDragAndResize = (
 
           onEventUpdate(originalEvent.id, updates);
 
-          const cascadeUpdates = cascadeEventPositions(events, originalEvent, updates);
+          const cascadeUpdates = cascadeEventPositions(events, originalEvent, updates, slotCount);
           if (cascadeUpdates.length > 0) {
             onBatchUpdate(cascadeUpdates);
           }
@@ -101,7 +102,7 @@ export const useDragAndResize = (
         onEventUpdate(originalEvent.id, updates);
 
         // Check for cascading position updates
-        const cascadeUpdates = cascadeEventPositions(events, originalEvent, updates);
+        const cascadeUpdates = cascadeEventPositions(events, originalEvent, updates, slotCount);
         if (cascadeUpdates.length > 0) {
           onBatchUpdate(cascadeUpdates);
         }
@@ -125,7 +126,7 @@ export const useDragAndResize = (
         onEventUpdate(originalEvent.id, updates);
 
         // Check for cascading position updates due to time change
-        const cascadeUpdates = cascadeEventPositions(events, originalEvent, updates);
+        const cascadeUpdates = cascadeEventPositions(events, originalEvent, updates, slotCount);
         if (cascadeUpdates.length > 0) {
           onBatchUpdate(cascadeUpdates);
         }
@@ -149,13 +150,13 @@ export const useDragAndResize = (
         onEventUpdate(originalEvent.id, updates);
 
         // Check for cascading position updates due to time change
-        const cascadeUpdates = cascadeEventPositions(events, originalEvent, updates);
+        const cascadeUpdates = cascadeEventPositions(events, originalEvent, updates, slotCount);
         if (cascadeUpdates.length > 0) {
           onBatchUpdate(cascadeUpdates);
         }
       }
     }
-  }, [dragState, onEventUpdate, onBatchUpdate, events, startDate, slotHeight]);
+  }, [dragState, onEventUpdate, onBatchUpdate, events, startDate, slotHeight, slotCount]);
 
   const endDrag = useCallback(() => {
     setDragState({

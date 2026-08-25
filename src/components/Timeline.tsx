@@ -98,6 +98,7 @@ export const Timeline: React.FC = () => {
   const activeTimeline = timelines.find(timeline => timeline.id === activeId);
   const timelineStartDate = activeTimeline?.startDate;
   const timelineEndDate = activeTimeline?.endDate;
+  const slotCount = activeTimeline?.slotCount ?? 11;
   const startDate = new Date(timelineStartDate || DEFAULT_START_DATE);
   const endDate = new Date(timelineEndDate || DEFAULT_END_DATE);
   const timeSlots = generateTimeSlots(startDate, endDate);
@@ -120,7 +121,6 @@ export const Timeline: React.FC = () => {
     ? Math.max(typeof window !== 'undefined' ? window.innerWidth : viewportWidth, 1)
     : Math.max(fittedDayColumnWidth, 1) * dayColumnScale;
   const colorOptions = getEventColors();
-  const slotCount = 11;
   const timelineHeaderHeight = 48;
   const timelineChromeHeight = 12;
   const gridSlotHeight = isMobileViewport && timelineViewportHeight > 0
@@ -248,7 +248,7 @@ export const Timeline: React.FC = () => {
     const hasExplicitPosition = typeof updates.position === 'number';
 
     if (existingEvent.intangible !== nextEvent.intangible) {
-      const repackUpdates = repackEventPositions(events, eventId, updates);
+      const repackUpdates = repackEventPositions(events, eventId, updates, slotCount);
       const positionForEditedEvent = repackUpdates.find(update => update.eventId === eventId)?.updates.position ?? existingEvent.position;
 
       batchUpdateEvents([
@@ -264,7 +264,7 @@ export const Timeline: React.FC = () => {
     } else if (hasExplicitPosition) {
       updateEvent(eventId, updates);
 
-      const cascadeUpdates = cascadeEventPositions(events, existingEvent, updates);
+      const cascadeUpdates = cascadeEventPositions(events, existingEvent, updates, slotCount);
       if (cascadeUpdates.length > 0) {
         batchUpdateEvents(cascadeUpdates);
       }
@@ -273,7 +273,8 @@ export const Timeline: React.FC = () => {
         events.filter(event => event.id !== eventId),
         nextEvent.startTime,
         nextEvent.endTime,
-        nextEvent
+        nextEvent,
+        slotCount
       );
 
       updateEvent(eventId, { ...updates, position });
@@ -295,7 +296,8 @@ export const Timeline: React.FC = () => {
     handleBatchUpdate,
     startDate,
     endDate,
-    gridSlotHeight
+    gridSlotHeight,
+    slotCount
   );
 
   // Track scroll position for navigation
@@ -540,7 +542,7 @@ export const Timeline: React.FC = () => {
       handleEventUpdate(editingEvent.id, eventData);
     } else {
       // Create new event
-      const position = findAvailablePosition(events, eventData.startTime, eventData.endTime, eventData as TimelineEventType);
+      const position = findAvailablePosition(events, eventData.startTime, eventData.endTime, eventData as TimelineEventType, slotCount);
       const newEvent: TimelineEventType = {
         ...eventData,
         id: typeof crypto !== 'undefined' && (crypto as any).randomUUID ? (crypto as any).randomUUID() : Date.now().toString(),
@@ -599,7 +601,8 @@ export const Timeline: React.FC = () => {
     const createdTimeline = await createTimeline(
       importedTimelineName,
       inferredStartDate.toISOString(),
-      inferredEndDate.toISOString()
+      inferredEndDate.toISOString(),
+      slotCount
     );
 
     setActiveId(createdTimeline.id);

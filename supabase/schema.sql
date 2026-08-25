@@ -8,6 +8,7 @@ create table if not exists timelines (
   name text not null,
   start_date timestamptz not null,
   end_date timestamptz not null,
+  slot_count int not null default 11,
   created_at timestamptz default now()
 );
 
