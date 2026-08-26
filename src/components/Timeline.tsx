@@ -36,6 +36,7 @@ import {
 const DAY_COLUMN_WIDTH_STEP = 0.25;
 const DEFAULT_SELECTED_COLOR = '#10B981';
 const VIEW_MODE_STORAGE_KEY = 'timeline-view-mode';
+const LOCATION_COLORS_STORAGE_KEY = 'timeline-use-location-colors';
 
 const getInitialViewMode = (): 'timeline' | 'day-columns' | 'slot-columns' => {
   if (typeof window === 'undefined') {
@@ -48,6 +49,14 @@ const getInitialViewMode = (): 'timeline' | 'day-columns' | 'slot-columns' => {
   }
 
   return 'timeline';
+};
+
+const getInitialUseLocationColors = () => {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  return window.localStorage.getItem(LOCATION_COLORS_STORAGE_KEY) === 'true';
 };
 
 const normalizeColor = (color: string) => color.trim().toLowerCase();
@@ -94,7 +103,7 @@ export const Timeline: React.FC = () => {
   const [isCosplayModalOpen, setIsCosplayModalOpen] = useState(false);
   const [editingCosplayEntry, setEditingCosplayEntry] = useState<CosplayEntry | null>(null);
   const [clickedCosplayDayKey, setClickedCosplayDayKey] = useState<string | null>(null);
-  const [useLocationColors, setUseLocationColors] = useState(false);
+  const [useLocationColors, setUseLocationColors] = useState(getInitialUseLocationColors);
 
   const timelineContentRef = useRef<HTMLDivElement>(null);
   const initialScrollTimelineIdRef = useRef<string | null>(null);
@@ -389,6 +398,12 @@ export const Timeline: React.FC = () => {
 
     window.localStorage.setItem(VIEW_MODE_STORAGE_KEY, viewMode);
   }, [viewMode]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    window.localStorage.setItem(LOCATION_COLORS_STORAGE_KEY, String(useLocationColors));
+  }, [useLocationColors]);
 
   const handleDayColumnScaleChange = (delta: number) => {
     setDayColumnScale(prev => Math.max(1, Math.round((prev + delta) * 100) / 100));

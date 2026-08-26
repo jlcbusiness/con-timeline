@@ -247,13 +247,13 @@ export const useTimelinePersistence = () => {
   };
 
   const updateTimelineDates = async (id: string, startDate: string, endDate: string, slotCount: number) => {
-    setTimelines(prev => prev.map(t => t.id === id ? { ...t, startDate, endDate, slotCount } : t));
-
     if (supabase) {
       try {
         const { data } = await supabase.auth.getUser();
         const user = data.user;
-        if (!user) return;
+        if (!user) {
+          throw new Error('You must be signed in to save timeline changes.');
+        }
 
         const { error } = await supabase.from('timelines')
           .update({ start_date: startDate, end_date: endDate, slot_count: slotCount })
@@ -261,12 +261,15 @@ export const useTimelinePersistence = () => {
           .eq('user_id', user.id);
 
         if (error) {
-          console.error('Failed to update timeline dates in Supabase', error);
+          throw error;
         }
       } catch (error) {
         console.error('Failed to update timeline dates in Supabase', error);
+        throw error;
       }
     }
+
+    setTimelines(prev => prev.map(t => t.id === id ? { ...t, startDate, endDate, slotCount } : t));
   };
 
   const deleteTimeline = (id: string) => {

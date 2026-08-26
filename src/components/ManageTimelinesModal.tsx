@@ -180,6 +180,9 @@ export const ManageTimelinesModal: React.FC<Props> = ({ isOpen, onClose, mode, t
                       if (directEditMode) {
                         onClose();
                       }
+                    } catch (error) {
+                      console.error('Failed to save timeline changes', error);
+                      alert('Timeline changes could not be saved. Please try again.');
                     } finally {
                       setIsSaving(false);
                     }
