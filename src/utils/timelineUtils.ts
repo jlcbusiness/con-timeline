@@ -443,6 +443,31 @@ export const getEventColors = (): string[] => [
   '#6b7280', // Grey - last
 ];
 
+const LOCATION_COLOR_RULES = [
+  { matchers: ['hilton'], color: '#8b5cf6' },
+  { matchers: ['hyatt'], color: '#41cbf1' },
+  { matchers: ['marriott'], color: '#c026d3' },
+  { matchers: ['courtland'], color: '#fb923c' },
+  { matchers: ['westin'], color: '#57c14e' },
+  { matchers: ['parade'], color: '#ffc800' },
+  { matchers: ['tv', 'twitch'], color: '#dc2626' },
+  { matchers: ['mart', 'americasmart'], color: '#3b82f6' }
+] as const;
+
+export const getLocationDisplayColor = (location?: string): string => {
+  const normalizedLocation = location?.trim().toLowerCase();
+
+  if (!normalizedLocation) {
+    return '#6b7280';
+  }
+
+  const matchedRule = LOCATION_COLOR_RULES.find(rule =>
+    rule.matchers.some(matcher => normalizedLocation.includes(matcher))
+  );
+
+  return matchedRule?.color ?? '#6b7280';
+};
+
 // UNIFIED POSITIONING FUNCTION - used by both headers and events
 export const getTimePosition = (time: Date, startDate: Date): number => {
   const timeDiffMs = time.getTime() - startDate.getTime();

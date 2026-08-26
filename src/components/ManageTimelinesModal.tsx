@@ -12,6 +12,8 @@ interface Props {
   setActiveId: (id: string | null) => void;
   renameTimeline: (id: string, name: string) => Promise<void>;
   updateTimelineDates: (id: string, startDate: string, endDate: string, slotCount: number) => Promise<void>;
+  useLocationColors: boolean;
+  onToggleUseLocationColors: (enabled: boolean) => void;
   locations: Location[];
   onAddLocation: (name: string) => Location;
   onUpdateLocation: (locationId: string, name: string) => void;
@@ -25,7 +27,7 @@ interface Props {
   initialSection?: 'timeline' | 'locations';
 }
 
-export const ManageTimelinesModal: React.FC<Props> = ({ isOpen, onClose, mode, timelines, activeId, setActiveId, renameTimeline, updateTimelineDates, locations, onAddLocation, onUpdateLocation, onDeleteLocation, onExportLocations, onImportLocations, deleteTimeline, archiveTimeline, unarchiveTimeline, initialEditingTimelineId, initialSection }) => {
+export const ManageTimelinesModal: React.FC<Props> = ({ isOpen, onClose, mode, timelines, activeId, setActiveId, renameTimeline, updateTimelineDates, useLocationColors, onToggleUseLocationColors, locations, onAddLocation, onUpdateLocation, onDeleteLocation, onExportLocations, onImportLocations, deleteTimeline, archiveTimeline, unarchiveTimeline, initialEditingTimelineId, initialSection }) => {
   const [editingTimeline, setEditingTimeline] = useState<TimelineMeta | null>(null);
   const [editingSection, setEditingSection] = useState<'timeline' | 'locations'>('timeline');
   const [isSaving, setIsSaving] = useState(false);
@@ -138,102 +140,131 @@ export const ManageTimelinesModal: React.FC<Props> = ({ isOpen, onClose, mode, t
 
             <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
             {editingSection === 'timeline' ? (
-              <form
-                className="space-y-4"
-                onSubmit={async event => {
-                  event.preventDefault();
-                  if (isSaving) return;
+              <div className="space-y-4">
+                <div className="flex items-center justify-between gap-4 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium text-gray-900">Color entries by location</div>
+                    <div className="text-xs text-gray-500">Display only. Saved event colors stay unchanged.</div>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={useLocationColors}
+                    onClick={() => onToggleUseLocationColors(!useLocationColors)}
+                    className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${useLocationColors ? 'bg-blue-600' : 'bg-gray-300'}`}
+                  >
+                    <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${useLocationColors ? 'translate-x-6' : 'translate-x-1'}`} />
+                  </button>
+                </div>
 
-                  setIsSaving(true);
-                  const formData = new FormData(event.currentTarget);
-                  const name = String(formData.get('name')).trim();
-                  const startDate = String(formData.get('startDate'));
-                  const endDate = String(formData.get('endDate'));
-                  const slotCount = Number(formData.get('slotCount'));
-                  if (!name || !startDate || !endDate || endDate < startDate) {
-                    setIsSaving(false);
-                    return;
-                  }
-                  if (!Number.isFinite(slotCount) || slotCount < 1) {
-                    setIsSaving(false);
-                    return;
-                  }
+                <form
+                  className="space-y-4"
+                  onSubmit={async event => {
+                    event.preventDefault();
+                    if (isSaving) return;
 
-                  try {
-                    await renameTimeline(editingTimeline.id, name);
-                    await updateTimelineDates(editingTimeline.id, `${startDate}T01:00:00`, `${endDate}T23:00:00`, Math.floor(slotCount));
-                    setEditingTimeline(null);
-                    if (directEditMode) {
-                      onClose();
+                    setIsSaving(true);
+                    const formData = new FormData(event.currentTarget);
+                    const name = String(formData.get('name')).trim();
+                    const startDate = String(formData.get('startDate'));
+                    const endDate = String(formData.get('endDate'));
+                    const slotCount = Number(formData.get('slotCount'));
+                    if (!name || !startDate || !endDate || endDate < startDate) {
+                      setIsSaving(false);
+                      return;
                     }
-                  } finally {
-                    setIsSaving(false);
-                  }
-                }}
-              >
-                <label className="block text-sm font-medium text-gray-700">
-                  Name
-                  <input name="name" defaultValue={editingTimeline.name} className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-gray-900" required />
-                </label>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Start date
-                    <input name="startDate" type="date" defaultValue={editingTimeline.startDate.slice(0, 10)} className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-gray-900" required />
-                  </label>
-                  <label className="block text-sm font-medium text-gray-700">
-                    End date
-                    <input name="endDate" type="date" defaultValue={editingTimeline.endDate.slice(0, 10)} className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-gray-900" required />
-                  </label>
-                </div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Number of slots
-                  <input
-                    name="slotCount"
-                    type="number"
-                    min={1}
-                    max={24}
-                    defaultValue={editingTimeline.slotCount}
-                    className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-gray-900"
-                    required
-                  />
-                </label>
-                <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-between">
-                  <div className="flex flex-col gap-3 sm:flex-row">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        archiveTimeline(editingTimeline.id);
-                        setEditingTimeline(null);
-                        if (directEditMode) {
-                          onClose();
-                        }
-                      }}
-                      className="rounded border border-yellow-300 bg-yellow-50 px-4 py-2 text-sm font-medium text-yellow-800 hover:bg-yellow-100"
-                    >
-                      Archive
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!confirm(`Delete timeline "${editingTimeline.name}"? This will remove its events from storage.`)) return;
+                    if (!Number.isFinite(slotCount) || slotCount < 1) {
+                      setIsSaving(false);
+                      return;
+                    }
 
-                        deleteTimeline(editingTimeline.id);
-                        setEditingTimeline(null);
-                        if (directEditMode) {
-                          onClose();
-                        }
-                      }}
-                      className="rounded border border-red-300 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100"
-                    >
-                      Delete
-                    </button>
+                    try {
+                      const nextStartDate = `${startDate}T01:00:00`;
+                      const nextEndDate = `${endDate}T23:00:00`;
+                      const hasNameChange = name !== editingTimeline.name;
+                      const hasTimelineChange = startDate !== editingTimeline.startDate.slice(0, 10)
+                        || endDate !== editingTimeline.endDate.slice(0, 10)
+                        || Math.floor(slotCount) !== editingTimeline.slotCount;
+
+                      if (hasNameChange) {
+                        await renameTimeline(editingTimeline.id, name);
+                      }
+                      if (hasTimelineChange) {
+                        await updateTimelineDates(editingTimeline.id, nextStartDate, nextEndDate, Math.floor(slotCount));
+                      }
+                      setEditingTimeline(null);
+                      if (directEditMode) {
+                        onClose();
+                      }
+                    } finally {
+                      setIsSaving(false);
+                    }
+                  }}
+                >
+                  <label className="block text-sm font-medium text-gray-700">
+                    Name
+                    <input name="name" defaultValue={editingTimeline.name} className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-gray-900" required />
+                  </label>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Start date
+                      <input name="startDate" type="date" defaultValue={editingTimeline.startDate.slice(0, 10)} className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-gray-900" required />
+                    </label>
+                    <label className="block text-sm font-medium text-gray-700">
+                      End date
+                      <input name="endDate" type="date" defaultValue={editingTimeline.endDate.slice(0, 10)} className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-gray-900" required />
+                    </label>
                   </div>
-                  <div className="flex gap-3 sm:justify-end">
-                    <button type="button" onClick={() => setEditingTimeline(null)} disabled={isSaving} className="rounded border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60">Cancel</button>
-                    <button type="submit" disabled={isSaving} className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60">{isSaving ? 'Saving...' : 'Save'}</button>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Number of slots
+                    <input
+                      name="slotCount"
+                      type="number"
+                      min={1}
+                      max={24}
+                      defaultValue={editingTimeline.slotCount}
+                      className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-gray-900"
+                      required
+                    />
+                  </label>
+                  <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-between">
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          archiveTimeline(editingTimeline.id);
+                          setEditingTimeline(null);
+                          if (directEditMode) {
+                            onClose();
+                          }
+                        }}
+                        className="rounded border border-yellow-300 bg-yellow-50 px-4 py-2 text-sm font-medium text-yellow-800 hover:bg-yellow-100"
+                      >
+                        Archive
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!confirm(`Delete timeline "${editingTimeline.name}"? This will remove its events from storage.`)) return;
+
+                          deleteTimeline(editingTimeline.id);
+                          setEditingTimeline(null);
+                          if (directEditMode) {
+                            onClose();
+                          }
+                        }}
+                        className="rounded border border-red-300 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                    <div className="flex gap-3 sm:justify-end">
+                      <button type="button" onClick={() => setEditingTimeline(null)} disabled={isSaving} className="rounded border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60">Cancel</button>
+                      <button type="submit" disabled={isSaving} className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60">{isSaving ? 'Saving...' : 'Save'}</button>
+                    </div>
                   </div>
-                </div>
-              </form>
+                </form>
+              </div>
             ) : (
               <div className="mt-4 flex min-h-0 flex-1 flex-col gap-4">
                 <LocationManager

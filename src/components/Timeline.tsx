@@ -29,7 +29,8 @@ import {
   getIntangibleVisibleSegments,
   getDayKey,
   getTimePosition,
-  getEventColors
+  getEventColors,
+  getLocationDisplayColor
 } from '../utils/timelineUtils';
 
 const DAY_COLUMN_WIDTH_STEP = 0.25;
@@ -78,6 +79,7 @@ export const Timeline: React.FC = () => {
   const [isCosplayModalOpen, setIsCosplayModalOpen] = useState(false);
   const [editingCosplayEntry, setEditingCosplayEntry] = useState<CosplayEntry | null>(null);
   const [clickedCosplayDayKey, setClickedCosplayDayKey] = useState<string | null>(null);
+  const [useLocationColors, setUseLocationColors] = useState(false);
 
   const timelineContentRef = useRef<HTMLDivElement>(null);
   const initialScrollTimelineIdRef = useRef<string | null>(null);
@@ -654,6 +656,10 @@ export const Timeline: React.FC = () => {
     setLastSaved(new Date());
   };
 
+  const getDisplayColorForEvent = (event: TimelineEventType) => {
+    return useLocationColors ? getLocationDisplayColor(event.location) : event.color;
+  };
+
   const getJumpTargetForDate = (day: Date) => {
     const sameDayEventsBeforeNine = events
       .filter(event => {
@@ -975,6 +981,8 @@ export const Timeline: React.FC = () => {
         setActiveId={setActiveId}
         renameTimeline={renameTimeline}
         updateTimelineDates={updateTimelineDates}
+        useLocationColors={useLocationColors}
+        onToggleUseLocationColors={setUseLocationColors}
         locations={locations}
         onAddLocation={addLocation}
         onUpdateLocation={updateLocation}
@@ -1113,6 +1121,7 @@ export const Timeline: React.FC = () => {
                         event={event}
                         startDate={startDate}
                         slotHeight={gridSlotHeight}
+                        displayColor={useLocationColors ? getDisplayColorForEvent(event) : undefined}
                         onEdit={handleEventEdit}
                         onUpdateEvent={handleEventUpdate}
                         onDeleteEvent={handleEventDelete}
@@ -1138,13 +1147,13 @@ export const Timeline: React.FC = () => {
                           return (
                             <div
                               key={`${event.id}-${segment.startTime.getTime()}-${segment.endTime.getTime()}`}
-                              className="absolute z-50 pointer-events-none flex items-center justify-center px-2 text-[11px] font-semibold"
+                              className="absolute z-20 pointer-events-none flex items-center justify-center px-2 text-[11px] font-semibold"
                               style={{
                                 left: `${leftPosition}px`,
                                 top: `${event.position * gridSlotHeight + 4}px`,
                                 width: `${segmentWidth}px`,
                                 height: `${Math.max(gridSlotHeight - 8, 40)}px`,
-                                color: `color-mix(in srgb, ${event.color} 60%, black)`,
+                                color: `color-mix(in srgb, ${getDisplayColorForEvent(event)} 60%, black)`,
                                 opacity: 0.8
                               }}
                             >

@@ -49,6 +49,7 @@ interface TimelineEventProps {
   event: TimelineEventType;
   startDate: Date;
   slotHeight: number;
+  displayColor?: string;
   onEdit: (event: TimelineEventType) => void;
   onUpdateEvent: (eventId: string, updates: Partial<TimelineEventType>) => void;
   onDeleteEvent: (eventId: string) => void;
@@ -61,6 +62,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
   event,
   startDate,
   slotHeight,
+  displayColor,
   onEdit,
   onUpdateEvent,
   onDeleteEvent,
@@ -82,6 +84,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
   const bufferWidth = getEventBufferWidth(event);
   const resizeWingWidth = 12;
   const resizeWingOffset = resizeWingWidth / 2;
+  const effectiveColor = displayColor ?? event.color;
   const eventStackClass = event.intangible ? 'z-[5]' : bufferWidth > 0 ? 'z-30' : 'z-10';
   const timeLockedClass = event.lockTime ? 'ring-2 ring-white/40 ring-inset' : '';
   const intangibleBodyClass = event.intangible ? 'opacity-[0.35] saturate-75' : '';
@@ -98,6 +101,8 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
       hour12: true
     });
   };
+
+  const colorChoices = getEventColors();
 
   const getDuration = (): string => {
     const durationMs = event.endTime.getTime() - event.startTime.getTime();
@@ -183,8 +188,6 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
 
     onDeleteEvent(event.id);
   };
-
-  const colorChoices = getEventColors();
 
   const updateEventColor = (color: string) => {
     onUpdateEvent(event.id, { color });
@@ -280,7 +283,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
         ['--event-width' as any]: `${Math.max(width, 80)}px`,
         width: 'var(--event-width)',
         height: `${Math.max(slotHeight - 8, 40)}px`,
-        backgroundColor: event.intangible ? 'transparent' : event.color,
+        backgroundColor: event.intangible ? 'transparent' : effectiveColor,
         color: 'white'
       }}
       onDoubleClick={handleDoubleClick}
@@ -296,7 +299,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
           style={{
             left: `${-bufferWidth}px`,
             width: `${bufferWidth}px`,
-            backgroundColor: event.color,
+            backgroundColor: effectiveColor,
             opacity: 0.18,
             borderLeft: '1px solid rgba(255, 255, 255, 0.35)',
             borderTopLeftRadius: '0.375rem',
@@ -307,7 +310,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
 
       <div
         className={`absolute inset-0 z-10 rounded-md overflow-hidden ${intangibleBodyClass}`}
-        style={{ backgroundColor: event.intangible ? event.color : 'transparent' }}
+        style={{ backgroundColor: event.intangible ? effectiveColor : 'transparent' }}
       >
         {/* Under-wing left shadow for contrast on white gaps */}
         <div
@@ -315,7 +318,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
           style={{
             left: `${-resizeWingOffset}px`,
             width: `${resizeWingWidth}px`,
-            backgroundColor: event.color
+            backgroundColor: effectiveColor
           }}
         />
 
@@ -358,7 +361,11 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
               {event.intangible ? (
                 <span className="sr-only">{event.location}</span>
               ) : (
-                <span className="whitespace-normal break-words text-xs leading-snug opacity-90">{event.location}</span>
+                <span
+                  className="whitespace-normal break-words text-xs leading-snug opacity-90"
+                >
+                  {event.location}
+                </span>
               )}
             </div>
           )}
@@ -370,7 +377,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
           style={{
             right: `${-resizeWingOffset}px`,
             width: `${resizeWingWidth}px`,
-            backgroundColor: event.color
+            backgroundColor: effectiveColor
           }}
         />
 
@@ -392,7 +399,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
       {event.intangible && event.location?.trim() && (
         <div
           className="absolute inset-x-0 bottom-1 z-20 pointer-events-none flex items-end px-2 text-[11px] font-medium"
-          style={{ color: `color-mix(in srgb, ${event.color} 60%, black)`, opacity: 0.35 }}
+          style={{ color: `color-mix(in srgb, ${effectiveColor} 60%, black)`, opacity: 0.35 }}
         >
           <span className="min-w-0 flex-1 truncate whitespace-nowrap text-left leading-snug">
             {event.location}
@@ -443,7 +450,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
       {!event.intangible && event.lockTime && (
         <div
           className="absolute bottom-1 right-1 z-20 pointer-events-none rounded-full px-[1mm] py-[1mm]"
-          style={{ backgroundColor: event.color }}
+          style={{ backgroundColor: effectiveColor }}
         >
           <Lock size={10} className="opacity-90" />
         </div>

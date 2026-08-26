@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { roundToNearestHalfHour, getTimePosition, cascadeEventPositions, sortEventsByStructure, findAvailablePosition, repackEventPositions, getIntangibleVisibleSegments } from '../timelineUtils';
+import { roundToNearestHalfHour, getTimePosition, cascadeEventPositions, sortEventsByStructure, findAvailablePosition, repackEventPositions, getIntangibleVisibleSegments, getLocationDisplayColor } from '../timelineUtils';
 
 describe('timelineUtils', () => {
   it('rounds to nearest half hour correctly', () => {
@@ -206,5 +206,17 @@ describe('timelineUtils', () => {
       [10, 0, 10, 30],
       [11, 0, 12, 0]
     ]);
+  });
+
+  it('maps locations to display colors for the edit timeline toggle', () => {
+    expect(getLocationDisplayColor('Hilton')).toBe('#8b5cf6');
+    expect(getLocationDisplayColor('Hyatt')).toBe('#41cbf1');
+    expect(getLocationDisplayColor('Marriott')).toBe('#c026d3');
+    expect(getLocationDisplayColor('Courtland')).toBe('#fb923c');
+    expect(getLocationDisplayColor('Westin')).toBe('#57c14e');
+    expect(getLocationDisplayColor('Parade')).toBe('#ffc800');
+    expect(getLocationDisplayColor('The Mart')).toBe('#3b82f6');
+    expect(getLocationDisplayColor('TV / Twitch')).toBe('#dc2626');
+    expect(getLocationDisplayColor('Some Other Room')).toBe('#6b7280');
   });
 });
