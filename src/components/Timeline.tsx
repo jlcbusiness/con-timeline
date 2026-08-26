@@ -35,6 +35,20 @@ import {
 
 const DAY_COLUMN_WIDTH_STEP = 0.25;
 const DEFAULT_SELECTED_COLOR = '#10B981';
+const VIEW_MODE_STORAGE_KEY = 'timeline-view-mode';
+
+const getInitialViewMode = (): 'timeline' | 'day-columns' | 'slot-columns' => {
+  if (typeof window === 'undefined') {
+    return 'timeline';
+  }
+
+  const storedViewMode = window.localStorage.getItem(VIEW_MODE_STORAGE_KEY);
+  if (storedViewMode === 'timeline' || storedViewMode === 'day-columns' || storedViewMode === 'slot-columns') {
+    return storedViewMode;
+  }
+
+  return 'timeline';
+};
 
 const normalizeColor = (color: string) => color.trim().toLowerCase();
 
@@ -70,7 +84,7 @@ export const Timeline: React.FC = () => {
   const [clickedTime, setClickedTime] = useState<Date | undefined>();
   const [scrollPosition, setScrollPosition] = useState(0);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
-  const [viewMode, setViewMode] = useState<'timeline' | 'day-columns' | 'slot-columns'>('timeline');
+  const [viewMode, setViewMode] = useState<'timeline' | 'day-columns' | 'slot-columns'>(getInitialViewMode);
   const [selectedColor, setSelectedColor] = useState(DEFAULT_SELECTED_COLOR);
   const [selectedSlot, setSelectedSlot] = useState(0);
   const [dayColumnScale, setDayColumnScale] = useState(1);
@@ -369,6 +383,12 @@ export const Timeline: React.FC = () => {
       setDayColumnScale(1);
     }
   };
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    window.localStorage.setItem(VIEW_MODE_STORAGE_KEY, viewMode);
+  }, [viewMode]);
 
   const handleDayColumnScaleChange = (delta: number) => {
     setDayColumnScale(prev => Math.max(1, Math.round((prev + delta) * 100) / 100));
