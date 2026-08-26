@@ -203,7 +203,7 @@ export const ManageTimelinesModal: React.FC<Props> = ({ isOpen, onClose, mode, t
                     </label>
                   </div>
                   <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
-                    <label className="block w-fit text-sm font-medium text-gray-700">
+                    <label className="flex flex-col items-start text-sm font-medium text-gray-700">
                       Slots
                       <input
                         name="slotCount"
@@ -211,7 +211,7 @@ export const ManageTimelinesModal: React.FC<Props> = ({ isOpen, onClose, mode, t
                         min={1}
                         max={24}
                         defaultValue={editingTimeline.slotCount}
-                        className="mt-1 w-24 rounded border border-gray-300 px-3 py-2 text-gray-900"
+                        className="mt-1 block w-24 rounded border border-gray-300 px-3 py-2 text-gray-900"
                         required
                       />
                     </label>
