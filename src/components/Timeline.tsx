@@ -38,17 +38,30 @@ const DEFAULT_SELECTED_COLOR = '#10B981';
 const VIEW_MODE_STORAGE_KEY = 'timeline-view-mode';
 const LOCATION_COLORS_STORAGE_KEY = 'timeline-use-location-colors';
 
-const getInitialViewMode = (): 'timeline' | 'day-columns' | 'slot-columns' => {
+type ViewMode = 'timeline' | 'priority-columns' | 'daily-columns';
+
+const normalizeViewMode = (storedViewMode: string | null): ViewMode => {
+  if (storedViewMode === 'timeline' || storedViewMode === 'priority-columns' || storedViewMode === 'daily-columns') {
+    return storedViewMode;
+  }
+
+  if (storedViewMode === 'day-columns') {
+    return 'priority-columns';
+  }
+
+  if (storedViewMode === 'slot-columns') {
+    return 'daily-columns';
+  }
+
+  return 'timeline';
+};
+
+const getInitialViewMode = (): ViewMode => {
   if (typeof window === 'undefined') {
     return 'timeline';
   }
 
-  const storedViewMode = window.localStorage.getItem(VIEW_MODE_STORAGE_KEY);
-  if (storedViewMode === 'timeline' || storedViewMode === 'day-columns' || storedViewMode === 'slot-columns') {
-    return storedViewMode;
-  }
-
-  return 'timeline';
+  return normalizeViewMode(window.localStorage.getItem(VIEW_MODE_STORAGE_KEY));
 };
 
 const getInitialUseLocationColors = () => {
@@ -93,10 +106,10 @@ export const Timeline: React.FC = () => {
   const [clickedTime, setClickedTime] = useState<Date | undefined>();
   const [scrollPosition, setScrollPosition] = useState(0);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
-  const [viewMode, setViewMode] = useState<'timeline' | 'day-columns' | 'slot-columns'>(getInitialViewMode);
+  const [viewMode, setViewMode] = useState<ViewMode>(getInitialViewMode);
   const [selectedColor, setSelectedColor] = useState(DEFAULT_SELECTED_COLOR);
-  const [selectedSlot, setSelectedSlot] = useState(0);
   const [dayColumnScale, setDayColumnScale] = useState(1);
+  const [mobileDayIndex, setMobileDayIndex] = useState(0);
   const [timelineViewportWidth, setTimelineViewportWidth] = useState(0);
   const [timelineViewportHeight, setTimelineViewportHeight] = useState(0);
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
@@ -145,8 +158,15 @@ export const Timeline: React.FC = () => {
   const fittedDayColumnWidth = dayColumns.length > 0
     ? viewportWidth / dayColumns.length
     : viewportWidth;
-  const dayColumnWidth = isMobileViewport
-    ? Math.max(typeof window !== 'undefined' ? window.innerWidth : viewportWidth, 1)
+  const isPriorityView = viewMode === 'priority-columns';
+  const isDailyView = viewMode === 'daily-columns';
+  const isDayColumnView = isPriorityView || isDailyView;
+  const isMobileDayPager = isDayColumnView && isMobileViewport;
+  const visibleDayColumns = isMobileDayPager
+    ? [dayColumns[Math.min(mobileDayIndex, Math.max(dayColumns.length - 1, 0))] ?? dayColumns[0]].filter(Boolean)
+    : dayColumns;
+  const dayColumnWidth = isMobileDayPager
+    ? Math.max(viewportWidth, 1)
     : Math.max(fittedDayColumnWidth, 1) * dayColumnScale;
   const colorOptions = getEventColors();
   const timelineHeaderHeight = 48;
@@ -154,6 +174,21 @@ export const Timeline: React.FC = () => {
   const gridSlotHeight = isMobileViewport && timelineViewportHeight > 0
     ? Math.max(40, Math.floor((timelineViewportHeight - timelineHeaderHeight - timelineChromeHeight) / slotCount))
     : PIXELS_PER_SLOT;
+
+  useEffect(() => {
+    if (!isDayColumnView) return;
+
+    setMobileDayIndex(prev => Math.min(prev, Math.max(dayColumns.length - 1, 0)));
+  }, [dayColumns.length, isDayColumnView]);
+
+  useEffect(() => {
+    if (!isMobileDayPager) return;
+
+    const element = timelineContentRef.current;
+    if (!element) return;
+
+    element.scrollTop = 0;
+  }, [mobileDayIndex, isMobileDayPager]);
 
   // Event persistence
   const {
@@ -377,9 +412,9 @@ export const Timeline: React.FC = () => {
 
   const handleToggleViewMode = () => {
     const nextMode = viewMode === 'timeline'
-      ? 'day-columns'
-      : viewMode === 'day-columns'
-        ? 'slot-columns'
+      ? 'priority-columns'
+      : viewMode === 'priority-columns'
+        ? 'daily-columns'
         : 'timeline';
     setViewMode(nextMode);
 
@@ -435,108 +470,77 @@ export const Timeline: React.FC = () => {
       '#6b7280': 'Gray'
     }[normalizeColor(color)] ?? color
   }));
-  const slotChoices = Array.from({ length: 9 }, (_, index) => index);
-  const isDayColumnView = viewMode === 'day-columns' || viewMode === 'slot-columns';
-  const isSlotView = viewMode === 'slot-columns';
-
-  const spanViewControls = (
+  const spanViewControls = isPriorityView ? (
     <div className="flex flex-wrap items-center gap-1">
-      {isDayColumnView && (
-        <>
-          <div className="hidden items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 md:flex">
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setIsColorPickerOpen(prev => !prev)}
-                className="inline-flex h-9 items-center gap-2 rounded-md border border-gray-300 bg-white px-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-100"
-                title={isSlotView ? 'Change slot' : 'Change color'}
-              >
-                {isSlotView ? (
-                  <span className="flex h-5 w-5 items-center justify-center rounded-md border border-black bg-white text-xs text-black" aria-hidden="true">
-                    {selectedSlot + 1}
-                  </span>
-                ) : (
-                  <>
-                    <Palette size={14} className="text-gray-500" />
-                    <span
-                      className="h-3 w-3 rounded-full border border-gray-300"
-                      style={{ backgroundColor: selectedColor }}
-                      aria-hidden="true"
-                    />
-                  </>
-                )}
-              </button>
+      <div className="hidden items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 md:flex">
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setIsColorPickerOpen(prev => !prev)}
+            className="inline-flex h-9 items-center gap-2 rounded-md border border-gray-300 bg-white px-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-100"
+            title="Change priority color"
+          >
+            <Palette size={14} className="text-gray-500" />
+            <span
+              className="h-3 w-3 rounded-full border border-gray-300"
+              style={{ backgroundColor: selectedColor }}
+              aria-hidden="true"
+            />
+          </button>
 
-              {isColorPickerOpen && (
-                <>
-                  <div className="fixed inset-0 z-30" onClick={() => setIsColorPickerOpen(false)} />
-                  <div className="absolute left-0 top-full z-40 mt-2 grid w-max grid-cols-3 gap-3 rounded-md border border-gray-200 bg-white p-3 shadow-lg">
-                    {isSlotView ? slotChoices.map(slot => (
-                      <button
-                        key={slot}
-                        type="button"
-                        onClick={() => {
-                          setSelectedSlot(slot);
-                          setIsColorPickerOpen(false);
-                        }}
-                        className={`flex h-8 w-8 items-center justify-center rounded-md border border-black bg-white text-sm font-medium text-black hover:scale-105 ${selectedSlot === slot ? 'ring-2 ring-gray-300' : ''}`}
-                        title={`Slot ${slot + 1}`}
-                        aria-label={`Slot ${slot + 1}`}
-                      >
-                        {slot + 1}
-                      </button>
-                    )) : colorChoices.map(color => (
-                      <button
-                        key={color.value}
-                        type="button"
-                        onClick={() => {
-                          setSelectedColor(color.value);
-                          setIsColorPickerOpen(false);
-                        }}
-                        className={`h-8 w-8 rounded-md border ${selectedColor === color.value ? 'border-gray-900 ring-2 ring-gray-300' : 'border-gray-200'} hover:scale-105`}
-                        style={{ backgroundColor: color.value }}
-                        title={color.label}
-                        aria-label={color.label}
-                      />
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
+          {isColorPickerOpen && (
+            <>
+              <div className="fixed inset-0 z-30" onClick={() => setIsColorPickerOpen(false)} />
+              <div className="absolute left-0 top-full z-40 mt-2 grid w-max grid-cols-3 gap-3 rounded-md border border-gray-200 bg-white p-3 shadow-lg">
+                {colorChoices.map(color => (
+                  <button
+                    key={color.value}
+                    type="button"
+                    onClick={() => {
+                      setSelectedColor(color.value);
+                      setIsColorPickerOpen(false);
+                    }}
+                    className={`h-8 w-8 rounded-md border ${selectedColor === color.value ? 'border-gray-900 ring-2 ring-gray-300' : 'border-gray-200'} hover:scale-105`}
+                    style={{ backgroundColor: color.value }}
+                    title={color.label}
+                    aria-label={color.label}
+                  />
+                ))}
+              </div>
+            </>
+          )}
+        </div>
 
-            <div className="hidden items-center gap-1 md:flex">
-              <button
-                type="button"
-                onClick={() => handleDayColumnScaleChange(-DAY_COLUMN_WIDTH_STEP)}
-                disabled={dayColumnScale <= 1}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
-                title="Decrease column width"
-              >
-                <Minus size={16} />
-              </button>
-              <button
-                type="button"
-                onClick={() => handleDayColumnScaleChange(DAY_COLUMN_WIDTH_STEP)}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-100"
-                title="Increase column width"
-              >
-                <Plus size={16} />
-              </button>
-              <button
-                type="button"
-                onClick={handleResetDayColumnWidth}
-                className="inline-flex h-9 items-center justify-center rounded-md border border-gray-300 bg-white px-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
-                title="Reset columns to fit the screen"
-              >
-                <RotateCcw size={14} />
-              </button>
-            </div>
-          </div>
-
-        </>
-      )}
+        <div className="hidden items-center gap-1 md:flex">
+          <button
+            type="button"
+            onClick={() => handleDayColumnScaleChange(-DAY_COLUMN_WIDTH_STEP)}
+            disabled={dayColumnScale <= 1}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+            title="Decrease column width"
+          >
+            <Minus size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={() => handleDayColumnScaleChange(DAY_COLUMN_WIDTH_STEP)}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-100"
+            title="Increase column width"
+          >
+            <Plus size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={handleResetDayColumnWidth}
+            className="inline-flex h-9 items-center justify-center rounded-md border border-gray-300 bg-white px-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+            title="Reset columns to fit the screen"
+          >
+            <RotateCcw size={14} />
+          </button>
+        </div>
+      </div>
     </div>
-  );
+  ) : null;
 
   // Set the initial horizontal position from the first event, or the first hour if there are no events.
   useLayoutEffect(() => {
@@ -746,7 +750,15 @@ export const Timeline: React.FC = () => {
   };
 
   // Function to scroll to a specific date
-  const scrollToDate = (targetDate: Date) => {
+  const scrollToDate = (targetDate: Date, targetDay?: Date) => {
+    if (isMobileDayPager && isDayColumnView && targetDay) {
+      const targetIndex = dayColumns.findIndex(day => isSameDay(day, targetDay));
+      if (targetIndex >= 0) {
+        setMobileDayIndex(targetIndex);
+      }
+      return;
+    }
+
     if (timelineContentRef.current) {
       const viewportWidth = timelineContentRef.current.clientWidth;
       const scrollLeft = isDayColumnView
@@ -791,7 +803,9 @@ export const Timeline: React.FC = () => {
     }
   };
 
-  const currentRangeLabel = isDayColumnView
+  const currentRangeLabel = isMobileDayPager && visibleDayColumns[0]
+    ? formatDateHeader(visibleDayColumns[0])
+    : isDayColumnView
     ? formatTimelineName(startDate, endDate)
     : getCurrentDateRange();
 
@@ -814,19 +828,11 @@ export const Timeline: React.FC = () => {
     window.dispatchEvent(new PopStateEvent('popstate'));
   };
 
-  const jumpToDates = [];
-  const jumpDate = new Date(startDate);
-  jumpDate.setHours(9, 0, 0, 0);
-  const lastJumpDate = new Date(endDate);
-  lastJumpDate.setHours(9, 0, 0, 0);
-  while (jumpDate <= lastJumpDate) {
-    const day = new Date(jumpDate);
-    jumpToDates.push({
-      date: getJumpTargetForDate(day),
-      label: jumpDate.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' })
-    });
-    jumpDate.setDate(jumpDate.getDate() + 1);
-  }
+  const jumpToDates = dayColumns.map(day => ({
+    day,
+    target: getJumpTargetForDate(day),
+    label: day.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' })
+  }));
   if (timelinesLoading || eventsLoading || locationsLoading || cosplayEntriesLoading) {
     return (
       <div className="h-screen bg-gray-50 flex items-center justify-center">
@@ -874,12 +880,12 @@ export const Timeline: React.FC = () => {
             <span className="text-[12pt] font-medium text-gray-700 text-center">{currentRangeLabel}</span>
             <div className="flex flex-wrap items-center justify-center gap-2 text-sm text-gray-600">
               <div className="flex items-center gap-1">
-                {jumpToDates.map(({ date, label }) => (
+                {jumpToDates.map(({ day, target, label }) => (
                   <button
-                    key={date.toISOString()}
-                    onClick={() => scrollToDate(date)}
+                    key={day.toISOString()}
+                    onClick={() => scrollToDate(target, day)}
                     className="px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded-md transition-colors"
-                    title={`Go to ${date.toLocaleDateString()}`}
+                    title={`Go to ${day.toLocaleDateString()}`}
                     disabled={dragState.isDragging || dragState.isResizing}
                   >
                     {label}
@@ -915,9 +921,9 @@ export const Timeline: React.FC = () => {
               type="button"
               onClick={handleToggleViewMode}
               className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50"
-              title={viewMode === 'timeline' ? 'Switch to day columns' : viewMode === 'day-columns' ? 'Switch to slot columns' : 'Return to timeline view'}
+              title={viewMode === 'timeline' ? 'Switch to priority view' : viewMode === 'priority-columns' ? 'Switch to daily view' : 'Return to timeline view'}
             >
-              <CalendarDays size={16} className={viewMode === 'timeline' ? 'text-blue-600' : viewMode === 'day-columns' ? 'text-amber-500' : 'text-violet-600'} />
+              <CalendarDays size={16} className={viewMode === 'timeline' ? 'text-blue-600' : viewMode === 'priority-columns' ? 'text-amber-500' : 'text-violet-600'} />
             </button>
 
             <button
@@ -978,9 +984,9 @@ export const Timeline: React.FC = () => {
             type="button"
             onClick={handleToggleViewMode}
             className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white p-2 text-sm font-medium text-gray-800 hover:bg-gray-50"
-            title={viewMode === 'timeline' ? 'Switch to day columns' : viewMode === 'day-columns' ? 'Switch to slot columns' : 'Return to timeline view'}
+            title={viewMode === 'timeline' ? 'Switch to priority view' : viewMode === 'priority-columns' ? 'Switch to daily view' : 'Return to timeline view'}
           >
-            <CalendarDays size={16} className={viewMode === 'timeline' ? 'text-blue-600' : viewMode === 'day-columns' ? 'text-amber-500' : 'text-violet-600'} />
+            <CalendarDays size={16} className={viewMode === 'timeline' ? 'text-blue-600' : viewMode === 'priority-columns' ? 'text-amber-500' : 'text-violet-600'} />
           </button>
 
           {spanViewControls}
@@ -1006,12 +1012,12 @@ export const Timeline: React.FC = () => {
             className="grid w-full justify-center gap-1 py-[2mm] text-xs text-gray-600 md:hidden"
             style={{ gridTemplateColumns: `repeat(${mobileJumpColumnCount}, max-content)` }}
           >
-            {jumpToDates.map(({ date, label }) => (
+            {jumpToDates.map(({ day, target, label }) => (
               <button
-                key={date.toISOString()}
-                onClick={() => scrollToDate(date)}
+                key={day.toISOString()}
+                onClick={() => scrollToDate(target, day)}
                 className="whitespace-nowrap rounded-md bg-gray-200 px-2 py-1 transition-colors hover:bg-gray-300"
-                title={`Go to ${date.toLocaleDateString()}`}
+                title={`Go to ${day.toLocaleDateString()}`}
                 disabled={dragState.isDragging || dragState.isResizing}
               >
                 {label}
@@ -1019,20 +1025,9 @@ export const Timeline: React.FC = () => {
             ))}
           </div>
 
-          {isDayColumnView && (
+          {isPriorityView && (
             <div className="grid w-full grid-cols-9 gap-2 pt-[1mm] md:hidden">
-              {isSlotView ? slotChoices.map(slot => (
-                <button
-                  key={slot}
-                  type="button"
-                  onClick={() => setSelectedSlot(slot)}
-                  className={`aspect-square w-full rounded-md border border-black bg-white text-sm font-medium text-black transition-transform hover:scale-105 ${selectedSlot === slot ? 'ring-2 ring-gray-300' : ''}`}
-                  title={`Slot ${slot + 1}`}
-                  aria-label={`Slot ${slot + 1}`}
-                >
-                  {slot + 1}
-                </button>
-              )) : colorChoices.map(color => (
+              {colorChoices.map(color => (
                 <button
                   key={color.value}
                   type="button"
@@ -1157,9 +1152,7 @@ export const Timeline: React.FC = () => {
                         </div>
                       );
                     })}
-                  </div>
 
-                  <div className="absolute top-12 left-0 right-0" style={{ height: `${slotCount * gridSlotHeight}px` }}>
                     {timeSlots.map((slot) => {
                       const leftPosition = getTimePosition(slot, startDate);
 
@@ -1271,15 +1264,17 @@ export const Timeline: React.FC = () => {
           <div className="flex-1 relative overflow-hidden">
             <div
               ref={timelineContentRef}
-              className="h-full overflow-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100"
+              className={isMobileDayPager
+                ? 'h-full overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100'
+                : 'h-full overflow-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100'}
               onScroll={handleScroll}
-              onWheel={handleWheelScroll}
+              onWheel={isMobileDayPager ? undefined : handleWheelScroll}
             >
               <DayColumnsView
-                days={dayColumns}
-                events={viewMode === 'slot-columns'
-                  ? events.filter(event => event.position === selectedSlot)
-                  : events.filter(event => normalizeColor(event.color) === normalizeColor(selectedColor))}
+                days={visibleDayColumns}
+                events={isPriorityView
+                  ? events.filter(event => normalizeColor(event.color) === normalizeColor(selectedColor))
+                  : events}
                 cosplayEntries={cosplayEntries}
                 columnWidth={dayColumnWidth}
                 useLocationColors={useLocationColors}

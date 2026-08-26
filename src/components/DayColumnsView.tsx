@@ -245,7 +245,7 @@ export const DayColumnsView: React.FC<DayColumnsViewProps> = ({
                   <div className="flex h-full min-h-[180px] items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white/75 px-4 py-6 text-center text-sm text-slate-500">
                     <div>
                       <div className="font-medium text-slate-700">No events</div>
-                      <div className="mt-1 text-xs text-slate-400">This day has nothing in the selected filter.</div>
+                      <div className="mt-1 text-xs text-slate-400">This day has no matching entries.</div>
                     </div>
                   </div>
                 ) : (
