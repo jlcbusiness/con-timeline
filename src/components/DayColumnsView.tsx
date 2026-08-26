@@ -7,15 +7,12 @@ interface DayColumnsViewProps {
   days: Date[];
   events: TimelineEventType[];
   cosplayEntries: CosplayEntry[];
-  selectedColor: string;
   columnWidth: number;
   onEventEdit: (event: TimelineEventType) => void;
   onCosplayEntryCreate: (day: Date) => void;
   onCosplayEntryEdit: (entry: CosplayEntry) => void;
   onCosplayEntryMove: (entryId: string, targetDayKey: string) => void;
 }
-
-const normalizeColor = (color: string) => color.trim().toLowerCase();
 
 const isSameDay = (left: Date, right: Date) =>
   left.getFullYear() === right.getFullYear() &&
@@ -49,7 +46,6 @@ export const DayColumnsView: React.FC<DayColumnsViewProps> = ({
   days,
   events,
   cosplayEntries,
-  selectedColor,
   columnWidth,
   onEventEdit,
   onCosplayEntryCreate,
@@ -62,9 +58,7 @@ export const DayColumnsView: React.FC<DayColumnsViewProps> = ({
   });
   const dragPointerIdRef = React.useRef<number | null>(null);
 
-  const selectedColorKey = normalizeColor(selectedColor);
-  const filteredEvents = events
-    .filter(event => normalizeColor(event.color) === selectedColorKey)
+  const filteredEvents = [...events]
     .sort((left, right) => left.startTime.getTime() - right.startTime.getTime());
 
   const groupedEvents = days.map(day =>
@@ -249,7 +243,7 @@ export const DayColumnsView: React.FC<DayColumnsViewProps> = ({
                   <div className="flex h-full min-h-[180px] items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white/75 px-4 py-6 text-center text-sm text-slate-500">
                     <div>
                       <div className="font-medium text-slate-700">No events</div>
-                      <div className="mt-1 text-xs text-slate-400">This day has nothing in the selected color.</div>
+                      <div className="mt-1 text-xs text-slate-400">This day has nothing in the selected filter.</div>
                     </div>
                   </div>
                 ) : (
@@ -268,14 +262,15 @@ export const DayColumnsView: React.FC<DayColumnsViewProps> = ({
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0 flex-1">
                               <div className="truncate text-sm font-semibold text-slate-900">{event.title}</div>
-                              <div className="mt-1 flex items-center gap-1 text-[11px] text-slate-500">
-                                <Clock size={11} className="flex-shrink-0" />
-                                <span>{formatTime(event.startTime)} - {formatTime(event.endTime)}</span>
-                              </div>
                             </div>
                             <div className="shrink-0 rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
                               {formatDuration(event.startTime, event.endTime)}
                             </div>
+                          </div>
+
+                          <div className="flex items-center gap-1 whitespace-nowrap text-[11px] text-slate-500">
+                            <Clock size={11} className="flex-shrink-0" />
+                            <span>{formatTime(event.startTime)} - {formatTime(event.endTime)}</span>
                           </div>
 
                           {event.location && (

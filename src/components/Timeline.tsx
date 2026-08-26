@@ -70,8 +70,9 @@ export const Timeline: React.FC = () => {
   const [clickedTime, setClickedTime] = useState<Date | undefined>();
   const [scrollPosition, setScrollPosition] = useState(0);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
-  const [viewMode, setViewMode] = useState<'timeline' | 'day-columns'>('timeline');
+  const [viewMode, setViewMode] = useState<'timeline' | 'day-columns' | 'slot-columns'>('timeline');
   const [selectedColor, setSelectedColor] = useState(DEFAULT_SELECTED_COLOR);
+  const [selectedSlot, setSelectedSlot] = useState(0);
   const [dayColumnScale, setDayColumnScale] = useState(1);
   const [timelineViewportWidth, setTimelineViewportWidth] = useState(0);
   const [timelineViewportHeight, setTimelineViewportHeight] = useState(0);
@@ -352,7 +353,11 @@ export const Timeline: React.FC = () => {
   }, []);
 
   const handleToggleViewMode = () => {
-    const nextMode = viewMode === 'timeline' ? 'day-columns' : 'timeline';
+    const nextMode = viewMode === 'timeline'
+      ? 'day-columns'
+      : viewMode === 'day-columns'
+        ? 'slot-columns'
+        : 'timeline';
     setViewMode(nextMode);
 
     if (timelineContentRef.current) {
@@ -360,7 +365,7 @@ export const Timeline: React.FC = () => {
     }
     setScrollPosition(0);
 
-    if (nextMode === 'day-columns') {
+    if (nextMode !== 'timeline') {
       setDayColumnScale(1);
     }
   };
@@ -395,10 +400,13 @@ export const Timeline: React.FC = () => {
       '#6b7280': 'Gray'
     }[normalizeColor(color)] ?? color
   }));
+  const slotChoices = Array.from({ length: 9 }, (_, index) => index);
+  const isDayColumnView = viewMode === 'day-columns' || viewMode === 'slot-columns';
+  const isSlotView = viewMode === 'slot-columns';
 
   const spanViewControls = (
     <div className="flex flex-wrap items-center gap-1">
-      {viewMode === 'day-columns' && (
+      {isDayColumnView && (
         <>
           <div className="hidden items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 md:flex">
             <div className="relative">
@@ -406,21 +414,43 @@ export const Timeline: React.FC = () => {
                 type="button"
                 onClick={() => setIsColorPickerOpen(prev => !prev)}
                 className="inline-flex h-9 items-center gap-2 rounded-md border border-gray-300 bg-white px-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-100"
-                title="Change color"
+                title={isSlotView ? 'Change slot' : 'Change color'}
               >
-                <Palette size={14} className="text-gray-500" />
-                <span
-                  className="h-3 w-3 rounded-full border border-gray-300"
-                  style={{ backgroundColor: selectedColor }}
-                  aria-hidden="true"
-                />
+                {isSlotView ? (
+                  <span className="flex h-5 w-5 items-center justify-center rounded-md border border-black bg-white text-xs text-black" aria-hidden="true">
+                    {selectedSlot + 1}
+                  </span>
+                ) : (
+                  <>
+                    <Palette size={14} className="text-gray-500" />
+                    <span
+                      className="h-3 w-3 rounded-full border border-gray-300"
+                      style={{ backgroundColor: selectedColor }}
+                      aria-hidden="true"
+                    />
+                  </>
+                )}
               </button>
 
               {isColorPickerOpen && (
                 <>
                   <div className="fixed inset-0 z-30" onClick={() => setIsColorPickerOpen(false)} />
                   <div className="absolute left-0 top-full z-40 mt-2 grid w-max grid-cols-3 gap-3 rounded-md border border-gray-200 bg-white p-3 shadow-lg">
-                    {colorChoices.map(color => (
+                    {isSlotView ? slotChoices.map(slot => (
+                      <button
+                        key={slot}
+                        type="button"
+                        onClick={() => {
+                          setSelectedSlot(slot);
+                          setIsColorPickerOpen(false);
+                        }}
+                        className={`flex h-8 w-8 items-center justify-center rounded-md border border-black bg-white text-sm font-medium text-black hover:scale-105 ${selectedSlot === slot ? 'ring-2 ring-gray-300' : ''}`}
+                        title={`Slot ${slot + 1}`}
+                        aria-label={`Slot ${slot + 1}`}
+                      >
+                        {slot + 1}
+                      </button>
+                    )) : colorChoices.map(color => (
                       <button
                         key={color.value}
                         type="button"
@@ -684,10 +714,10 @@ export const Timeline: React.FC = () => {
   const scrollToDate = (targetDate: Date) => {
     if (timelineContentRef.current) {
       const viewportWidth = timelineContentRef.current.clientWidth;
-      const scrollLeft = viewMode === 'day-columns'
+      const scrollLeft = isDayColumnView
         ? Math.max(0, dayColumns.findIndex(day => isSameDay(day, targetDate)) * dayColumnWidth)
         : getTimePosition(targetDate, startDate);
-      const contentWidth = viewMode === 'day-columns'
+      const contentWidth = isDayColumnView
         ? dayColumns.length * dayColumnWidth
         : totalTimelineWidth;
       const maxScroll = Math.max(0, contentWidth - viewportWidth);
@@ -726,7 +756,7 @@ export const Timeline: React.FC = () => {
     }
   };
 
-  const currentRangeLabel = viewMode === 'day-columns'
+  const currentRangeLabel = isDayColumnView
     ? formatTimelineName(startDate, endDate)
     : getCurrentDateRange();
 
@@ -845,9 +875,9 @@ export const Timeline: React.FC = () => {
               type="button"
               onClick={handleToggleViewMode}
               className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50"
-              title={viewMode === 'timeline' ? 'Switch to day columns' : 'Return to timeline view'}
+              title={viewMode === 'timeline' ? 'Switch to day columns' : viewMode === 'day-columns' ? 'Switch to slot columns' : 'Return to timeline view'}
             >
-              <CalendarDays size={16} className={viewMode === 'timeline' ? 'text-blue-600' : 'text-amber-500'} />
+              <CalendarDays size={16} className={viewMode === 'timeline' ? 'text-blue-600' : viewMode === 'day-columns' ? 'text-amber-500' : 'text-violet-600'} />
             </button>
 
             <button
@@ -908,9 +938,9 @@ export const Timeline: React.FC = () => {
             type="button"
             onClick={handleToggleViewMode}
             className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white p-2 text-sm font-medium text-gray-800 hover:bg-gray-50"
-            title={viewMode === 'timeline' ? 'Switch to day columns' : 'Return to timeline view'}
+            title={viewMode === 'timeline' ? 'Switch to day columns' : viewMode === 'day-columns' ? 'Switch to slot columns' : 'Return to timeline view'}
           >
-            <CalendarDays size={16} className={viewMode === 'timeline' ? 'text-blue-600' : 'text-amber-500'} />
+            <CalendarDays size={16} className={viewMode === 'timeline' ? 'text-blue-600' : viewMode === 'day-columns' ? 'text-amber-500' : 'text-violet-600'} />
           </button>
 
           {spanViewControls}
@@ -950,9 +980,20 @@ export const Timeline: React.FC = () => {
             ))}
           </div>
 
-          {viewMode === 'day-columns' && (
+          {isDayColumnView && (
             <div className="grid w-full grid-cols-9 gap-2 pt-[1mm] md:hidden">
-              {colorChoices.map(color => (
+              {isSlotView ? slotChoices.map(slot => (
+                <button
+                  key={slot}
+                  type="button"
+                  onClick={() => setSelectedSlot(slot)}
+                  className={`aspect-square w-full rounded-md border border-black bg-white text-sm font-medium text-black transition-transform hover:scale-105 ${selectedSlot === slot ? 'ring-2 ring-gray-300' : ''}`}
+                  title={`Slot ${slot + 1}`}
+                  aria-label={`Slot ${slot + 1}`}
+                >
+                  {slot + 1}
+                </button>
+              )) : colorChoices.map(color => (
                 <button
                   key={color.value}
                   type="button"
@@ -1197,9 +1238,10 @@ export const Timeline: React.FC = () => {
             >
               <DayColumnsView
                 days={dayColumns}
-                events={events.filter(event => normalizeColor(event.color) === normalizeColor(selectedColor))}
+                events={viewMode === 'slot-columns'
+                  ? events.filter(event => event.position === selectedSlot)
+                  : events.filter(event => normalizeColor(event.color) === normalizeColor(selectedColor))}
                 cosplayEntries={cosplayEntries}
-                selectedColor={selectedColor}
                 columnWidth={dayColumnWidth}
                 onEventEdit={handleEventEdit}
                 onCosplayEntryCreate={handleCosplayEntryCreate}
