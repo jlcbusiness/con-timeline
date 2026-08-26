@@ -223,11 +223,12 @@ export const useTimelinePersistence = () => {
     return newMeta;
   };
 
-  const renameTimeline = (id: string, name: string) => {
+  const renameTimeline = async (id: string, name: string) => {
     setTimelines(prev => prev.map(t => t.id === id ? { ...t, name } : t));
 
     if (supabase) {
-      void supabase.auth.getUser().then(async ({ data }: any) => {
+      try {
+        const { data } = await supabase.auth.getUser();
         const user = data.user;
         if (!user) return;
 
@@ -239,15 +240,18 @@ export const useTimelinePersistence = () => {
         if (error) {
           console.error('Failed to rename timeline in Supabase', error);
         }
-      });
+      } catch (error) {
+        console.error('Failed to rename timeline in Supabase', error);
+      }
     }
   };
 
-  const updateTimelineDates = (id: string, startDate: string, endDate: string, slotCount: number) => {
+  const updateTimelineDates = async (id: string, startDate: string, endDate: string, slotCount: number) => {
     setTimelines(prev => prev.map(t => t.id === id ? { ...t, startDate, endDate, slotCount } : t));
 
     if (supabase) {
-      void supabase.auth.getUser().then(async ({ data }: any) => {
+      try {
+        const { data } = await supabase.auth.getUser();
         const user = data.user;
         if (!user) return;
 
@@ -259,7 +263,9 @@ export const useTimelinePersistence = () => {
         if (error) {
           console.error('Failed to update timeline dates in Supabase', error);
         }
-      });
+      } catch (error) {
+        console.error('Failed to update timeline dates in Supabase', error);
+      }
     }
   };
 

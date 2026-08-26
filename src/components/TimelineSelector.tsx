@@ -6,7 +6,7 @@ interface Props {
   timelines: TimelineMeta[];
   activeId: string | null;
   setActiveId: (id: string | null) => void;
-  onCreate: (name: string, startDate: string, endDate: string, slotCount?: number) => void;
+  onCreate: (name: string, startDate: string, endDate: string, slotCount?: number) => Promise<unknown>;
   onEditCurrent: () => void;
   onManage: () => void;
 }
@@ -16,6 +16,7 @@ export const TimelineSelector: React.FC<Props> = ({ timelines, activeId, setActi
   const activeTimeline = activeTimelines.find(t => t.id === activeId);
   const [isOpen, setIsOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
   const [name, setName] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -29,12 +30,20 @@ export const TimelineSelector: React.FC<Props> = ({ timelines, activeId, setActi
     setIsCreateOpen(true);
   };
 
-  const handleCreate = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleCreate = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (isCreating) return;
+
     if (!name.trim() || !startDate || !endDate || endDate < startDate) return;
 
-    onCreate(`${name.trim()}`, `${startDate}T01:00:00`, `${endDate}T23:00:00`);
-    setIsCreateOpen(false);
+    setIsCreating(true);
+
+    try {
+      await onCreate(`${name.trim()}`, `${startDate}T01:00:00`, `${endDate}T23:00:00`);
+      setIsCreateOpen(false);
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   return (
@@ -145,15 +154,17 @@ export const TimelineSelector: React.FC<Props> = ({ timelines, activeId, setActi
               <button
                 type="button"
                 onClick={() => setIsCreateOpen(false)}
+                disabled={isCreating}
                 className="rounded border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                disabled={isCreating}
+                className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Create timeline
+                {isCreating ? 'Creating...' : 'Create timeline'}
               </button>
             </div>
           </form>

@@ -10,8 +10,8 @@ interface Props {
   timelines: TimelineMeta[];
   activeId: string | null;
   setActiveId: (id: string | null) => void;
-  renameTimeline: (id: string, name: string) => void;
-  updateTimelineDates: (id: string, startDate: string, endDate: string, slotCount: number) => void;
+  renameTimeline: (id: string, name: string) => Promise<void>;
+  updateTimelineDates: (id: string, startDate: string, endDate: string, slotCount: number) => Promise<void>;
   locations: Location[];
   onAddLocation: (name: string) => Location;
   onUpdateLocation: (locationId: string, name: string) => void;
@@ -28,12 +28,14 @@ interface Props {
 export const ManageTimelinesModal: React.FC<Props> = ({ isOpen, onClose, mode, timelines, activeId, setActiveId, renameTimeline, updateTimelineDates, locations, onAddLocation, onUpdateLocation, onDeleteLocation, onExportLocations, onImportLocations, deleteTimeline, archiveTimeline, unarchiveTimeline, initialEditingTimelineId, initialSection }) => {
   const [editingTimeline, setEditingTimeline] = useState<TimelineMeta | null>(null);
   const [editingSection, setEditingSection] = useState<'timeline' | 'locations'>('timeline');
+  const [isSaving, setIsSaving] = useState(false);
   const directEditMode = mode === 'edit';
 
   React.useEffect(() => {
     if (!isOpen) {
       setEditingTimeline(null);
       setEditingSection('timeline');
+      setIsSaving(false);
       return;
     }
 
@@ -138,21 +140,34 @@ export const ManageTimelinesModal: React.FC<Props> = ({ isOpen, onClose, mode, t
             {editingSection === 'timeline' ? (
               <form
                 className="space-y-4"
-                onSubmit={event => {
+                onSubmit={async event => {
                   event.preventDefault();
+                  if (isSaving) return;
+
+                  setIsSaving(true);
                   const formData = new FormData(event.currentTarget);
                   const name = String(formData.get('name')).trim();
                   const startDate = String(formData.get('startDate'));
                   const endDate = String(formData.get('endDate'));
                   const slotCount = Number(formData.get('slotCount'));
-                  if (!name || !startDate || !endDate || endDate < startDate) return;
-                  if (!Number.isFinite(slotCount) || slotCount < 1) return;
+                  if (!name || !startDate || !endDate || endDate < startDate) {
+                    setIsSaving(false);
+                    return;
+                  }
+                  if (!Number.isFinite(slotCount) || slotCount < 1) {
+                    setIsSaving(false);
+                    return;
+                  }
 
-                  renameTimeline(editingTimeline.id, name);
-                  updateTimelineDates(editingTimeline.id, `${startDate}T01:00:00`, `${endDate}T23:00:00`, Math.floor(slotCount));
-                  setEditingTimeline(null);
-                  if (directEditMode) {
-                    onClose();
+                  try {
+                    await renameTimeline(editingTimeline.id, name);
+                    await updateTimelineDates(editingTimeline.id, `${startDate}T01:00:00`, `${endDate}T23:00:00`, Math.floor(slotCount));
+                    setEditingTimeline(null);
+                    if (directEditMode) {
+                      onClose();
+                    }
+                  } finally {
+                    setIsSaving(false);
                   }
                 }}
               >
@@ -214,8 +229,8 @@ export const ManageTimelinesModal: React.FC<Props> = ({ isOpen, onClose, mode, t
                     </button>
                   </div>
                   <div className="flex gap-3 sm:justify-end">
-                    <button type="button" onClick={() => setEditingTimeline(null)} className="rounded border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
-                    <button type="submit" className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">Save</button>
+                    <button type="button" onClick={() => setEditingTimeline(null)} disabled={isSaving} className="rounded border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60">Cancel</button>
+                    <button type="submit" disabled={isSaving} className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60">{isSaving ? 'Saving...' : 'Save'}</button>
                   </div>
                 </div>
               </form>
