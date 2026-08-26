@@ -202,8 +202,8 @@ export const ManageTimelinesModal: React.FC<Props> = ({ isOpen, onClose, mode, t
                       <input name="endDate" type="date" defaultValue={editingTimeline.endDate.slice(0, 10)} className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-gray-900" required />
                     </label>
                   </div>
-                  <div className="grid grid-cols-[minmax(0,1.25fr)_minmax(0,0.95fr)] gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
-                    <label className="block min-w-0 text-sm font-medium text-gray-700">
+                  <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+                    <label className="block w-fit text-sm font-medium text-gray-700">
                       Slots
                       <input
                         name="slotCount"
@@ -211,13 +211,13 @@ export const ManageTimelinesModal: React.FC<Props> = ({ isOpen, onClose, mode, t
                         min={1}
                         max={24}
                         defaultValue={editingTimeline.slotCount}
-                        className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-gray-900"
+                        className="mt-1 w-24 rounded border border-gray-300 px-3 py-2 text-gray-900"
                         required
                       />
                     </label>
 
                     <div className="flex min-w-0 items-center justify-between gap-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-3 sm:min-w-56 sm:gap-4 sm:px-4">
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <div className="text-sm font-medium text-gray-900">Color by location</div>
                       </div>
                       <button
