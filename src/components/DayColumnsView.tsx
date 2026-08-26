@@ -1,13 +1,14 @@
 import React from 'react';
 import { Clock, GripVertical, MapPin } from 'lucide-react';
 import type { CosplayEntry, TimelineEvent as TimelineEventType } from '../types/timeline';
-import { formatDateHeader, getDayKey } from '../utils/timelineUtils';
+import { formatDateHeader, getDayKey, getLocationDisplayColor } from '../utils/timelineUtils';
 
 interface DayColumnsViewProps {
   days: Date[];
   events: TimelineEventType[];
   cosplayEntries: CosplayEntry[];
   columnWidth: number;
+  useLocationColors: boolean;
   onEventEdit: (event: TimelineEventType) => void;
   onCosplayEntryCreate: (day: Date) => void;
   onCosplayEntryEdit: (entry: CosplayEntry) => void;
@@ -47,6 +48,7 @@ export const DayColumnsView: React.FC<DayColumnsViewProps> = ({
   events,
   cosplayEntries,
   columnWidth,
+  useLocationColors,
   onEventEdit,
   onCosplayEntryCreate,
   onCosplayEntryEdit,
@@ -248,7 +250,10 @@ export const DayColumnsView: React.FC<DayColumnsViewProps> = ({
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {dayEvents.map(event => (
+                    {dayEvents.map(event => {
+                      const displayColor = useLocationColors ? getLocationDisplayColor(event.location) : event.color;
+
+                      return (
                       <button
                         key={event.id}
                         type="button"
@@ -257,7 +262,7 @@ export const DayColumnsView: React.FC<DayColumnsViewProps> = ({
                         onDoubleClick={() => onEventEdit(event)}
                         title={`${event.title}\n${formatTime(event.startTime)} - ${formatTime(event.endTime)} (${formatDuration(event.startTime, event.endTime)})${event.location ? `\n${event.location}` : ''}${event.description ? `\n${event.description}` : ''}`}
                       >
-                        <div className="h-1.5 w-full" style={{ backgroundColor: event.color }} />
+                        <div className="h-1.5 w-full" style={{ backgroundColor: displayColor }} />
                         <div className="space-y-2 p-3">
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0 flex-1">
@@ -287,7 +292,8 @@ export const DayColumnsView: React.FC<DayColumnsViewProps> = ({
                           )}
                         </div>
                       </button>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>

@@ -1243,6 +1243,7 @@ export const Timeline: React.FC = () => {
                   : events.filter(event => normalizeColor(event.color) === normalizeColor(selectedColor))}
                 cosplayEntries={cosplayEntries}
                 columnWidth={dayColumnWidth}
+                useLocationColors={useLocationColors}
                 onEventEdit={handleEventEdit}
                 onCosplayEntryCreate={handleCosplayEntryCreate}
                 onCosplayEntryEdit={handleCosplayEntryEdit}
