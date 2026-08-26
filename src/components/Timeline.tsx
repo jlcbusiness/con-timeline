@@ -792,12 +792,6 @@ export const Timeline: React.FC = () => {
     });
     jumpDate.setDate(jumpDate.getDate() + 1);
   }
-  const mobileJumpToDateSplit = Math.floor(jumpToDates.length / 2);
-  const mobileJumpToDateRows = [
-    jumpToDates.slice(0, mobileJumpToDateSplit),
-    jumpToDates.slice(mobileJumpToDateSplit)
-  ].filter(row => row.length > 0);
-
   if (timelinesLoading || eventsLoading || locationsLoading || cosplayEntriesLoading) {
     return (
       <div className="h-screen bg-gray-50 flex items-center justify-center">
@@ -809,6 +803,17 @@ export const Timeline: React.FC = () => {
     );
   }
 
+  const mobileJumpButtonWidth = 52;
+  const mobileJumpButtonGap = 4;
+  const mobileJumpHorizontalPadding = 24;
+  const mobileJumpButtonsFitOnOneRow = viewportWidth >= (
+    jumpToDates.length * mobileJumpButtonWidth
+    + Math.max(jumpToDates.length - 1, 0) * mobileJumpButtonGap
+    + mobileJumpHorizontalPadding
+  );
+  const mobileJumpColumnCount = mobileJumpButtonsFitOnOneRow
+    ? jumpToDates.length
+    : Math.ceil(jumpToDates.length / 2);
   return (
     <div className="h-screen bg-gray-50 flex flex-col">
       <div
@@ -962,21 +967,20 @@ export const Timeline: React.FC = () => {
 
         <div className="mt-2 flex min-w-0 flex-col items-center justify-center gap-1">
           <span className="text-sm font-medium text-gray-700 text-center">{currentRangeLabel}</span>
-          <div className="flex w-full flex-col items-center gap-1 py-[2mm] text-xs text-gray-600 md:hidden">
-            {mobileJumpToDateRows.map((row, rowIndex) => (
-              <div key={`${rowIndex}-${row.length}`} className="flex justify-center gap-1">
-                {row.map(({ date, label }) => (
-                  <button
-                    key={date.toISOString()}
-                    onClick={() => scrollToDate(date)}
-                    className="rounded-md bg-gray-200 px-2 py-1 transition-colors hover:bg-gray-300"
-                    title={`Go to ${date.toLocaleDateString()}`}
-                    disabled={dragState.isDragging || dragState.isResizing}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
+          <div
+            className="grid w-full justify-center gap-1 py-[2mm] text-xs text-gray-600 md:hidden"
+            style={{ gridTemplateColumns: `repeat(${mobileJumpColumnCount}, max-content)` }}
+          >
+            {jumpToDates.map(({ date, label }) => (
+              <button
+                key={date.toISOString()}
+                onClick={() => scrollToDate(date)}
+                className="whitespace-nowrap rounded-md bg-gray-200 px-2 py-1 transition-colors hover:bg-gray-300"
+                title={`Go to ${date.toLocaleDateString()}`}
+                disabled={dragState.isDragging || dragState.isResizing}
+              >
+                {label}
+              </button>
             ))}
           </div>
 
