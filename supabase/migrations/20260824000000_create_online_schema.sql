@@ -52,6 +52,8 @@ CREATE TABLE IF NOT EXISTS locations (
 
 CREATE INDEX IF NOT EXISTS idx_locations_timeline_id ON locations(timeline_id);
 CREATE INDEX IF NOT EXISTS idx_locations_user_id ON locations(user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_locations_timeline_user_name_key
+  ON locations(timeline_id, user_id, lower(trim(name)));
 
 GRANT USAGE ON SCHEMA public TO anon, authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE timelines, events, locations TO authenticated;

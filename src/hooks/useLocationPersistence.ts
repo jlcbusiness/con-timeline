@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import type { Location } from '../types/timeline';
 
+const getLocationNameKey = (name: string) => name.trim().toLowerCase();
+
 const serializeLocation = (location: Location) => ({
   id: location.id,
   name: location.name,
@@ -173,9 +175,16 @@ export const useLocationPersistence = (activeTimelineId?: string | null) => {
   };
 
   const addLocation = (name: string): Location => {
+    const normalizedName = name.trim();
+    const existingLocation = locations.find(location => getLocationNameKey(location.name) === getLocationNameKey(normalizedName));
+
+    if (existingLocation) {
+      return existingLocation;
+    }
+
     const newLocation: Location = {
       id: typeof crypto !== 'undefined' && (crypto as any).randomUUID ? (crypto as any).randomUUID() : Date.now().toString(),
-      name: name.trim(),
+      name: normalizedName,
       createdAt: new Date()
     };
     setLocations(prevLocations => [...prevLocations, newLocation]);
@@ -188,18 +197,26 @@ export const useLocationPersistence = (activeTimelineId?: string | null) => {
   };
 
   const updateLocation = (locationId: string, name: string) => {
+    const normalizedName = name.trim();
     const existingLocation = locations.find(location => location.id === locationId);
+    const duplicateLocation = locations.find(location =>
+      location.id !== locationId && getLocationNameKey(location.name) === getLocationNameKey(normalizedName)
+    );
+
+    if (duplicateLocation) {
+      return;
+    }
 
     setLocations(prevLocations =>
       prevLocations.map(location =>
         location.id === locationId
-          ? { ...location, name: name.trim() }
+          ? { ...location, name: normalizedName }
           : location
       )
     );
 
     if (existingLocation) {
-      void persistLocation({ ...existingLocation, name: name.trim() }).catch(error => {
+      void persistLocation({ ...existingLocation, name: normalizedName }).catch(error => {
         console.error('Failed to update location', error);
       });
     }
@@ -241,11 +258,11 @@ export const useLocationPersistence = (activeTimelineId?: string | null) => {
     const addedLocations: Location[] = [];
 
     setLocations(prevLocations => {
-      const existingNames = new Set(prevLocations.map(location => location.name.toLowerCase()));
+      const existingNames = new Set(prevLocations.map(location => getLocationNameKey(location.name)));
       const nextLocations = [...prevLocations];
 
       uniqueNames.forEach(name => {
-        if (existingNames.has(name.toLowerCase())) return;
+        if (existingNames.has(getLocationNameKey(name))) return;
 
         const newLocation: Location = {
           id: typeof crypto !== 'undefined' && (crypto as any).randomUUID ? (crypto as any).randomUUID() : Date.now().toString(),
@@ -253,7 +270,7 @@ export const useLocationPersistence = (activeTimelineId?: string | null) => {
           createdAt: new Date()
         };
 
-        existingNames.add(name.toLowerCase());
+        existingNames.add(getLocationNameKey(name));
         nextLocations.push(newLocation);
         addedLocations.push(newLocation);
       });
@@ -271,8 +288,8 @@ export const useLocationPersistence = (activeTimelineId?: string | null) => {
         const user = userData.user;
         if (!user) return addedLocations;
 
-        const existingNames = new Set(locations.map(location => location.name.toLowerCase()));
-        const rows = addedLocations.filter(location => !existingNames.has(location.name.toLowerCase()));
+        const existingNames = new Set(locations.map(location => getLocationNameKey(location.name)));
+        const rows = addedLocations.filter(location => !existingNames.has(getLocationNameKey(location.name)));
 
         if (rows.length === 0) return addedLocations;
 
@@ -313,16 +330,16 @@ export const useLocationPersistence = (activeTimelineId?: string | null) => {
         return importedLocations;
       }
 
-      const uniqueByName = Array.from(new Map(importedLocations.map(location => [location.name.toLowerCase(), location])).values());
+      const uniqueByName = Array.from(new Map(importedLocations.map(location => [getLocationNameKey(location.name), location])).values());
 
       const addedLocations: Location[] = [];
 
       setLocations(prevLocations => {
-        const existingNames = new Set(prevLocations.map(location => location.name.toLowerCase()));
+        const existingNames = new Set(prevLocations.map(location => getLocationNameKey(location.name)));
         const nextLocations = [...prevLocations];
 
         uniqueByName.forEach(location => {
-          const normalizedName = location.name.toLowerCase();
+          const normalizedName = getLocationNameKey(location.name);
 
           if (existingNames.has(normalizedName)) {
             return;
@@ -370,7 +387,7 @@ export const useLocationPersistence = (activeTimelineId?: string | null) => {
 
   const getLocationByName = (name: string): Location | undefined => {
     return locations.find(location => 
-      location.name.toLowerCase() === name.toLowerCase()
+      getLocationNameKey(location.name) === getLocationNameKey(name)
     );
   };
 

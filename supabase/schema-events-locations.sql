@@ -47,6 +47,8 @@ create table if not exists locations (
 
 create index if not exists idx_locations_timeline_id on locations(timeline_id);
 create index if not exists idx_locations_user_id on locations(user_id);
+create unique index if not exists idx_locations_timeline_user_name_key
+  on locations(timeline_id, user_id, lower(trim(name)));
 
 -- Trigger to update updated_at
 create or replace function trigger_set_timestamp()
