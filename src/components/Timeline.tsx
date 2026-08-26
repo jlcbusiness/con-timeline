@@ -1152,7 +1152,9 @@ export const Timeline: React.FC = () => {
                         </div>
                       );
                     })}
+                  </div>
 
+                  <div className="absolute top-12 left-0 right-0" style={{ height: `${slotCount * gridSlotHeight}px` }}>
                     {timeSlots.map((slot) => {
                       const leftPosition = getTimePosition(slot, startDate);
 
