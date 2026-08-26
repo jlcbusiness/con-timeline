@@ -232,7 +232,7 @@ export const ManageTimelinesModal: React.FC<Props> = ({ isOpen, onClose, mode, t
                     </div>
                   </div>
                   <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-between">
-                    <div className="flex flex-col gap-3 sm:flex-row">
+                    <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-row">
                       <button
                         type="button"
                         onClick={() => {
@@ -242,7 +242,7 @@ export const ManageTimelinesModal: React.FC<Props> = ({ isOpen, onClose, mode, t
                             onClose();
                           }
                         }}
-                        className="rounded border border-yellow-300 bg-yellow-50 px-4 py-2 text-sm font-medium text-yellow-800 hover:bg-yellow-100"
+                        className="w-full rounded border border-yellow-300 bg-yellow-50 px-3 py-2 text-sm font-medium text-yellow-800 hover:bg-yellow-100 sm:w-auto sm:px-4"
                       >
                         Archive
                       </button>
@@ -257,14 +257,14 @@ export const ManageTimelinesModal: React.FC<Props> = ({ isOpen, onClose, mode, t
                             onClose();
                           }
                         }}
-                        className="rounded border border-red-300 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100"
+                        className="w-full rounded border border-red-300 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-100 sm:w-auto sm:px-4"
                       >
                         Delete
                       </button>
                     </div>
-                    <div className="flex gap-3 sm:justify-end">
-                      <button type="button" onClick={() => setEditingTimeline(null)} disabled={isSaving} className="rounded border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60">Cancel</button>
-                      <button type="submit" disabled={isSaving} className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60">{isSaving ? 'Saving...' : 'Save'}</button>
+                    <div className="grid grid-cols-2 gap-3 sm:flex sm:justify-end">
+                      <button type="button" onClick={() => setEditingTimeline(null)} disabled={isSaving} className="w-full rounded border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:px-4">Cancel</button>
+                      <button type="submit" disabled={isSaving} className="w-full rounded bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:px-4">{isSaving ? 'Saving...' : 'Save'}</button>
                     </div>
                   </div>
                 </form>
