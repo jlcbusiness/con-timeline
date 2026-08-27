@@ -69,6 +69,10 @@ export const useDragAndResize = (
       // Moving the entire event
       const newPosition = Math.max(0, Math.min(Math.max(0, slotCount - 1), originalEvent.position + positionChange));
 
+      if (originalEvent.megaLock) {
+        return;
+      }
+
       if (originalEvent.lockTime) {
         if (newPosition !== originalEvent.position) {
           const updates = { position: newPosition };
@@ -109,7 +113,7 @@ export const useDragAndResize = (
       }
 
     } else if (dragState.dragType === 'resize-start') {
-      if (originalEvent.lockTime) return;
+      if (originalEvent.lockTime || originalEvent.megaLock) return;
 
       // Resizing from the start
       const newStartTime = new Date(originalEvent.startTime.getTime() + timeChange);
@@ -133,7 +137,7 @@ export const useDragAndResize = (
       }
 
     } else if (dragState.dragType === 'resize-end') {
-      if (originalEvent.lockTime) return;
+      if (originalEvent.lockTime || originalEvent.megaLock) return;
 
       // Resizing from the end
       const newEndTime = new Date(originalEvent.endTime.getTime() + timeChange);

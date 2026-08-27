@@ -44,6 +44,40 @@ describe('timelineUtils', () => {
     expect(updates[0]?.eventId).toBe('long');
   });
 
+  it('does not cascade Mega-Locked events into another slot', () => {
+    const changedEvent = { id: 'changed', startTime: new Date(2025, 7, 27, 10), endTime: new Date(2025, 7, 27, 11), position: 0 };
+    const megaLockedEvent = { id: 'mega-locked', megaLock: true, startTime: new Date(2025, 7, 27, 10), endTime: new Date(2025, 7, 27, 11), position: 0 };
+
+    expect(
+      cascadeEventPositions([changedEvent, megaLockedEvent] as any, changedEvent as any, {})
+    ).toEqual([]);
+  });
+
+  it('moves an unlocked intangible conflict when a locked event becomes intangible', () => {
+    const lockedEvent = {
+      id: 'locked',
+      lockTime: true,
+      startTime: new Date(2025, 7, 27, 10),
+      endTime: new Date(2025, 7, 27, 11),
+      position: 0
+    };
+    const existingIntangibleEvent = {
+      id: 'existing-intangible',
+      intangible: true,
+      startTime: new Date(2025, 7, 27, 10),
+      endTime: new Date(2025, 7, 27, 11),
+      position: 0
+    };
+
+    expect(
+      cascadeEventPositions(
+        [lockedEvent, existingIntangibleEvent] as any,
+        lockedEvent as any,
+        { intangible: true }
+      )
+    ).toEqual([{ eventId: 'existing-intangible', updates: { position: 1 } }]);
+  });
+
   it('sorts imported events by start time, duration, venue, room, and source order', () => {
     const events = [
       { id: 'short', title: 'Short', location: 'Hilton Galleria 7', startTime: new Date(2025, 7, 27, 10), endTime: new Date(2025, 7, 27, 10, 30), position: 0 },

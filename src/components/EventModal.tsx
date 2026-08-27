@@ -5,6 +5,7 @@ import { getEventColors, roundToNearestHalfHour } from '../utils/timelineUtils';
 import { EVENT_BUFFER_OPTIONS_MINUTES } from '../config/timeline';
 
 const normalizeColor = (color: string) => color.trim().toLowerCase();
+type LockMode = 'off' | 'time' | 'mega';
 
 interface EventModalProps {
   isOpen: boolean;
@@ -42,7 +43,7 @@ export const EventModal: React.FC<EventModalProps> = ({
   const [endTimeValue, setEndTimeValue] = useState('');
   const [color, setColor] = useState('#3b82f6');
   const [bufferBeforeMinutes, setBufferBeforeMinutes] = useState(0);
-  const [lockTime, setLockTime] = useState(false);
+  const [lockMode, setLockMode] = useState<LockMode>('off');
   const [intangible, setIntangible] = useState(false);
   const [isCreateLocationOpen, setIsCreateLocationOpen] = useState(false);
   const [newLocationName, setNewLocationName] = useState('');
@@ -67,7 +68,7 @@ export const EventModal: React.FC<EventModalProps> = ({
       setEndTimeValue(formatTimeValue(event.endTime));
       setColor(event.color);
       setBufferBeforeMinutes(event.bufferBeforeMinutes ?? 0);
-      setLockTime(event.lockTime ?? false);
+      setLockMode(event.megaLock ? 'mega' : event.lockTime ? 'time' : 'off');
       setIntangible(event.intangible ?? false);
       setIsCreateLocationOpen(false);
       setNewLocationName('');
@@ -81,7 +82,7 @@ export const EventModal: React.FC<EventModalProps> = ({
       setEndTimeValue(formatTimeValue(initialEvent.endTime));
       setColor(initialEvent.color);
       setBufferBeforeMinutes(initialEvent.bufferBeforeMinutes ?? 0);
-      setLockTime(initialEvent.lockTime ?? false);
+      setLockMode(initialEvent.megaLock ? 'mega' : initialEvent.lockTime ? 'time' : 'off');
       setIntangible(initialEvent.intangible ?? false);
       setIsCreateLocationOpen(false);
       setNewLocationName('');
@@ -99,7 +100,7 @@ export const EventModal: React.FC<EventModalProps> = ({
       setEndTimeValue(formatTimeValue(end));
       setColor('#3b82f6'); // Use static color instead of colors[0]
       setBufferBeforeMinutes(0);
-      setLockTime(false);
+      setLockMode('off');
       setIntangible(false);
       setIsCreateLocationOpen(false);
       setNewLocationName('');
@@ -123,7 +124,8 @@ export const EventModal: React.FC<EventModalProps> = ({
       endTime,
       color,
       bufferBeforeMinutes,
-      lockTime,
+      lockTime: lockMode !== 'off',
+      megaLock: lockMode === 'mega',
       intangible
     });
     onClose();
@@ -482,23 +484,34 @@ export const EventModal: React.FC<EventModalProps> = ({
             <p className="mt-1 text-xs text-gray-500">Reserves time before the event so other events avoid it.</p>
           </div>
 
-          <div className="flex items-start gap-3 rounded-md border border-gray-200 bg-gray-50 px-3 py-2">
-            <input
-              id="event-lock-time"
-              type="checkbox"
-              checked={lockTime}
-              onChange={(e) => setLockTime(e.target.checked)}
-              className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            />
-            <div className="min-w-0">
-              <label htmlFor="event-lock-time" className="flex items-center gap-2 text-sm font-medium text-gray-900">
+          <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2">
+            <div className="flex items-center justify-between gap-3 text-sm font-medium text-gray-900">
+              <div className="flex items-center gap-2">
                 <Lock size={14} />
-                Lock time
-              </label>
-              <p className="text-xs text-gray-600">
-                Keeps the event on the same time range. You can still move it between slots or delete it.
-              </p>
+                Lock
+              </div>
+              <div className="grid grid-cols-3 overflow-hidden rounded-md border border-gray-300 bg-white" role="radiogroup" aria-label="Event lock mode">
+                {(['off', 'time', 'mega'] as const).map(mode => (
+                  <button
+                    key={mode}
+                    type="button"
+                    role="radio"
+                    aria-checked={lockMode === mode}
+                    onClick={() => setLockMode(mode)}
+                    className={`border-r border-gray-300 px-2 py-1.5 text-xs font-medium last:border-r-0 ${lockMode === mode ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
+                  >
+                    {mode === 'off' ? 'Off' : mode === 'time' ? 'Time' : 'MEGA'}
+                  </button>
+                ))}
+              </div>
             </div>
+            <p className="mt-2 text-xs text-gray-600">
+              {lockMode === 'mega'
+                ? 'Locks both the event\'s time and its slot position when dragged.'
+                : lockMode === 'time'
+                  ? 'Keeps the event on the same time range. You can still move it between slots.'
+                  : 'Allows dragging to change both time and slot position.'}
+            </p>
           </div>
 
           <div className="flex items-start gap-3 rounded-md border border-gray-200 bg-gray-50 px-3 py-2">

@@ -310,8 +310,50 @@ export const Timeline: React.FC = () => {
 
     const nextEvent = { ...existingEvent, ...updates };
     const hasExplicitPosition = typeof updates.position === 'number';
+    const affectsPosition = updates.startTime !== undefined
+      || updates.endTime !== undefined
+      || updates.bufferBeforeMinutes !== undefined;
+    const conflictsWithMegaLock = hasExplicitPosition && events.some(event => (
+      event.id !== eventId
+      && event.megaLock
+      && event.intangible === nextEvent.intangible
+      && event.position === updates.position
+      && nextEvent.startTime < event.endTime
+      && nextEvent.endTime > event.startTime
+    ));
 
-    if (existingEvent.intangible !== nextEvent.intangible) {
+    if (conflictsWithMegaLock) {
+      return;
+    }
+
+    if (!existingEvent.intangible && nextEvent.intangible && existingEvent.lockTime) {
+      const cascadeUpdates = cascadeEventPositions(events, existingEvent, updates, slotCount);
+      const conflictsWithExistingMegaLock = events.some(event => (
+        event.id !== eventId
+        && event.megaLock
+        && event.intangible
+        && event.position === existingEvent.position
+        && nextEvent.startTime < event.endTime
+        && nextEvent.endTime > event.startTime
+      ));
+
+      if (conflictsWithExistingMegaLock) {
+        const position = findAvailablePosition(
+          events.filter(event => event.id !== eventId),
+          nextEvent.startTime,
+          nextEvent.endTime,
+          nextEvent,
+          slotCount
+        );
+
+        updateEvent(eventId, { ...updates, position });
+      } else {
+        batchUpdateEvents([
+          { eventId, updates },
+          ...cascadeUpdates
+        ]);
+      }
+    } else if (existingEvent.intangible !== nextEvent.intangible) {
       const repackUpdates = repackEventPositions(events, eventId, updates, slotCount);
       const positionForEditedEvent = repackUpdates.find(update => update.eventId === eventId)?.updates.position ?? existingEvent.position;
 
@@ -332,6 +374,8 @@ export const Timeline: React.FC = () => {
       if (cascadeUpdates.length > 0) {
         batchUpdateEvents(cascadeUpdates);
       }
+    } else if (!affectsPosition) {
+      updateEvent(eventId, updates);
     } else {
       const position = findAvailablePosition(
         events.filter(event => event.id !== eventId),
@@ -651,6 +695,7 @@ export const Timeline: React.FC = () => {
       color: event.color,
       bufferBeforeMinutes: event.bufferBeforeMinutes,
       lockTime: event.lockTime,
+        megaLock: event.megaLock,
       intangible: event.intangible
     });
     setIsModalOpen(true);

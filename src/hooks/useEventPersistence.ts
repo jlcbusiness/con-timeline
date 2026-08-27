@@ -20,6 +20,7 @@ const mapEventRow = (event: any): TimelineEvent => ({
   position: event.position ?? 0,
   bufferBeforeMinutes: event.metadata?.bufferBeforeMinutes ?? 0,
   lockTime: event.metadata?.lockTime ?? false,
+  megaLock: event.metadata?.megaLock ?? false,
   intangible: event.metadata?.intangible ?? false,
   createdAt: event.created_at || undefined,
   updatedAt: event.updated_at || undefined
@@ -39,6 +40,7 @@ const buildEventRow = (event: TimelineEvent, timelineId: string, userId: string)
     location: event.location || '',
     bufferBeforeMinutes: event.bufferBeforeMinutes ?? 0,
     lockTime: event.lockTime ?? false,
+    megaLock: event.megaLock ?? false,
     intangible: event.intangible ?? false
   },
   created_at: event.createdAt || event.startTime.toISOString(),

@@ -287,6 +287,10 @@ export const cascadeEventPositions = (
   });
 
   sortedConflicts.forEach(conflictingEvent => {
+    if (conflictingEvent.megaLock) {
+      return;
+    }
+
     // Create a temporary list of events to check against (excluding the conflicting event)
     const eventsToCheckAgainst = [
       updatedChangedEvent, // The changed event is now in this position

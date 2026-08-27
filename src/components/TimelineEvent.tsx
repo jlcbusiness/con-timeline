@@ -5,6 +5,8 @@ import type { TimelineEvent as TimelineEventType } from '../types/timeline';
 import { getTimePosition, getEventWidth, getEventBufferWidth, getEventColors } from '../utils/timelineUtils';
 
 const normalizeColor = (color: string) => color.trim().toLowerCase();
+type LockMode = 'off' | 'time' | 'mega';
+type SubmenuPlacement = { opensLeft: boolean; width: number };
 
 const openContextMenuClosers = new Set<() => void>();
 let contextMenuBlockerInstalled = false;
@@ -75,12 +77,18 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
   isResizing = false
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
+  const lockSubmenuTriggerRef = useRef<HTMLDivElement>(null);
+  const colorSubmenuTriggerRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
   const hostRef = useRef<HTMLDivElement>(null);
   const colorSubmenuCloseTimer = useRef<number | null>(null);
+  const lockSubmenuCloseTimer = useRef<number | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [tooltipStyle, setTooltipStyle] = useState<React.CSSProperties | null>(null);
   const [isColorSubmenuOpen, setIsColorSubmenuOpen] = useState(false);
+  const [isLockSubmenuOpen, setIsLockSubmenuOpen] = useState(false);
+  const [lockSubmenuPlacement, setLockSubmenuPlacement] = useState<SubmenuPlacement>({ opensLeft: false, width: 160 });
+  const [colorSubmenuPlacement, setColorSubmenuPlacement] = useState<SubmenuPlacement>({ opensLeft: false, width: 124 });
 
   // Use the unified positioning functions
   const leftPosition = getTimePosition(event.startTime, startDate);
@@ -107,6 +115,22 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
   };
 
   const colorChoices = getEventColors();
+
+  const getSubmenuPlacement = (triggerElement: HTMLDivElement | null, preferredWidth: number): SubmenuPlacement => {
+    if (!triggerElement) return { opensLeft: false, width: preferredWidth };
+
+    const viewportPadding = 8;
+    const submenuGap = 4;
+    const triggerRect = triggerElement.getBoundingClientRect();
+    const spaceToLeft = Math.max(0, triggerRect.left - viewportPadding - submenuGap);
+    const spaceToRight = Math.max(0, window.innerWidth - triggerRect.right - viewportPadding - submenuGap);
+    const opensLeft = spaceToLeft > spaceToRight;
+
+    return {
+      opensLeft,
+      width: Math.min(preferredWidth, opensLeft ? spaceToLeft : spaceToRight)
+    };
+  };
 
   const getDuration = (): string => {
     const durationMs = event.endTime.getTime() - event.startTime.getTime();
@@ -172,11 +196,36 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
     setContextMenu(null);
     openContextMenuClosers.delete(closeContextMenu);
     setIsColorSubmenuOpen(false);
+    setIsLockSubmenuOpen(false);
   };
 
-  const toggleLockTime = () => {
-    onUpdateEvent(event.id, { lockTime: !event.lockTime });
+  const setLockMode = (lockMode: LockMode) => {
+    onUpdateEvent(event.id, {
+      lockTime: lockMode !== 'off',
+      megaLock: lockMode === 'mega'
+    });
     closeContextMenu();
+  };
+
+  const openLockSubmenu = () => {
+    if (lockSubmenuCloseTimer.current !== null) {
+      window.clearTimeout(lockSubmenuCloseTimer.current);
+      lockSubmenuCloseTimer.current = null;
+    }
+
+    setLockSubmenuPlacement(getSubmenuPlacement(lockSubmenuTriggerRef.current, 160));
+    setIsLockSubmenuOpen(true);
+  };
+
+  const closeLockSubmenuSoon = () => {
+    if (lockSubmenuCloseTimer.current !== null) {
+      window.clearTimeout(lockSubmenuCloseTimer.current);
+    }
+
+    lockSubmenuCloseTimer.current = window.setTimeout(() => {
+      setIsLockSubmenuOpen(false);
+      lockSubmenuCloseTimer.current = null;
+    }, 140);
   };
 
   const toggleIntangible = () => {
@@ -210,6 +259,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
       colorSubmenuCloseTimer.current = null;
     }
 
+    setColorSubmenuPlacement(getSubmenuPlacement(colorSubmenuTriggerRef.current, 124));
     setIsColorSubmenuOpen(true);
   };
 
@@ -274,6 +324,9 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
     return () => {
       if (colorSubmenuCloseTimer.current !== null) {
         window.clearTimeout(colorSubmenuCloseTimer.current);
+      }
+      if (lockSubmenuCloseTimer.current !== null) {
+        window.clearTimeout(lockSubmenuCloseTimer.current);
       }
     };
   }, []);
@@ -456,12 +509,12 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
         <div className="absolute -inset-1 border-2 border-white border-dashed rounded-md pointer-events-none"></div>
       )}
 
-      {!event.intangible && event.lockTime && (
+      {(event.lockTime || event.megaLock) && (
         <div
-          className="absolute bottom-1 right-1 z-20 pointer-events-none rounded-full px-[1mm] py-[1mm]"
-          style={{ backgroundColor: effectiveColor }}
+          className={`absolute bottom-1 right-1 z-20 pointer-events-none rounded-full px-[1mm] py-[1mm] ${event.megaLock ? 'bg-white text-black border border-black/80' : ''}`}
+          style={event.lockTime && !event.megaLock ? { backgroundColor: effectiveColor } : undefined}
         >
-          <Lock size={10} className="opacity-90" />
+          <Lock size={10} className={event.megaLock ? 'text-black' : 'opacity-90 text-white'} />
         </div>
       )}
 
@@ -474,16 +527,51 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
           role="menu"
           aria-label={`Event actions for ${event.title}`}
         >
-          <button
-            type="button"
-            role="menuitemcheckbox"
-            aria-checked={event.lockTime}
-            onClick={toggleLockTime}
-            className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+          <div
+            ref={lockSubmenuTriggerRef}
+            className="relative"
+            onMouseEnter={openLockSubmenu}
+            onMouseLeave={closeLockSubmenuSoon}
           >
-            <span>Lock</span>
-            <span className="text-xs text-gray-500">{event.lockTime ? 'ON' : 'off'}</span>
-          </button>
+            <button
+              type="button"
+              role="menuitem"
+              aria-haspopup="menu"
+              aria-expanded={isLockSubmenuOpen}
+              onClick={openLockSubmenu}
+              className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+            >
+              <span>Lock</span>
+              <ChevronRightIcon size={14} className="text-gray-400" />
+            </button>
+
+            {isLockSubmenuOpen && (
+              <div
+                className={`absolute top-0 z-[10000] min-w-0 rounded-md border border-gray-200 bg-white py-1 shadow-xl ${lockSubmenuPlacement.opensLeft ? 'right-full mr-1' : 'left-full ml-1'}`}
+                style={{ width: `${lockSubmenuPlacement.width}px` }}
+                onMouseEnter={openLockSubmenu}
+                onMouseLeave={closeLockSubmenuSoon}
+              >
+                <div className="flex flex-col" role="radiogroup" aria-label="Event lock mode">
+                  {(['off', 'time', 'mega'] as const).map(mode => {
+                    const currentMode: LockMode = event.megaLock ? 'mega' : event.lockTime ? 'time' : 'off';
+                    return (
+                      <button
+                        key={mode}
+                        type="button"
+                        role="radio"
+                        aria-checked={currentMode === mode}
+                        onClick={() => setLockMode(mode)}
+                        className={`w-full px-3 py-2 text-left text-sm ${currentMode === mode ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
+                      >
+                        {mode === 'off' ? 'Off' : mode === 'time' ? 'Time' : 'MEGA'}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
           <button
             type="button"
             role="menuitemcheckbox"
@@ -495,6 +583,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
             <span className="text-xs text-gray-500">{event.intangible ? 'ON' : 'off'}</span>
           </button>
           <div
+            ref={colorSubmenuTriggerRef}
             className="relative"
             onMouseEnter={openColorSubmenu}
             onMouseLeave={closeColorSubmenuSoon}
@@ -512,11 +601,12 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
 
             {isColorSubmenuOpen && (
               <div
-                className="absolute left-full top-0 z-[10000] ml-1 w-[7.75rem] rounded-md border border-gray-200 bg-white p-2 shadow-xl"
+                className={`absolute top-0 z-[10000] min-w-0 overflow-hidden rounded-md border border-gray-200 bg-white p-2 shadow-xl ${colorSubmenuPlacement.opensLeft ? 'right-full mr-1' : 'left-full ml-1'}`}
+                style={{ width: `${colorSubmenuPlacement.width}px` }}
                 onMouseEnter={openColorSubmenu}
                 onMouseLeave={closeColorSubmenuSoon}
               >
-                <div className="grid grid-cols-3 place-items-center gap-2">
+                <div className="grid grid-cols-[repeat(auto-fit,2rem)] place-content-center justify-center gap-2">
                   {colorChoices.map(color => (
                     <button
                       key={color}
