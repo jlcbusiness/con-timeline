@@ -49,6 +49,15 @@ export const EventModal: React.FC<EventModalProps> = ({
 
   // Get colors once, outside of useEffect
   const colors = getEventColors();
+  const topRowColors = colors.slice(0, 5);
+  const bottomRowColors = colors.slice(5);
+  const swatchLayoutStyle = {
+    '--swatch-size': '2rem',
+    '--swatch-gap': '0.5rem',
+  } as React.CSSProperties & {
+    '--swatch-size': string;
+    '--swatch-gap': string;
+  };
 
   useEffect(() => {
     if (event) {
@@ -333,21 +342,48 @@ export const EventModal: React.FC<EventModalProps> = ({
               <Palette size={16} className="inline mr-1" />
               Color
             </label>
-            <div className="flex gap-2 flex-wrap">
-              {colors.map((colorOption) => (
-                <button
-                  key={colorOption}
-                  type="button"
-                  onClick={() => setColor(colorOption)}
-                  className={`w-8 h-8 rounded-full transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
-                    normalizeColor(color) === normalizeColor(colorOption)
-                      ? 'border-2 border-gray-800 shadow-[inset_0_0_0_1px_white] scale-110'
-                      : 'border border-gray-300 hover:border-gray-500'
-                  }`}
-                  style={{ backgroundColor: colorOption }}
-                  aria-label={`Select color ${colorOption}`}
-                />
-              ))}
+            <div
+              className="mx-auto flex w-fit flex-col items-center gap-[var(--swatch-gap)]"
+              style={swatchLayoutStyle}
+            >
+              <div
+                className="grid w-fit grid-cols-5 gap-[var(--swatch-gap)]"
+                style={{ transform: 'translateX(calc((var(--swatch-size) + var(--swatch-gap)) / -4))' }}
+              >
+                {topRowColors.map((colorOption) => (
+                  <button
+                    key={colorOption}
+                    type="button"
+                    onClick={() => setColor(colorOption)}
+                    className={`w-[var(--swatch-size)] h-[var(--swatch-size)] rounded-full transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+                      normalizeColor(color) === normalizeColor(colorOption)
+                        ? 'border-2 border-gray-800 shadow-[inset_0_0_0_1px_white] scale-110'
+                        : 'border border-gray-300 hover:border-gray-500'
+                    }`}
+                    style={{ backgroundColor: colorOption }}
+                    aria-label={`Select color ${colorOption}`}
+                  />
+                ))}
+              </div>
+              <div
+                className="grid w-fit grid-cols-5 gap-[var(--swatch-gap)]"
+                style={{ transform: 'translateX(calc((var(--swatch-size) + var(--swatch-gap)) / 4))' }}
+              >
+                {bottomRowColors.map((colorOption) => (
+                  <button
+                    key={colorOption}
+                    type="button"
+                    onClick={() => setColor(colorOption)}
+                    className={`w-[var(--swatch-size)] h-[var(--swatch-size)] rounded-full transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+                      normalizeColor(color) === normalizeColor(colorOption)
+                        ? 'border-2 border-gray-800 shadow-[inset_0_0_0_1px_white]'
+                        : 'border border-gray-300 hover:border-gray-500'
+                    }`}
+                    style={{ backgroundColor: colorOption }}
+                    aria-label={`Select color ${colorOption}`}
+                  />
+                ))}
+              </div>
             </div>
           </div>
 

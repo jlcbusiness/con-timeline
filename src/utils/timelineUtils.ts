@@ -440,6 +440,7 @@ export const getEventColors = (): string[] => [
   '#3b82f6', // Blue
   '#8b5cf6', // Purple
   '#c026d3', // Magenta / Fuchsia
+  '#a16207', // Brown
   '#6b7280', // Grey - last
 ];
 

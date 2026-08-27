@@ -467,6 +467,7 @@ export const Timeline: React.FC = () => {
       '#8b5cf6': 'Purple',
       '#f97316': 'Orange',
       '#06b6d4': 'Cyan',
+      '#14b8a6': 'Teal',
       '#84cc16': 'Lime',
       '#6b7280': 'Gray'
     }[normalizeColor(color)] ?? color
@@ -1055,7 +1056,7 @@ export const Timeline: React.FC = () => {
           </div>
 
           {isPriorityView && (
-            <div className="grid w-full grid-cols-9 gap-2 pt-[1mm] md:hidden">
+            <div className="grid w-full grid-cols-10 gap-1 pt-[1mm] md:hidden">
               {colorChoices.map(color => (
                 <button
                   key={color.value}
