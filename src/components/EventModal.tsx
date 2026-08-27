@@ -54,10 +54,7 @@ export const EventModal: React.FC<EventModalProps> = ({
   const swatchLayoutStyle = {
     '--swatch-size': '2rem',
     '--swatch-gap': '0.5rem',
-  } as React.CSSProperties & {
-    '--swatch-size': string;
-    '--swatch-gap': string;
-  };
+  } as React.CSSProperties;
 
   useEffect(() => {
     if (event) {
@@ -160,6 +157,10 @@ export const EventModal: React.FC<EventModalProps> = ({
     const parsed = new Date(`${dateValue}T${timeValue}`);
     return Number.isNaN(parsed.getTime()) ? null : parsed;
   };
+
+  const startDateTime = buildDateTime(startDateValue, startTimeValue);
+  const endDateTime = buildDateTime(endDateValue, endTimeValue);
+  const hasInvalidTimeRange = Boolean(startDateTime && endDateTime && endDateTime <= startDateTime);
 
   const handleStartDateChange = (value: string) => {
     setStartDateValue(value);
@@ -458,6 +459,12 @@ export const EventModal: React.FC<EventModalProps> = ({
                   required
                 />
               </div>
+
+              {hasInvalidTimeRange && (
+                <p className="text-sm font-medium text-red-600">
+                  We can&apos;t go back in time yet, McFly!
+                </p>
+              )}
             </div>
           </div>
 
