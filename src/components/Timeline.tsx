@@ -34,7 +34,7 @@ import {
 } from '../utils/timelineUtils';
 
 const DAY_COLUMN_WIDTH_STEP = 0.25;
-const DEFAULT_SELECTED_COLOR = '#10B981';
+const DEFAULT_SELECTED_COLOR = '#57c14e';
 const VIEW_MODE_STORAGE_KEY = 'timeline-view-mode';
 const LOCATION_COLORS_STORAGE_KEY = 'timeline-use-location-colors';
 
@@ -103,6 +103,7 @@ export const Timeline: React.FC = () => {
   const [manageEditSection, setManageEditSection] = useState<'timeline' | 'locations'>('timeline');
   const [manageMode, setManageMode] = useState<'manage' | 'edit' | null>(null);
   const [editingEvent, setEditingEvent] = useState<TimelineEventType | undefined>();
+  const [copiedEvent, setCopiedEvent] = useState<Omit<TimelineEventType, 'id' | 'position'> | undefined>();
   const [clickedTime, setClickedTime] = useState<Date | undefined>();
   const [scrollPosition, setScrollPosition] = useState(0);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
@@ -500,7 +501,7 @@ export const Timeline: React.FC = () => {
                       setSelectedColor(color.value);
                       setIsColorPickerOpen(false);
                     }}
-                    className={`h-8 w-8 rounded-md border ${selectedColor === color.value ? 'border-gray-900 ring-2 ring-gray-300' : 'border-gray-200'} hover:scale-105`}
+                    className={`h-8 w-8 rounded-md ${normalizeColor(selectedColor) === normalizeColor(color.value) ? 'border-2 border-gray-900 shadow-[inset_0_0_0_1px_white] ring-2 ring-gray-300' : 'border border-gray-200'} hover:scale-105`}
                     style={{ backgroundColor: color.value }}
                     title={color.label}
                     aria-label={color.label}
@@ -616,6 +617,7 @@ export const Timeline: React.FC = () => {
     // Don't create new events if we're dragging
     if (dragState.isDragging || dragState.isResizing) return;
 
+    setCopiedEvent(undefined);
     setClickedTime(time);
     setEditingEvent(undefined);
     setIsModalOpen(true);
@@ -625,8 +627,31 @@ export const Timeline: React.FC = () => {
     // Don't edit if we're dragging
     if (dragState.isDragging || dragState.isResizing) return;
 
+    setCopiedEvent(undefined);
     setEditingEvent(event);
     setClickedTime(undefined);
+    setIsModalOpen(true);
+  };
+
+  const handleEventCopy = (event: TimelineEventType) => {
+    const startTime = new Date(event.startTime);
+    const endTime = new Date(event.endTime);
+    startTime.setDate(startTime.getDate() + 1);
+    endTime.setDate(endTime.getDate() + 1);
+
+    setEditingEvent(undefined);
+    setClickedTime(undefined);
+    setCopiedEvent({
+      title: event.title,
+      description: event.description,
+      location: event.location,
+      startTime,
+      endTime,
+      color: event.color,
+      bufferBeforeMinutes: event.bufferBeforeMinutes,
+      lockTime: event.lockTime,
+      intangible: event.intangible
+    });
     setIsModalOpen(true);
   };
 
@@ -642,6 +667,10 @@ export const Timeline: React.FC = () => {
         position
       };
       addEvent(newEvent);
+
+      if (copiedEvent) {
+        scrollToDate(newEvent.startTime, newEvent.startTime);
+      }
     }
     setLastSaved(new Date());
   };
@@ -1032,7 +1061,7 @@ export const Timeline: React.FC = () => {
                   key={color.value}
                   type="button"
                   onClick={() => setSelectedColor(color.value)}
-                  className={`aspect-square w-full rounded-md border ${selectedColor === color.value ? 'border-gray-900 ring-2 ring-gray-300' : 'border-gray-200'} transition-transform hover:scale-105`}
+                  className={`aspect-square w-full rounded-md ${normalizeColor(selectedColor) === normalizeColor(color.value) ? 'border-2 border-gray-900 shadow-[inset_0_0_0_1px_white] ring-2 ring-gray-300' : 'border border-gray-200'} transition-transform hover:scale-105`}
                   style={{ backgroundColor: color.value }}
                   title={color.label}
                   aria-label={color.label}
@@ -1198,6 +1227,7 @@ export const Timeline: React.FC = () => {
                         slotHeight={gridSlotHeight}
                         displayColor={useLocationColors ? getDisplayColorForEvent(event) : undefined}
                         onEdit={handleEventEdit}
+                        onCopy={handleEventCopy}
                         onUpdateEvent={handleEventUpdate}
                         onDeleteEvent={handleEventDelete}
                         onDragStart={startDrag}
@@ -1293,10 +1323,14 @@ export const Timeline: React.FC = () => {
       {/* Event Modal */}
       <EventModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => {
+          setIsModalOpen(false);
+          setCopiedEvent(undefined);
+        }}
         onSave={handleEventSave}
         onDelete={handleEventDelete}
         event={editingEvent}
+        initialEvent={copiedEvent}
         initialStartTime={clickedTime}
         locations={locations}
         onAddLocation={addLocation}

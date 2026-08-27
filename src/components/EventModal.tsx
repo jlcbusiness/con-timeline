@@ -4,12 +4,15 @@ import type { TimelineEvent, Location } from '../types/timeline';
 import { getEventColors, roundToNearestHalfHour } from '../utils/timelineUtils';
 import { EVENT_BUFFER_OPTIONS_MINUTES } from '../config/timeline';
 
+const normalizeColor = (color: string) => color.trim().toLowerCase();
+
 interface EventModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (event: Omit<TimelineEvent, 'id' | 'position'>) => void;
   onDelete?: (eventId: string) => void;
   event?: TimelineEvent;
+  initialEvent?: Omit<TimelineEvent, 'id' | 'position'>;
   initialStartTime?: Date;
   locations: Location[];
   onAddLocation: (name: string) => Location;
@@ -23,6 +26,7 @@ export const EventModal: React.FC<EventModalProps> = ({
   onSave,
   onDelete,
   event,
+  initialEvent,
   initialStartTime,
   locations,
   onAddLocation,
@@ -36,7 +40,7 @@ export const EventModal: React.FC<EventModalProps> = ({
   const [startTimeValue, setStartTimeValue] = useState('');
   const [endDateValue, setEndDateValue] = useState('');
   const [endTimeValue, setEndTimeValue] = useState('');
-  const [color, setColor] = useState('#3B82F6');
+  const [color, setColor] = useState('#3b82f6');
   const [bufferBeforeMinutes, setBufferBeforeMinutes] = useState(0);
   const [lockTime, setLockTime] = useState(false);
   const [intangible, setIntangible] = useState(false);
@@ -61,6 +65,20 @@ export const EventModal: React.FC<EventModalProps> = ({
       setIntangible(event.intangible ?? false);
       setIsCreateLocationOpen(false);
       setNewLocationName('');
+    } else if (initialEvent) {
+      setTitle(initialEvent.title);
+      setDescription(initialEvent.description || '');
+      setLocation(initialEvent.location || '');
+      setStartDateValue(formatDateValue(initialEvent.startTime));
+      setStartTimeValue(formatTimeValue(initialEvent.startTime));
+      setEndDateValue(formatDateValue(initialEvent.endTime));
+      setEndTimeValue(formatTimeValue(initialEvent.endTime));
+      setColor(initialEvent.color);
+      setBufferBeforeMinutes(initialEvent.bufferBeforeMinutes ?? 0);
+      setLockTime(initialEvent.lockTime ?? false);
+      setIntangible(initialEvent.intangible ?? false);
+      setIsCreateLocationOpen(false);
+      setNewLocationName('');
     } else if (initialStartTime) {
       const rounded = roundToNearestHalfHour(initialStartTime);
       const end = new Date(rounded);
@@ -73,14 +91,14 @@ export const EventModal: React.FC<EventModalProps> = ({
       setStartTimeValue(formatTimeValue(rounded));
       setEndDateValue(formatDateValue(end));
       setEndTimeValue(formatTimeValue(end));
-      setColor('#3B82F6'); // Use static color instead of colors[0]
+      setColor('#3b82f6'); // Use static color instead of colors[0]
       setBufferBeforeMinutes(0);
       setLockTime(false);
       setIntangible(false);
       setIsCreateLocationOpen(false);
       setNewLocationName('');
     }
-  }, [event, initialStartTime]);
+  }, [event, initialEvent, initialStartTime]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -321,10 +339,10 @@ export const EventModal: React.FC<EventModalProps> = ({
                   key={colorOption}
                   type="button"
                   onClick={() => setColor(colorOption)}
-                  className={`w-8 h-8 rounded-full border-2 transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
-                    color === colorOption
-                      ? 'border-gray-800 scale-110'
-                      : 'border-gray-300 hover:border-gray-500'
+                  className={`w-8 h-8 rounded-full transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+                    normalizeColor(color) === normalizeColor(colorOption)
+                      ? 'border-2 border-gray-800 shadow-[inset_0_0_0_1px_white] scale-110'
+                      : 'border border-gray-300 hover:border-gray-500'
                   }`}
                   style={{ backgroundColor: colorOption }}
                   aria-label={`Select color ${colorOption}`}

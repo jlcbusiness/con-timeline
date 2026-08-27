@@ -4,6 +4,8 @@ import { Edit3, GripVertical, ChevronLeft, ChevronRight, MapPin, Lock, ChevronRi
 import type { TimelineEvent as TimelineEventType } from '../types/timeline';
 import { getTimePosition, getEventWidth, getEventBufferWidth, getEventColors } from '../utils/timelineUtils';
 
+const normalizeColor = (color: string) => color.trim().toLowerCase();
+
 const openContextMenuClosers = new Set<() => void>();
 let contextMenuBlockerInstalled = false;
 
@@ -51,6 +53,7 @@ interface TimelineEventProps {
   slotHeight: number;
   displayColor?: string;
   onEdit: (event: TimelineEventType) => void;
+  onCopy: (event: TimelineEventType) => void;
   onUpdateEvent: (eventId: string, updates: Partial<TimelineEventType>) => void;
   onDeleteEvent: (eventId: string) => void;
   onDragStart: (event: TimelineEventType, clientX: number, clientY: number, type: 'move' | 'resize-start' | 'resize-end') => void;
@@ -64,6 +67,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
   slotHeight,
   displayColor,
   onEdit,
+  onCopy,
   onUpdateEvent,
   onDeleteEvent,
   onDragStart,
@@ -187,6 +191,11 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
     if (!confirmed) return;
 
     onDeleteEvent(event.id);
+  };
+
+  const handleCopy = () => {
+    closeContextMenu();
+    onCopy(event);
   };
 
   const updateEventColor = (color: string) => {
@@ -513,7 +522,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
                       key={color}
                       type="button"
                       onClick={() => updateEventColor(color)}
-                      className={`h-8 w-8 rounded-md border transition-transform hover:scale-105 ${event.color === color ? 'border-gray-900 ring-2 ring-gray-300' : 'border-gray-200'}`}
+                      className={`h-8 w-8 rounded-md transition-transform hover:scale-105 ${normalizeColor(event.color) === normalizeColor(color) ? 'border-2 border-gray-900 shadow-[inset_0_0_0_1px_white] ring-2 ring-gray-300' : 'border border-gray-200'}`}
                       style={{ backgroundColor: color }}
                       aria-label={`Set event color to ${color}`}
                       title={color}
@@ -523,6 +532,14 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
               </div>
             )}
           </div>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={handleCopy}
+            className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+          >
+            <span>Copy</span>
+          </button>
           <button
             type="button"
             role="menuitem"
