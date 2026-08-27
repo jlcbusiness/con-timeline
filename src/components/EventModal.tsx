@@ -129,8 +129,6 @@ export const EventModal: React.FC<EventModalProps> = ({
     onClose();
   };
 
-  const timeFieldsDisabled = lockTime;
-
   const handleDelete = () => {
     if (event && onDelete) {
       onDelete(event.id);
@@ -400,7 +398,6 @@ export const EventModal: React.FC<EventModalProps> = ({
                   type="date"
                   value={startDateValue}
                   onChange={(e) => handleStartDateChange(e.target.value)}
-                  disabled={timeFieldsDisabled}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white disabled:bg-gray-100 disabled:text-gray-500"
                   required
                 />
@@ -416,7 +413,6 @@ export const EventModal: React.FC<EventModalProps> = ({
                   type="time"
                   value={startTimeValue}
                   onChange={(e) => handleStartTimeChange(e.target.value)}
-                  disabled={timeFieldsDisabled}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white disabled:bg-gray-100 disabled:text-gray-500"
                   step="1800"
                   required
@@ -435,7 +431,6 @@ export const EventModal: React.FC<EventModalProps> = ({
                   type="date"
                   value={endDateValue}
                   onChange={(e) => handleEndDateChange(e.target.value)}
-                  disabled={timeFieldsDisabled}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white disabled:bg-gray-100 disabled:text-gray-500"
                   min={startDateValue}
                   required
@@ -452,7 +447,6 @@ export const EventModal: React.FC<EventModalProps> = ({
                   type="time"
                   value={endTimeValue}
                   onChange={(e) => handleEndTimeChange(e.target.value)}
-                  disabled={timeFieldsDisabled}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white disabled:bg-gray-100 disabled:text-gray-500"
                   step="1800"
                   min={endDateValue === startDateValue ? startTimeValue : undefined}
@@ -477,7 +471,6 @@ export const EventModal: React.FC<EventModalProps> = ({
               id="buffer-before"
               value={bufferBeforeMinutes}
               onChange={(e) => setBufferBeforeMinutes(Number(e.target.value))}
-              disabled={timeFieldsDisabled}
               className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
             >
               {EVENT_BUFFER_OPTIONS_MINUTES.map(option => (
