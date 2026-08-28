@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Upload, Calendar, Sparkles, X } from 'lucide-react';
 import type { TimelineEvent } from '../types/timeline';
 import { addDragonConEvents, parseDragonConSchedule } from '../utils/dragonConImporter';
@@ -24,7 +24,13 @@ export const DragonConImporter: React.FC<DragonConImporterProps> = ({
   const [scheduleText, setScheduleText] = useState('');
   const [isImporting, setIsImporting] = useState(false);
   const [isLoadingPdf, setIsLoadingPdf] = useState(false);
-  const [importResult, setImportResult] = useState<string | null>(null);
+  const [importResult, setImportResult] = useState<{ kind: 'success' | 'error'; message: string } | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setImportResult(null);
+    }
+  }, [isOpen]);
 
   const persistLocations = async (text: string) => {
     if (!onAddLocations) return;
@@ -45,18 +51,19 @@ export const DragonConImporter: React.FC<DragonConImporterProps> = ({
     if (!scheduleText.trim()) return;
 
     setIsImporting(true);
+    setImportResult(null);
     try {
       const eventCount = addDragonConEvents(scheduleText, existingEvents, onAddEvent, onUpdateEvent);
       await persistLocations(scheduleText);
-      setImportResult(`Successfully imported or updated ${eventCount} Dragon Con events!`);
+      setImportResult({ kind: 'success', message: `Successfully imported or updated ${eventCount} Dragon Con events!` });
       setScheduleText('');
 
       setTimeout(() => {
         onClose();
         setImportResult(null);
       }, 2000);
-    } catch (error) {
-      setImportResult('Failed to import events. Please check the format.');
+    } catch {
+      setImportResult({ kind: 'error', message: 'Failed to import events. Please check the format.' });
     } finally {
       setIsImporting(false);
     }
@@ -70,9 +77,9 @@ export const DragonConImporter: React.FC<DragonConImporterProps> = ({
     try {
       const extractedText = await extractDragonConScheduleTextFromPdf(file);
       setScheduleText(extractedText);
-    } catch (error) {
-      console.error('Failed to read PDF:', error);
-      setImportResult('Failed to read the PDF. Please try another file.');
+    } catch (_error) {
+      console.error('Failed to read PDF:', _error);
+      setImportResult({ kind: 'error', message: 'Failed to read the PDF. Please try another file.' });
     } finally {
       setIsLoadingPdf(false);
       event.target.value = '';
@@ -108,10 +115,10 @@ export const DragonConImporter: React.FC<DragonConImporterProps> = ({
         </div>
 
         <div className="p-6 space-y-4">
-          {importResult ? (
+          {importResult?.kind === 'success' ? (
             <div className="text-center py-8">
               <div className="text-green-600 text-lg font-medium mb-2">
-                ✅ {importResult}
+                ✅ {importResult.message}
               </div>
               <div className="text-gray-500 text-sm">
                 Closing automatically...
@@ -119,6 +126,12 @@ export const DragonConImporter: React.FC<DragonConImporterProps> = ({
             </div>
           ) : (
             <>
+              {importResult?.kind === 'error' && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {importResult.message}
+                </div>
+              )}
+
               <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
                 <h3 className="font-medium text-purple-900 mb-2 flex items-center gap-2">
                   <Calendar size={16} />

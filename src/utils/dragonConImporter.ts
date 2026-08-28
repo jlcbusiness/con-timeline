@@ -115,6 +115,14 @@ const buildEventDate = (day: Date, minutesFromMidnight: number) => {
 const normalizeLocation = (value: string) => value.replace(/^Location:\s*/i, '').replace(/\s+https?:\/\/.*$/i, '').trim();
 const normalizeSpeakers = (value: string) => value.replace(/^Speakers:\s*/i, '').trim();
 
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const cleanDragonConDescription = (description: string, year: number, entryDate: string) => {
+  const prefixPattern = new RegExp(`^(?:Dragon Con|DragonCon) ${year} - ${escapeRegExp(entryDate)}[\\s.:-]*`, 'i');
+
+  return description.replace(prefixPattern, '').trim();
+};
+
 const isLikelyGuestListLine = (line: string) => (
   line.includes('—')
   && line.includes(',')
@@ -154,6 +162,8 @@ const buildEvent = (
 ): TimelineEvent => {
   const startTime = buildEventDate(day, timeRange.startMinutes);
   const endTime = buildEventDate(day, timeRange.endMinutes);
+  const entryDate = day.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+  const cleanedSpeakers = speakers ? cleanDragonConDescription(speakers, year, entryDate) : '';
 
   if (endTime <= startTime) {
     endTime.setDate(endTime.getDate() + 1);
@@ -162,9 +172,7 @@ const buildEvent = (
   return {
     id: createUuid(),
     title: title.trim(),
-    description: speakers
-      ? `Dragon Con ${year} - ${day.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}. Speakers: ${speakers}`
-      : `Dragon Con ${year} - ${day.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}`,
+    description: cleanedSpeakers ? `Speakers: ${cleanedSpeakers}` : '',
     location,
     startTime,
     endTime,
@@ -190,7 +198,7 @@ const mergeParsedEvents = (events: TimelineEvent[]) => {
       ...existing,
       ...event,
       location: event.location || existing.location,
-      description: event.description || existing.description
+      description: event.description ?? existing.description
     });
   });
 
@@ -226,7 +234,7 @@ const parseLegacySchedule = (lines: string[], year: number) => {
     return [{
       id: createUuid(),
       title: title.trim(),
-      description: `Dragon Con ${year} - ${dayOfWeek}, ${month} ${day}`,
+      description: cleanDragonConDescription(`Dragon Con ${year} - ${dayOfWeek}, ${month} ${day}`, year, `${dayOfWeek}, ${month} ${day}`),
       location: 'Dragon Con',
       startTime: eventDate,
       endTime: endDate,
@@ -297,7 +305,8 @@ const parseBlockSchedule = (lines: string[], year: number) => {
     const speakersMatch = line.match(/^Speakers:\s*(.+)$/i);
     if (speakersMatch && lastEvent) {
       const speakers = normalizeSpeakers(speakersMatch[0]);
-      lastEvent.description = `${lastEvent.description || ''}${lastEvent.description ? ' ' : ''}Speakers: ${speakers}`.trim();
+      const cleanedSpeakers = cleanDragonConDescription(speakers, year, `${lastEvent.startTime.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}`);
+      lastEvent.description = `${lastEvent.description || ''}${lastEvent.description ? ' ' : ''}${cleanedSpeakers ? `Speakers: ${cleanedSpeakers}` : ''}`.trim();
       return;
     }
 
@@ -350,6 +359,7 @@ export const addDragonConEvents = (
       const importedEventUpdates = {
         title: event.title,
         location: event.location,
+        description: event.description,
         startTime: event.startTime,
         endTime: event.endTime,
         updatedAt: new Date().toISOString()

@@ -41,6 +41,7 @@ Speakers: Sasha Arbogast — , Bill Keel —`;
     expect(events[0].title).toBe('Dragon Con Newbie Walking Tours');
     expect(events[0].location).toBe('Dragon Con');
     expect(events[0].startTime.getHours()).toBe(12);
+    expect(events[0].description).toBe('');
     expect(events[0].lockTime).toBe(true);
     expect(events[0].color).toBe('#6B7280');
   });
@@ -77,6 +78,7 @@ Speakers: Sasha Arbogast — , Bill Keel —`;
     expect(updates[0]?.updates.lockTime).toBeUndefined();
     expect(updates[0]?.updates.intangible).toBeUndefined();
     expect(updates[0]?.updates.bufferBeforeMinutes).toBeUndefined();
+    expect(updates[0]?.updates.description).toBe('');
   });
 
   it('overwrites imported source fields on duplicate matches', () => {
@@ -109,7 +111,35 @@ Speakers: Sasha Arbogast — , Bill Keel —`;
     expect(updates[0]?.updates.lockTime).toBeUndefined();
     expect(updates[0]?.updates.intangible).toBeUndefined();
     expect(updates[0]?.updates.bufferBeforeMinutes).toBeUndefined();
-    expect(updates[0]?.updates.description).toBeUndefined();
+    expect(updates[0]?.updates.description).toBe('');
+  });
+
+  it('keeps non-prefix text and spacing intact when cleaning descriptions', () => {
+    const schedule = `Dragon Con 2026 Schedule
+Thursday, Sep 3
+Artemis Spaceship Bridge Simulator
+7:00PM — 11:55PM
+Location: Westin 12th Floor
+Speakers:  Dr. Who  and  The  Crew`;
+
+    const events = parseDragonConSchedule(schedule);
+
+    expect(events).toHaveLength(1);
+    expect(events[0].description).toBe('Speakers: Dr. Who  and  The  Crew');
+  });
+
+  it('also strips DragonCon-prefixed descriptions', () => {
+    const schedule = `Dragon Con 2026 Schedule
+Thursday, Sep 3
+Artemis Spaceship Bridge Simulator
+7:00PM — 11:55PM
+Location: Westin 12th Floor
+Speakers: DragonCon 2026 - Thursday, Sep 3. Sasha Arbogast`;
+
+    const events = parseDragonConSchedule(schedule);
+
+    expect(events).toHaveLength(1);
+    expect(events[0].description).toBe('Speakers: Sasha Arbogast');
   });
 
   it('ignores guest-name lines that appear before the title in PDF extraction order', () => {
