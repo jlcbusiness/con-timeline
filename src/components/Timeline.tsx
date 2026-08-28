@@ -41,8 +41,14 @@ const DAY_COLUMN_WIDTH_STEP = 0.25;
 const DEFAULT_SELECTED_COLOR = '#57c14e';
 const VIEW_MODE_STORAGE_KEY = 'timeline-view-mode';
 const LOCATION_COLORS_STORAGE_KEY = 'timeline-use-location-colors';
+const NOW_JUMP_LABEL = 'Now';
 
 type ViewMode = 'timeline' | 'priority-columns' | 'daily-columns';
+
+type NowJumpPopupState = {
+  message: string;
+  closeLabel: string;
+} | null;
 
 const normalizeViewMode = (storedViewMode: string | null): ViewMode => {
   if (storedViewMode === 'timeline' || storedViewMode === 'priority-columns' || storedViewMode === 'daily-columns') {
@@ -74,6 +80,45 @@ const getInitialUseLocationColors = () => {
   }
 
   return window.localStorage.getItem(LOCATION_COLORS_STORAGE_KEY) === 'true';
+};
+
+const formatJumpAmount = (durationMs: number): string => {
+  const totalSeconds = Math.max(0, Math.ceil(durationMs / 1000));
+  const totalMinutes = Math.max(0, Math.ceil(durationMs / (60 * 1000)));
+  const totalHours = Math.max(0, Math.ceil(durationMs / (60 * 60 * 1000)));
+  const totalDays = Math.max(0, Math.ceil(durationMs / (24 * 60 * 60 * 1000)));
+
+  if (totalDays >= 1) {
+    return `${totalDays} day${totalDays === 1 ? '' : 's'}`;
+  }
+
+  if (totalHours >= 1) {
+    return `${totalHours} hour${totalHours === 1 ? '' : 's'}`;
+  }
+
+  if (totalMinutes >= 1) {
+    return `${totalMinutes} minute${totalMinutes === 1 ? '' : 's'}`;
+  }
+
+  return `${Math.max(1, totalSeconds)} second${totalSeconds === 1 ? '' : 's'}`;
+};
+
+const getNowJumpPopup = (now: Date, startDate: Date, endDate: Date): NowJumpPopupState => {
+  if (now < startDate) {
+    return {
+      message: `Hold your horses!\n You've still got ${formatJumpAmount(startDate.getTime() - now.getTime())} until this shindig starts!`,
+      closeLabel: "I'm waiting, I'm waiting!"
+    };
+  }
+
+  if (now > endDate) {
+    return {
+      message: "You're looking at then, sir.\nEverything that happens now is happening now, and then doesn't have now, just then.",
+      closeLabel: 'WHO?!'
+    };
+  }
+
+  return null;
 };
 
 const normalizeColor = (color: string) => color.trim().toLowerCase();
@@ -121,6 +166,7 @@ export const Timeline: React.FC = () => {
   const [isCosplayModalOpen, setIsCosplayModalOpen] = useState(false);
   const [editingCosplayEntry, setEditingCosplayEntry] = useState<CosplayEntry | null>(null);
   const [clickedCosplayDayKey, setClickedCosplayDayKey] = useState<string | null>(null);
+  const [nowJumpPopup, setNowJumpPopup] = useState<NowJumpPopupState>(null);
   const [useLocationColors, setUseLocationColors] = useState(getInitialUseLocationColors);
 
   const timelineContentRef = useRef<HTMLDivElement | null>(null);
@@ -902,6 +948,18 @@ export const Timeline: React.FC = () => {
     }
   };
 
+  const handleNowJump = () => {
+    const now = new Date();
+    const popup = getNowJumpPopup(now, startDate, endDate);
+
+    if (popup) {
+      setNowJumpPopup(popup);
+      return;
+    }
+
+    scrollToDate(now, now);
+  };
+
   // (removed unused scrollToEvent helper)
 
   const getCurrentDateRange = (): string => {
@@ -970,14 +1028,15 @@ export const Timeline: React.FC = () => {
   const mobileJumpButtonWidth = 52;
   const mobileJumpButtonGap = 4;
   const mobileJumpHorizontalPadding = 24;
+  const mobileJumpButtons = jumpToDates.length + 1;
   const mobileJumpButtonsFitOnOneRow = viewportWidth >= (
-    jumpToDates.length * mobileJumpButtonWidth
-    + Math.max(jumpToDates.length - 1, 0) * mobileJumpButtonGap
+    mobileJumpButtons * mobileJumpButtonWidth
+    + Math.max(mobileJumpButtons - 1, 0) * mobileJumpButtonGap
     + mobileJumpHorizontalPadding
   );
   const mobileJumpColumnCount = mobileJumpButtonsFitOnOneRow
-    ? jumpToDates.length
-    : Math.ceil(jumpToDates.length / 2);
+    ? mobileJumpButtons
+    : Math.ceil(mobileJumpButtons / 2);
   return (
     <div className="h-screen bg-gray-50 flex flex-col">
       <div
@@ -1014,6 +1073,15 @@ export const Timeline: React.FC = () => {
                     {label}
                   </button>
                 ))}
+                <button
+                  type="button"
+                  onClick={handleNowJump}
+                  className="px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded-md transition-colors"
+                  title="Jump to the current time"
+                  disabled={dragState.isDragging || dragState.isResizing}
+                >
+                  {NOW_JUMP_LABEL}
+                </button>
               </div>
             </div>
           </div>
@@ -1146,6 +1214,15 @@ export const Timeline: React.FC = () => {
                 {label}
               </button>
             ))}
+            <button
+              type="button"
+              onClick={handleNowJump}
+              className="whitespace-nowrap rounded-md bg-gray-200 px-2 py-1 transition-colors hover:bg-gray-300"
+              title="Jump to the current time"
+              disabled={dragState.isDragging || dragState.isResizing}
+            >
+              {NOW_JUMP_LABEL}
+            </button>
           </div>
 
           {isPriorityView && (
@@ -1193,6 +1270,23 @@ export const Timeline: React.FC = () => {
         initialEditingTimelineId={manageMode === 'edit' ? manageEditTimelineId : null}
         initialSection={manageEditSection}
       />
+
+      {nowJumpPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 text-center shadow-xl">
+            <p className="whitespace-pre-line text-base font-medium text-gray-900">{nowJumpPopup.message}</p>
+            <div className="mt-6 flex justify-center">
+              <button
+                type="button"
+                onClick={() => setNowJumpPopup(null)}
+                className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
+              >
+                {nowJumpPopup.closeLabel}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Timeline Container */}
       <div className="flex-1 flex flex-col overflow-hidden">
