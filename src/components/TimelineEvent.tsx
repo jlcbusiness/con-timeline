@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Edit3, GripVertical, ChevronLeft, ChevronRight, MapPin, Lock, ChevronRight as ChevronRightIcon } from 'lucide-react';
 import type { TimelineEvent as TimelineEventType } from '../types/timeline';
@@ -201,6 +201,20 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
     setIsColorSubmenuOpen(false);
     setIsLockSubmenuOpen(false);
   };
+
+  useLayoutEffect(() => {
+    const menuElement = menuRef.current;
+    if (!contextMenu || !menuElement) return;
+
+    const viewportPadding = 8;
+    const menuRect = menuElement.getBoundingClientRect();
+    const x = Math.max(viewportPadding, Math.min(contextMenu.x, window.innerWidth - menuRect.width - viewportPadding));
+    const y = Math.max(viewportPadding, Math.min(contextMenu.y, window.innerHeight - menuRect.height - viewportPadding));
+
+    if (x !== contextMenu.x || y !== contextMenu.y) {
+      setContextMenu({ x, y });
+    }
+  }, [contextMenu]);
 
   const setLockMode = (lockMode: LockMode) => {
     onUpdateEvent(event.id, {

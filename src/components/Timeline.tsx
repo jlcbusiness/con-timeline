@@ -31,7 +31,10 @@ import {
   getTimePosition,
   getEventColors,
   getLocationDisplayColor,
-  eventUpdateAffectsPosition
+  eventUpdateAffectsPosition,
+  getRequiredStackSlotCount,
+  getRenderedSlotCount,
+  repackAllEventPositions
 } from '../utils/timelineUtils';
 
 const DAY_COLUMN_WIDTH_STEP = 0.25;
@@ -120,7 +123,7 @@ export const Timeline: React.FC = () => {
   const [clickedCosplayDayKey, setClickedCosplayDayKey] = useState<string | null>(null);
   const [useLocationColors, setUseLocationColors] = useState(getInitialUseLocationColors);
 
-  const timelineContentRef = useRef<HTMLDivElement>(null);
+  const timelineContentRef = useRef<HTMLDivElement | null>(null);
   const initialScrollTimelineIdRef = useRef<string | null>(null);
   const initialScrollFrameRef = useRef<number | null>(null);
 
@@ -141,7 +144,7 @@ export const Timeline: React.FC = () => {
   const activeTimeline = timelines.find(timeline => timeline.id === activeId);
   const timelineStartDate = activeTimeline?.startDate;
   const timelineEndDate = activeTimeline?.endDate;
-  const slotCount = activeTimeline?.slotCount ?? 11;
+  const configuredSlotCount = activeTimeline?.slotCount ?? 11;
   const startDate = new Date(timelineStartDate || DEFAULT_START_DATE);
   const endDate = new Date(timelineEndDate || DEFAULT_END_DATE);
   const timeSlots = generateTimeSlots(startDate, endDate);
@@ -173,10 +176,6 @@ export const Timeline: React.FC = () => {
   const colorOptions = getEventColors();
   const timelineHeaderHeight = 48;
   const timelineChromeHeight = 12;
-  const gridSlotHeight = isMobileViewport && timelineViewportHeight > 0
-    ? Math.max(40, Math.floor((timelineViewportHeight - timelineHeaderHeight - timelineChromeHeight) / slotCount))
-    : PIXELS_PER_SLOT;
-
   useEffect(() => {
     if (!isDayColumnView) return;
 
@@ -204,6 +203,23 @@ export const Timeline: React.FC = () => {
     exportEvents,
     importEvents
   } = useEventPersistence(activeId);
+
+  const slotCount = getRenderedSlotCount(events, configuredSlotCount);
+  const gridSlotHeight = isMobileViewport && timelineViewportHeight > 0
+    ? Math.max(40, Math.floor((timelineViewportHeight - timelineHeaderHeight - timelineChromeHeight) / slotCount))
+    : PIXELS_PER_SLOT;
+
+  useEffect(() => {
+    if (eventsLoading) return;
+
+    const requiredSlotCount = getRequiredStackSlotCount(events, configuredSlotCount);
+    if (!events.some(event => event.position >= requiredSlotCount)) return;
+
+    const repackUpdates = repackAllEventPositions(events, requiredSlotCount);
+    if (repackUpdates.length > 0) {
+      batchUpdateEvents(repackUpdates);
+    }
+  }, [activeId, batchUpdateEvents, configuredSlotCount, events, eventsLoading]);
 
   const [isManageOpen, setIsManageOpen] = useState(false);
 
@@ -310,8 +326,14 @@ export const Timeline: React.FC = () => {
     }
 
     const nextEvent = { ...existingEvent, ...updates };
+    const nextEvents = events.map(event => event.id === eventId ? nextEvent : event);
+    const requiredSlotCount = getRequiredStackSlotCount(nextEvents, configuredSlotCount);
     const hasExplicitPosition = typeof updates.position === 'number';
     const affectsPosition = eventUpdateAffectsPosition(existingEvent, updates);
+    const attemptsMegaLockedMovement = existingEvent.megaLock && (
+      affectsPosition
+      || (hasExplicitPosition && updates.position !== existingEvent.position)
+    );
     const conflictsWithMegaLock = hasExplicitPosition && events.some(event => (
       event.id !== eventId
       && event.megaLock
@@ -321,12 +343,12 @@ export const Timeline: React.FC = () => {
       && nextEvent.endTime > event.startTime
     ));
 
-    if (conflictsWithMegaLock) {
+    if (attemptsMegaLockedMovement || conflictsWithMegaLock) {
       return;
     }
 
     if (!existingEvent.intangible && nextEvent.intangible && existingEvent.lockTime) {
-      const cascadeUpdates = cascadeEventPositions(events, existingEvent, updates, slotCount);
+      const cascadeUpdates = cascadeEventPositions(events, existingEvent, updates, requiredSlotCount);
       const conflictsWithExistingMegaLock = events.some(event => (
         event.id !== eventId
         && event.megaLock
@@ -342,7 +364,7 @@ export const Timeline: React.FC = () => {
           nextEvent.startTime,
           nextEvent.endTime,
           nextEvent,
-          slotCount
+          requiredSlotCount
         );
 
         updateEvent(eventId, { ...updates, position });
@@ -353,7 +375,7 @@ export const Timeline: React.FC = () => {
         ]);
       }
     } else if (existingEvent.intangible !== nextEvent.intangible) {
-      const repackUpdates = repackEventPositions(events, eventId, updates, slotCount);
+      const repackUpdates = repackEventPositions(events, eventId, updates, requiredSlotCount);
       const positionForEditedEvent = repackUpdates.find(update => update.eventId === eventId)?.updates.position ?? existingEvent.position;
 
       batchUpdateEvents([
@@ -367,12 +389,12 @@ export const Timeline: React.FC = () => {
         ...repackUpdates.filter(update => update.eventId !== eventId)
       ]);
     } else if (hasExplicitPosition) {
-      updateEvent(eventId, updates);
-
-      const cascadeUpdates = cascadeEventPositions(events, existingEvent, updates, slotCount);
-      if (cascadeUpdates.length > 0) {
-        batchUpdateEvents(cascadeUpdates);
-      }
+      const cascadeUpdates = cascadeEventPositions(events, existingEvent, updates, requiredSlotCount, true);
+      const changedEventCascade = cascadeUpdates.find(update => update.eventId === eventId);
+      batchUpdateEvents([
+        { eventId, updates: { ...updates, ...changedEventCascade?.updates } },
+        ...cascadeUpdates.filter(update => update.eventId !== eventId)
+      ]);
     } else if (!affectsPosition) {
       updateEvent(eventId, updates);
     } else {
@@ -381,7 +403,7 @@ export const Timeline: React.FC = () => {
         nextEvent.startTime,
         nextEvent.endTime,
         nextEvent,
-        slotCount
+        requiredSlotCount
       );
 
       updateEvent(eventId, { ...updates, position });
@@ -390,17 +412,9 @@ export const Timeline: React.FC = () => {
     setLastSaved(new Date());
   };
 
-  // Handle batch updates for cascading position changes
-  const handleBatchUpdate = (updates: { eventId: string; updates: Partial<TimelineEventType> }[]) => {
-    batchUpdateEvents(updates);
-    setLastSaved(new Date());
-  };
-
   // Drag and resize functionality with cascading support
-  const { dragState, startDrag, handleMouseMove, endDrag } = useDragAndResize(
-    events,
+  const { dragState, startDrag, handleMouseMove, endDrag, cancelDrag } = useDragAndResize(
     handleEventUpdate,
-    handleBatchUpdate,
     startDate,
     endDate,
     gridSlotHeight,
@@ -412,7 +426,7 @@ export const Timeline: React.FC = () => {
     setScrollPosition(e.currentTarget.scrollLeft);
   }, []);
 
-  const handleWheelScroll = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
+  const handleWheelScroll = useCallback((event: WheelEvent | React.WheelEvent<HTMLDivElement>) => {
     if (!timelineContentRef.current) return;
 
     const delta = event.deltaY !== 0 ? event.deltaY : event.deltaX;
@@ -422,6 +436,12 @@ export const Timeline: React.FC = () => {
     timelineContentRef.current.scrollLeft += delta;
     setScrollPosition(timelineContentRef.current.scrollLeft);
   }, []);
+
+  const setTimelineContentElement = useCallback((element: HTMLDivElement | null) => {
+    timelineContentRef.current?.removeEventListener('wheel', handleWheelScroll);
+    timelineContentRef.current = element;
+    element?.addEventListener('wheel', handleWheelScroll, { passive: false });
+  }, [handleWheelScroll]);
 
   useEffect(() => {
     const element = timelineContentRef.current;
@@ -640,10 +660,17 @@ export const Timeline: React.FC = () => {
       }
     };
 
+    const handleGlobalPointerCancel = (e: PointerEvent) => {
+      if (dragState.isDragging || dragState.isResizing) {
+        e.preventDefault();
+        cancelDrag();
+      }
+    };
+
     if (dragState.isDragging || dragState.isResizing) {
       document.addEventListener('pointermove', handleGlobalPointerMove);
       document.addEventListener('pointerup', handleGlobalPointerUp);
-      document.addEventListener('pointercancel', handleGlobalPointerUp);
+      document.addEventListener('pointercancel', handleGlobalPointerCancel);
       document.body.style.cursor = dragState.isDragging ? 'grabbing' : 'ew-resize';
       document.body.style.userSelect = 'none';
     }
@@ -651,11 +678,11 @@ export const Timeline: React.FC = () => {
     return () => {
       document.removeEventListener('pointermove', handleGlobalPointerMove);
       document.removeEventListener('pointerup', handleGlobalPointerUp);
-      document.removeEventListener('pointercancel', handleGlobalPointerUp);
+      document.removeEventListener('pointercancel', handleGlobalPointerCancel);
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
     };
-  }, [dragState, handleMouseMove, endDrag]);
+  }, [dragState, handleMouseMove, endDrag, cancelDrag]);
 
   const handleTimeSlotClick = (time: Date) => {
     // Don't create new events if we're dragging
@@ -705,10 +732,21 @@ export const Timeline: React.FC = () => {
       handleEventUpdate(editingEvent.id, eventData);
     } else {
       // Create new event
-      const position = findAvailablePosition(events, eventData.startTime, eventData.endTime, eventData as TimelineEventType, slotCount);
-      const newEvent: TimelineEventType = {
+      const eventForPlacement: TimelineEventType = {
         ...eventData,
         id: typeof crypto !== 'undefined' && (crypto as any).randomUUID ? (crypto as any).randomUUID() : Date.now().toString(),
+        position: 0
+      };
+      const requiredSlotCount = getRequiredStackSlotCount([...events, eventForPlacement], configuredSlotCount);
+      const position = findAvailablePosition(
+        events,
+        eventData.startTime,
+        eventData.endTime,
+        eventForPlacement,
+        requiredSlotCount
+      );
+      const newEvent: TimelineEventType = {
+        ...eventForPlacement,
         position
       };
       addEvent(newEvent);
@@ -721,6 +759,17 @@ export const Timeline: React.FC = () => {
   };
 
   const handleEventDelete = (eventId: string) => {
+    const remainingEvents = events.filter(event => event.id !== eventId);
+    const requiredSlotCount = getRequiredStackSlotCount(remainingEvents, configuredSlotCount);
+    const needsCompaction = remainingEvents.some(event => event.position >= requiredSlotCount);
+    const repackUpdates = needsCompaction
+      ? repackAllEventPositions(remainingEvents, requiredSlotCount)
+      : [];
+
+    if (repackUpdates.length > 0) {
+      batchUpdateEvents(repackUpdates);
+    }
+
     deleteEvent(eventId);
     setLastSaved(new Date());
   };
@@ -769,7 +818,7 @@ export const Timeline: React.FC = () => {
       importedTimelineName,
       inferredStartDate.toISOString(),
       inferredEndDate.toISOString(),
-      slotCount
+      configuredSlotCount
     );
 
     setActiveId(createdTimeline.id);
@@ -1148,7 +1197,7 @@ export const Timeline: React.FC = () => {
       {/* Timeline Container */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {viewMode === 'timeline' ? (
-          <div className="flex-1 flex overflow-hidden">
+          <div className="flex-1 flex items-start overflow-x-hidden overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
             {/* Time Labels */}
             <div className="w-fit flex-shrink-0 bg-gray-50 border-r">
               <div className="h-full flex flex-col">
@@ -1184,10 +1233,10 @@ export const Timeline: React.FC = () => {
 
             <div className="flex-1 relative overflow-hidden">
               <div
-                ref={timelineContentRef}
-                className="h-full overflow-x-auto overflow-y-hidden scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100"
+                ref={setTimelineContentElement}
+                className="overflow-x-auto overflow-y-hidden scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100"
+                style={{ height: `${timelineHeaderHeight + slotCount * gridSlotHeight}px` }}
                 onScroll={handleScroll}
-                onWheel={handleWheelScroll}
               >
                 <div
                   className="relative bg-white"
@@ -1267,7 +1316,7 @@ export const Timeline: React.FC = () => {
                     {events.map(event => (
                       <TimelineEvent
                         key={event.id}
-                        event={event}
+                        event={dragState.previewEvent?.id === event.id ? dragState.previewEvent : event}
                         startDate={startDate}
                         slotHeight={gridSlotHeight}
                         displayColor={useLocationColors ? getDisplayColorForEvent(event) : undefined}
@@ -1276,7 +1325,7 @@ export const Timeline: React.FC = () => {
                         onUpdateEvent={handleEventUpdate}
                         onDeleteEvent={handleEventDelete}
                         onDragStart={startDrag}
-                        onDragCancel={endDrag}
+                        onDragCancel={cancelDrag}
                         isDragging={dragState.isDragging && dragState.originalEvent?.id === event.id}
                         isResizing={dragState.isResizing && dragState.originalEvent?.id === event.id}
                       />

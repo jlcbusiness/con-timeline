@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { TimelineEvent } from '../../types/timeline';
-import { roundToNearestHalfHour, getTimePosition, cascadeEventPositions, sortEventsByStructure, findAvailablePosition, repackEventPositions, getIntangibleVisibleSegments, getLocationDisplayColor, eventUpdateAffectsPosition } from '../timelineUtils';
+import { roundToNearestHalfHour, getTimePosition, cascadeEventPositions, sortEventsByStructure, findAvailablePosition, repackEventPositions, getIntangibleVisibleSegments, getLocationDisplayColor, eventUpdateAffectsPosition, getRequiredStackSlotCount, getRenderedSlotCount, repackAllEventPositions } from '../timelineUtils';
 
 describe('timelineUtils', () => {
   it('rounds to nearest half hour correctly', () => {
@@ -45,6 +45,477 @@ describe('timelineUtils', () => {
     expect(updates[0]?.eventId).toBe('long');
   });
 
+  it('shifts intervening entries up into the source gap when moving down', () => {
+    const createEvent = (id: string, position: number): TimelineEvent => ({
+      id,
+      title: id,
+      startTime: new Date(2026, 8, 5, 19),
+      endTime: new Date(2026, 8, 5, 20),
+      color: '#3b82f6',
+      position
+    });
+    const moved = createEvent('B', 1);
+    const events = [
+      createEvent('A', 0),
+      moved,
+      createEvent('C', 2),
+      createEvent('D', 3),
+      createEvent('E', 4)
+    ];
+
+    const updates = cascadeEventPositions(events, moved, { position: 4 }, 6);
+    const positions = Object.fromEntries(updates.map(update => [update.eventId, update.updates.position]));
+
+    expect(positions).toEqual({
+      C: 1,
+      D: 2,
+      E: 3
+    });
+  });
+
+  it('shifts intervening entries down into the source gap when moving up', () => {
+    const createEvent = (id: string, position: number): TimelineEvent => ({
+      id,
+      title: id,
+      startTime: new Date(2026, 8, 5, 19),
+      endTime: new Date(2026, 8, 5, 20),
+      color: '#3b82f6',
+      position
+    });
+    const moved = createEvent('E', 3);
+    const events = [createEvent('A', 0), createEvent('C', 1), createEvent('D', 2), moved];
+
+    const updates = cascadeEventPositions(events, moved, { position: 1 }, 6);
+    const positions = Object.fromEntries(updates.map(update => [update.eventId, update.updates.position]));
+
+    expect(positions).toEqual({ C: 2, D: 3 });
+  });
+
+  it('bypasses a long event when shifting it would cause excessive displacement', () => {
+    const moved: TimelineEvent = {
+      id: 'moved', title: 'Moved', startTime: new Date(2026, 8, 5, 19), endTime: new Date(2026, 8, 5, 19, 30), color: '#3b82f6', position: 3
+    };
+    const longEvent: TimelineEvent = {
+      id: 'long', title: 'Long', startTime: new Date(2026, 8, 5, 18), endTime: new Date(2026, 8, 5, 22), color: '#8b5cf6', position: 5
+    };
+    const shortEvents = Array.from({ length: 8 }, (_, index): TimelineEvent => ({
+      id: `short-${index}`,
+      title: `Short ${index}`,
+      startTime: new Date(2026, 8, 5, 18, index * 30),
+      endTime: new Date(2026, 8, 5, 18, (index + 1) * 30),
+      color: '#10b981',
+      position: 4
+    }));
+    const slotSevenEvent: TimelineEvent = {
+      id: 'slot-seven', title: 'Slot Seven', startTime: new Date(2026, 8, 5, 19), endTime: new Date(2026, 8, 5, 19, 30), color: '#f97316', position: 6
+    };
+
+    const updates = cascadeEventPositions(
+      [moved, longEvent, ...shortEvents, slotSevenEvent],
+      moved,
+      { position: 5 },
+      9
+    );
+    const positions = Object.fromEntries(updates.map(update => [update.eventId, update.updates.position]));
+
+    expect(positions).toEqual({ moved: 6, 'slot-seven': 7 });
+  });
+
+  it('lets a nested conflict jump over an expensive blocker to complete the cascade', () => {
+    const createEvent = (id: string, position: number, startHour: number, endHour: number): TimelineEvent => ({
+      id,
+      title: id,
+      startTime: new Date(2026, 8, 5, startHour),
+      endTime: new Date(2026, 8, 5, endHour),
+      color: '#3b82f6',
+      position
+    });
+    const rose = createEvent('Rose', 2, 13, 17);
+    const longMayShe = createEvent('Long May She', 3, 14, 15);
+    const spaceMuppets = createEvent('Space Muppets', 4, 14, 15);
+    const captainAmerica = createEvent('Captain America', 5, 14, 15);
+    const paintBros = createEvent('Paint Bros', 3, 16, 19);
+    const residentAlien = createEvent('Resident Alien', 4, 16, 17);
+    const batman = createEvent('Batman', 5, 16, 17);
+
+    const updates = cascadeEventPositions(
+      [rose, longMayShe, spaceMuppets, captainAmerica, paintBros, residentAlien, batman],
+      rose,
+      { position: 5 },
+      9
+    );
+    const positions = Object.fromEntries(updates.map(update => [update.eventId, update.updates.position]));
+
+    expect(positions).toEqual({
+      'Long May She': 2,
+      'Space Muppets': 3,
+      'Captain America': 4,
+      'Resident Alien': 2,
+      Batman: 4
+    });
+  });
+
+  it('resolves separate time bands in opposite directions for the Sew a Kindle move', () => {
+    const createEvent = (
+      id: string,
+      position: number,
+      startHour: number,
+      startMinute: number,
+      endHour: number,
+      endMinute: number
+    ): TimelineEvent => ({
+      id,
+      title: id,
+      startTime: new Date(2026, 8, 5, startHour, startMinute),
+      endTime: new Date(2026, 8, 5, endHour, endMinute),
+      color: '#3b82f6',
+      position
+    });
+    const sew = createEvent('Sew a Kindle', 1, 16, 30, 18, 30);
+    const events = [
+      sew,
+      createEvent('Learn to Hack', 0, 14, 0, 18, 0),
+      createEvent('Cold War', 1, 13, 0, 16, 30),
+      createEvent('Paint Bros', 2, 16, 0, 18, 30),
+      createEvent('Resident Alien', 3, 16, 0, 17, 0),
+      createEvent('Gina Torres', 3, 17, 30, 18, 30),
+      createEvent('MSFM', 4, 16, 0, 17, 0),
+      createEvent('Architecture', 4, 17, 30, 18, 30),
+      createEvent("Tzol'kin", 5, 14, 0, 17, 0),
+      createEvent('Dungeon Crawler', 5, 17, 30, 18, 30),
+      createEvent('Batman', 6, 16, 0, 17, 0),
+      createEvent('Medicine', 6, 17, 30, 18, 30),
+      createEvent('Jim Butcher', 7, 16, 0, 17, 0),
+      createEvent('Moon', 7, 17, 30, 18, 30),
+      createEvent('Operational Security', 8, 16, 0, 17, 0),
+      createEvent('Star Trek Science', 8, 17, 30, 18, 30),
+      createEvent('Edison', 9, 16, 0, 17, 0),
+      createEvent('Start Creating', 9, 17, 30, 18, 30),
+      createEvent('One Piece', 10, 17, 30, 18, 30)
+    ];
+
+    const updates = cascadeEventPositions(events, sew, { position: 3 }, 11);
+    const positions = Object.fromEntries(updates.map(update => [update.eventId, update.updates.position]));
+
+    expect(positions).toEqual({
+      'Gina Torres': 1,
+      'Resident Alien': 4,
+      MSFM: 6,
+      Batman: 7,
+      'Jim Butcher': 8,
+      'Operational Security': 9,
+      Edison: 10
+    });
+  });
+
+  it('compacts the prior Sew cascade when the event moves back', () => {
+    const createEvent = (id: string, position: number, startHour: number, startMinute: number, endHour: number, endMinute: number): TimelineEvent => ({
+      id,
+      title: id,
+      startTime: new Date(2026, 8, 5, startHour, startMinute),
+      endTime: new Date(2026, 8, 5, endHour, endMinute),
+      color: '#3b82f6',
+      position
+    });
+    const sew = createEvent('Sew a Kindle', 3, 16, 30, 18, 30);
+    const events = [
+      sew,
+      createEvent('Learn to Hack', 0, 14, 0, 18, 0),
+      createEvent('Cold War', 1, 13, 0, 16, 30),
+      createEvent('Paint Bros', 2, 16, 0, 18, 30),
+      createEvent('Resident Alien', 4, 16, 0, 17, 0),
+      createEvent('Gina Torres', 1, 17, 30, 18, 30),
+      createEvent('MSFM', 6, 16, 0, 17, 0),
+      createEvent("Tzol'kin", 5, 14, 0, 17, 0),
+      createEvent('Batman', 7, 16, 0, 17, 0),
+      createEvent('Jim Butcher', 8, 16, 0, 17, 0),
+      createEvent('Operational Security', 9, 16, 0, 17, 0),
+      createEvent('Edison', 10, 16, 0, 17, 0)
+    ];
+
+    const updates = cascadeEventPositions(events, sew, { position: 1 }, 11);
+    const positions = Object.fromEntries(updates.map(update => [update.eventId, update.updates.position]));
+
+    expect(positions).toEqual({
+      'Gina Torres': 3,
+      'Resident Alien': 3,
+      MSFM: 4,
+      Batman: 6,
+      'Jim Butcher': 7,
+      'Operational Security': 8,
+      Edison: 9
+    });
+  });
+
+  it('bypasses long blockers when an event is dropped into the first slot', () => {
+    const createEvent = (id: string, position: number, startHour: number, endHour: number): TimelineEvent => ({
+      id,
+      title: id,
+      startTime: new Date(2026, 8, 5, startHour, 30),
+      endTime: new Date(2026, 8, 5, endHour, 30),
+      color: '#3b82f6',
+      position
+    });
+    const longMaySheReign = createEvent('Long May She Reign', 3, 14, 15);
+    const events = [
+      longMaySheReign,
+      createEvent('Learn to Hack', 0, 14, 17),
+      createEvent('Cold War', 1, 13, 16)
+    ];
+
+    const updates = cascadeEventPositions(events, longMaySheReign, { position: 0 }, 11);
+
+    expect(updates).toEqual([
+      { eventId: 'Long May She Reign', updates: { position: 2 } }
+    ]);
+  });
+
+  it('preserves a deliberately requested slot despite a large cascade', () => {
+    const moved: TimelineEvent = {
+      id: 'moved', title: 'Moved', startTime: new Date(2026, 8, 6, 19), endTime: new Date(2026, 8, 7, 0, 30), color: '#3b82f6', position: 1
+    };
+    const longBlocker: TimelineEvent = {
+      id: 'long', title: 'Long', startTime: new Date(2026, 8, 6, 18), endTime: new Date(2026, 8, 7, 1), color: '#8b5cf6', position: 0
+    };
+    const cascadeBlockers = [1, 2, 3].map(position => ({
+      id: `blocker-${position}`,
+      title: `Blocker ${position}`,
+      startTime: new Date(2026, 8, 6, 18),
+      endTime: new Date(2026, 8, 6, 18, 30),
+      color: '#10b981',
+      position
+    }));
+
+    const updates = cascadeEventPositions(
+      [moved, longBlocker, ...cascadeBlockers],
+      moved,
+      { position: 0 },
+      6,
+      true
+    );
+    const movedUpdate = updates.find(update => update.eventId === moved.id);
+    const finalMovedPosition = movedUpdate?.updates.position ?? 0;
+
+    expect(finalMovedPosition).toBe(0);
+    expect(updates.find(update => update.eventId === longBlocker.id)?.updates.position).toBe(1);
+  });
+
+  it('rejects a deliberate move of a Mega-Locked event before honoring its destination', () => {
+    const megaLockedEvent: TimelineEvent = {
+      id: 'mega-locked',
+      title: 'Mega-Locked',
+      startTime: new Date(2026, 8, 6, 19),
+      endTime: new Date(2026, 8, 6, 20),
+      color: '#3b82f6',
+      position: 1,
+      megaLock: true
+    };
+
+    expect(cascadeEventPositions(
+      [megaLockedEvent],
+      megaLockedEvent,
+      { position: 0 },
+      2,
+      true
+    )).toEqual([]);
+  });
+
+  it('restores a long event into the vacated source row instead of leaving a deep gap', () => {
+    const moved: TimelineEvent = {
+      id: 'moved', title: 'Moved', startTime: new Date(2026, 8, 6, 19), endTime: new Date(2026, 8, 7, 0, 30), color: '#3b82f6', position: 0
+    };
+    const longEvent: TimelineEvent = {
+      id: 'long', title: 'Long', startTime: new Date(2026, 8, 6, 10), endTime: new Date(2026, 8, 7, 0), color: '#8b5cf6', position: 1
+    };
+    const earlyBlockers = [11, 13, 15].map(hour => ({
+      id: `early-${hour}`,
+      title: `Early ${hour}`,
+      startTime: new Date(2026, 8, 6, hour),
+      endTime: new Date(2026, 8, 6, hour + 1),
+      color: '#10b981',
+      position: 0
+    }));
+
+    const updates = cascadeEventPositions(
+      [moved, longEvent, ...earlyBlockers],
+      moved,
+      { position: 1 },
+      5,
+      true
+    );
+    const positions = Object.fromEntries(updates.map(update => [update.eventId, update.updates.position]));
+
+    expect(positions.long).toBe(0);
+    earlyBlockers.forEach(event => expect(positions[event.id]).toBe(1));
+  });
+
+  it('moves a long event into the deliberate move source before filling its old row', () => {
+    const moved: TimelineEvent = {
+      id: 'moved', title: 'Moved', startTime: new Date(2026, 8, 6, 19), endTime: new Date(2026, 8, 7, 0, 30), color: '#3b82f6', position: 1
+    };
+    const longEvent: TimelineEvent = {
+      id: 'long', title: 'Long', startTime: new Date(2026, 8, 6, 10), endTime: new Date(2026, 8, 7, 0), color: '#8b5cf6', position: 0
+    };
+    const earlyBlockers = [11, 13, 15].map(hour => ({
+      id: `early-${hour}`,
+      title: `Early ${hour}`,
+      startTime: new Date(2026, 8, 6, hour),
+      endTime: new Date(2026, 8, 6, hour + 1),
+      color: '#10b981',
+      position: 1
+    }));
+
+    const updates = cascadeEventPositions(
+      [moved, longEvent, ...earlyBlockers],
+      moved,
+      { position: 0 },
+      5,
+      true
+    );
+    const positions = Object.fromEntries(updates.map(update => [update.eventId, update.updates.position]));
+
+    expect(positions.long).toBe(1);
+    earlyBlockers.forEach(event => expect(positions[event.id]).toBe(0));
+  });
+
+  it('compacts separate events into the source row after a time move', () => {
+    const createEvent = (
+      id: string,
+      position: number,
+      startHour: number,
+      startMinute: number,
+      endHour: number,
+      endMinute: number
+    ): TimelineEvent => ({
+      id,
+      title: id,
+      startTime: new Date(2026, 8, 5, startHour, startMinute),
+      endTime: new Date(2026, 8, 5, endHour, endMinute),
+      color: '#3b82f6',
+      position
+    });
+    const sew = createEvent('Sew a Kindle', 3, 15, 0, 17, 0);
+    const events = [
+      createEvent('Learn to Hack', 0, 14, 30, 18, 0),
+      createEvent('Cold War', 1, 13, 0, 16, 30),
+      createEvent('Long May She Reign', 2, 14, 30, 15, 30),
+      sew,
+      createEvent('Space Muppets', 4, 14, 30, 15, 30),
+      createEvent('Resident Alien', 4, 16, 0, 17, 0),
+      createEvent("Tzol'kin", 5, 14, 0, 17, 0)
+    ];
+    const updates = cascadeEventPositions(events, sew, {
+      startTime: new Date(2026, 8, 5, 12, 30),
+      endTime: new Date(2026, 8, 5, 14, 30),
+      position: 6
+    }, 11);
+    const positions = Object.fromEntries(updates.map(update => [update.eventId, update.updates.position]));
+
+    expect(positions['Space Muppets']).toBe(3);
+    expect(positions['Resident Alien']).toBe(3);
+  });
+
+  it('expands beyond the configured slots when every slot is occupied', () => {
+    const createEvent = (id: string, position: number, durationHours = 1): TimelineEvent => ({
+      id,
+      title: id,
+      startTime: new Date(2026, 8, 5, 14, 30),
+      endTime: new Date(2026, 8, 5, 14 + durationHours, 30),
+      color: '#3b82f6',
+      position
+    });
+    const sew: TimelineEvent = {
+      ...createEvent('Sew a Kindle', 3, 2),
+      startTime: new Date(2026, 8, 5, 16, 30),
+      endTime: new Date(2026, 8, 5, 18, 30)
+    };
+    const spaceMuppets = createEvent('Space Muppets', 3);
+    const captainAmerica = createEvent('Captain America', 4);
+    const tzolkin = createEvent("Tzol'kin", 5, 3);
+    const stargate = createEvent('Stargate', 6);
+    const amaze = createEvent('AMAZE', 7);
+    const whyNotAi = createEvent('Why Not AI', 8);
+    const trial = createEvent('Trial', 9);
+    const dawn = createEvent('DAWN', 10);
+    const events = [
+      createEvent('Learn to Hack', 0, 4),
+      createEvent('Cold War', 1, 3),
+      createEvent('Long May She', 2),
+      sew,
+      spaceMuppets,
+      captainAmerica,
+      tzolkin,
+      stargate,
+      amaze,
+      whyNotAi,
+      trial,
+      dawn
+    ];
+
+    const updatedSew = {
+      ...sew,
+      startTime: new Date(2026, 8, 5, 14, 30),
+      endTime: new Date(2026, 8, 5, 16, 30),
+      position: 3
+    };
+    const requiredSlots = getRequiredStackSlotCount(
+      events.map(event => event.id === sew.id ? updatedSew : event),
+      10
+    );
+    const updates = cascadeEventPositions(events, sew, updatedSew, requiredSlots);
+    const positions = Object.fromEntries(updates.map(update => [update.eventId, update.updates.position]));
+
+    expect(requiredSlots).toBe(12);
+    expect(positions).toEqual({
+      'Space Muppets': 4,
+      'Captain America': 6,
+      Stargate: 7,
+      AMAZE: 8,
+      'Why Not AI': 9,
+      Trial: 10,
+      DAWN: 11
+    });
+  });
+
+  it('shrinks dynamic slots only as far as the configured minimum', () => {
+    const createEvent = (id: string, position: number): TimelineEvent => ({
+      id,
+      title: id,
+      startTime: new Date(2026, 8, 5, 14),
+      endTime: new Date(2026, 8, 5, 15),
+      color: '#3b82f6',
+      position
+    });
+    const events = Array.from({ length: 12 }, (_, index) => createEvent(String(index), index));
+
+    expect(getRequiredStackSlotCount(events, 10)).toBe(12);
+    expect(getRequiredStackSlotCount(events.slice(0, 11), 10)).toBe(11);
+    expect(getRequiredStackSlotCount(events.slice(0, 10), 10)).toBe(10);
+    expect(getRenderedSlotCount(events.slice(0, 10), 10)).toBe(10);
+  });
+
+  it('compacts stale high positions after a stacked event is removed', () => {
+    const createEvent = (id: string, position: number): TimelineEvent => ({
+      id,
+      title: id,
+      startTime: new Date(2026, 8, 5, 14),
+      endTime: new Date(2026, 8, 5, 15),
+      color: '#3b82f6',
+      position
+    });
+    const remainingEvents = Array.from({ length: 10 }, (_, index) => createEvent(String(index + 1), index + 1));
+    const updates = repackAllEventPositions(remainingEvents, 10);
+    const compactedEvents = remainingEvents.map(event => ({
+      ...event,
+      ...updates.find(update => update.eventId === event.id)?.updates
+    }));
+
+    expect(updates).toHaveLength(10);
+    expect(getRenderedSlotCount(compactedEvents, 10)).toBe(10);
+    expect(compactedEvents.map(event => event.position).sort((left, right) => left - right))
+      .toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+  });
+
   it('does not cascade Mega-Locked events into another slot', () => {
     const changedEvent = { id: 'changed', startTime: new Date(2025, 7, 27, 10), endTime: new Date(2025, 7, 27, 11), position: 0 };
     const megaLockedEvent = { id: 'mega-locked', megaLock: true, startTime: new Date(2025, 7, 27, 10), endTime: new Date(2025, 7, 27, 11), position: 0 };
@@ -52,6 +523,47 @@ describe('timelineUtils', () => {
     expect(
       cascadeEventPositions([changedEvent, megaLockedEvent] as any, changedEvent as any, {})
     ).toEqual([]);
+  });
+
+  it('repairs a collision when an unrelated event is Mega-Locked', () => {
+    const changedEvent: TimelineEvent = {
+      id: 'changed',
+      title: 'Changed',
+      startTime: new Date(2026, 8, 6, 20, 30),
+      endTime: new Date(2026, 8, 7, 0),
+      color: '#3b82f6',
+      position: 1
+    };
+    const conflict: TimelineEvent = {
+      id: 'conflict',
+      title: 'Conflict',
+      startTime: new Date(2026, 8, 6, 19),
+      endTime: new Date(2026, 8, 7, 0, 30),
+      color: '#3b82f6',
+      position: 1
+    };
+    const unrelatedMegaLock: TimelineEvent = {
+      id: 'unrelated-mega-lock',
+      title: 'Unrelated Mega-Lock',
+      startTime: new Date(2026, 8, 5, 10),
+      endTime: new Date(2026, 8, 5, 11),
+      color: '#3b82f6',
+      position: 4,
+      megaLock: true
+    };
+
+    const updates = cascadeEventPositions(
+      [changedEvent, conflict, unrelatedMegaLock],
+      changedEvent,
+      { position: 1 },
+      11
+    );
+    const positions = Object.fromEntries(updates.map(update => [update.eventId, update.updates.position]));
+    const changedPosition = positions.changed ?? changedEvent.position;
+    const conflictPosition = positions.conflict ?? conflict.position;
+
+    expect(positions['unrelated-mega-lock']).toBeUndefined();
+    expect(changedPosition).not.toBe(conflictPosition);
   });
 
   it('does not reposition an event when a modal save only changes its lock mode', () => {
@@ -263,6 +775,77 @@ describe('timelineUtils', () => {
       [10, 0, 10, 30],
       [11, 0, 12, 0]
     ]);
+  });
+
+  it('keeps generated move sequences collision-free and settled', () => {
+    const configuredSlotCount = 4;
+    const timelineStart = new Date(2026, 8, 5, 9);
+    const halfHourMs = 30 * 60 * 1000;
+    const findCollisions = (events: TimelineEvent[]) => events.flatMap((left, leftIndex) => (
+      events.slice(leftIndex + 1)
+        .filter(right => (
+          Boolean(left.intangible) === Boolean(right.intangible)
+          && left.position === right.position
+          && left.startTime < right.endTime
+          && left.endTime > right.startTime
+        ))
+        .map(right => `${left.id}/${right.id}@${left.position}`)
+    ));
+
+    for (let seed = 1; seed <= 40; seed += 1) {
+      let randomState = seed;
+      const random = () => {
+        randomState = (randomState * 1664525 + 1013904223) >>> 0;
+        return randomState / 0x100000000;
+      };
+      let events: TimelineEvent[] = [];
+
+      for (let index = 0; index < 10; index += 1) {
+        const startIncrement = Math.floor(random() * 14);
+        const durationIncrements = 1 + Math.floor(random() * 5);
+        const event: TimelineEvent = {
+          id: `seed-${seed}-event-${index}`,
+          title: `Event ${index}`,
+          startTime: new Date(timelineStart.getTime() + startIncrement * halfHourMs),
+          endTime: new Date(timelineStart.getTime() + (startIncrement + durationIncrements) * halfHourMs),
+          color: '#3b82f6',
+          position: 0,
+          intangible: index % 5 === 0
+        };
+        event.position = findAvailablePosition(events, event.startTime, event.endTime, event, 10);
+        events.push(event);
+      }
+
+      for (let step = 0; step < 30; step += 1) {
+        const changedEvent = events[Math.floor(random() * events.length)];
+        const startIncrement = Math.floor(random() * 14);
+        const durationIncrements = 1 + Math.floor(random() * 5);
+        const renderedSlotCount = getRenderedSlotCount(events, configuredSlotCount);
+        const updates: Partial<TimelineEvent> = {
+          startTime: new Date(timelineStart.getTime() + startIncrement * halfHourMs),
+          endTime: new Date(timelineStart.getTime() + (startIncrement + durationIncrements) * halfHourMs),
+          position: Math.floor(random() * renderedSlotCount)
+        };
+        const proposedEvents = events.map(event => event.id === changedEvent.id ? { ...event, ...updates } : event);
+        const requiredSlotCount = getRequiredStackSlotCount(proposedEvents, configuredSlotCount);
+        const cascadeUpdates = cascadeEventPositions(events, changedEvent, updates, requiredSlotCount);
+        const changedCascade = cascadeUpdates.find(update => update.eventId === changedEvent.id)?.updates;
+
+        events = events.map(event => {
+          const cascadeUpdate = cascadeUpdates.find(update => update.eventId === event.id)?.updates;
+          if (event.id === changedEvent.id) return { ...event, ...updates, ...changedCascade };
+          return cascadeUpdate ? { ...event, ...cascadeUpdate } : event;
+        });
+
+        expect(findCollisions(events), `seed ${seed}, step ${step}`).toEqual([]);
+        events.forEach(event => {
+          expect(
+            cascadeEventPositions(events, event, {}, getRenderedSlotCount(events, configuredSlotCount)),
+            `idempotence for seed ${seed}, step ${step}, event ${event.id}`
+          ).toEqual([]);
+        });
+      }
+    }
   });
 
   it('maps locations to display colors for the edit timeline toggle', () => {

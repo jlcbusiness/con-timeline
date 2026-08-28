@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import type { TimelineEvent } from '../types/timeline';
-import { roundToNearestHalfHour, cascadeEventPositions } from '../utils/timelineUtils';
+import { roundToNearestHalfHour } from '../utils/timelineUtils';
 import { PIXELS_PER_HOUR, PIXELS_PER_SLOT, DEFAULT_END_DATE } from '../config/timeline';
 
 export interface DragState {
@@ -10,12 +10,127 @@ export interface DragState {
   startX: number;
   startY: number;
   originalEvent: TimelineEvent | null;
+  previewEvent: TimelineEvent | null;
 }
 
+interface DragPreviewOptions {
+  originalEvent: TimelineEvent;
+  dragType: NonNullable<DragState['dragType']>;
+  deltaX: number;
+  deltaY: number;
+  startDate: Date;
+  endDate: Date;
+  slotHeight: number;
+  slotCount: number;
+}
+
+export const getDragPreviewUpdates = ({
+  originalEvent,
+  dragType,
+  deltaX,
+  deltaY,
+  startDate,
+  endDate,
+  slotHeight,
+  slotCount
+}: DragPreviewOptions): Partial<TimelineEvent> | null => {
+  const halfHourIncrements = Math.round(deltaX / (PIXELS_PER_HOUR / 2));
+  const timeChange = halfHourIncrements * 30 * 60 * 1000;
+  const positionChange = Math.round(deltaY / slotHeight);
+
+  if (dragType === 'move') {
+    if (originalEvent.megaLock) return null;
+
+    const position = Math.max(0, Math.min(Math.max(0, slotCount - 1), originalEvent.position + positionChange));
+    if (originalEvent.lockTime) {
+      return position === originalEvent.position ? null : { position };
+    }
+
+    const startTime = roundToNearestHalfHour(new Date(originalEvent.startTime.getTime() + timeChange));
+    const duration = originalEvent.endTime.getTime() - originalEvent.startTime.getTime();
+    const endTime = new Date(startTime.getTime() + duration);
+
+    return startTime >= startDate && endTime <= endDate
+      ? { startTime, endTime, position }
+      : null;
+  }
+
+  if (originalEvent.lockTime || originalEvent.megaLock) return null;
+
+  if (dragType === 'resize-start') {
+    const startTime = roundToNearestHalfHour(new Date(originalEvent.startTime.getTime() + timeChange));
+    const minimumEndTime = new Date(startTime.getTime() + 30 * 60 * 1000);
+
+    return startTime < originalEvent.endTime
+      && originalEvent.endTime >= minimumEndTime
+      && startTime >= startDate
+      ? { startTime, position: originalEvent.position }
+      : null;
+  }
+
+  const endTime = roundToNearestHalfHour(new Date(originalEvent.endTime.getTime() + timeChange));
+  const minimumEndTime = new Date(originalEvent.startTime.getTime() + 30 * 60 * 1000);
+
+  return endTime >= minimumEndTime
+    && endTime > originalEvent.startTime
+    && endTime <= endDate
+    ? { endTime, position: originalEvent.position }
+    : null;
+};
+
+export const getContinuousDragPreview = ({
+  originalEvent,
+  dragType,
+  deltaX,
+  deltaY,
+  startDate,
+  endDate,
+  slotHeight,
+  slotCount
+}: DragPreviewOptions): TimelineEvent => {
+  if (originalEvent.megaLock) return originalEvent;
+
+  const timeChange = deltaX / PIXELS_PER_HOUR * 60 * 60 * 1000;
+
+  if (dragType === 'move') {
+    const position = Math.max(0, Math.min(Math.max(0, slotCount - 1), originalEvent.position + deltaY / slotHeight));
+    if (originalEvent.lockTime) return { ...originalEvent, position };
+
+    const minimumTimeChange = startDate.getTime() - originalEvent.startTime.getTime();
+    const maximumTimeChange = endDate.getTime() - originalEvent.endTime.getTime();
+    const boundedTimeChange = Math.max(minimumTimeChange, Math.min(maximumTimeChange, timeChange));
+
+    return {
+      ...originalEvent,
+      startTime: new Date(originalEvent.startTime.getTime() + boundedTimeChange),
+      endTime: new Date(originalEvent.endTime.getTime() + boundedTimeChange),
+      position
+    };
+  }
+
+  if (originalEvent.lockTime) return originalEvent;
+
+  if (dragType === 'resize-start') {
+    const latestStartTime = originalEvent.endTime.getTime() - 30 * 60 * 1000;
+    const startTime = new Date(Math.max(
+      startDate.getTime(),
+      Math.min(latestStartTime, originalEvent.startTime.getTime() + timeChange)
+    ));
+
+    return { ...originalEvent, startTime };
+  }
+
+  const earliestEndTime = originalEvent.startTime.getTime() + 30 * 60 * 1000;
+  const endTime = new Date(Math.min(
+    endDate.getTime(),
+    Math.max(earliestEndTime, originalEvent.endTime.getTime() + timeChange)
+  ));
+
+  return { ...originalEvent, endTime };
+};
+
 export const useDragAndResize = (
-  events: TimelineEvent[],
   onEventUpdate: (eventId: string, updates: Partial<TimelineEvent>) => void,
-  onBatchUpdate: (updates: { eventId: string; updates: Partial<TimelineEvent> }[]) => void,
   startDate: Date,
   endDate: Date = DEFAULT_END_DATE,
   slotHeight: number = PIXELS_PER_SLOT,
@@ -27,10 +142,12 @@ export const useDragAndResize = (
     dragType: null,
     startX: 0,
     startY: 0,
-    originalEvent: null
+    originalEvent: null,
+    previewEvent: null
   });
 
   const dragRef = useRef<HTMLDivElement>(null);
+  const pendingUpdateRef = useRef<{ eventId: string; updates: Partial<TimelineEvent> } | null>(null);
 
   const startDrag = useCallback((
     event: TimelineEvent,
@@ -38,138 +155,73 @@ export const useDragAndResize = (
     clientY: number,
     type: 'move' | 'resize-start' | 'resize-end'
   ) => {
+    pendingUpdateRef.current = null;
     setDragState({
       isDragging: type === 'move',
       isResizing: type !== 'move',
       dragType: type,
       startX: clientX,
       startY: clientY,
-      originalEvent: { ...event }
+      originalEvent: { ...event },
+      previewEvent: { ...event }
     });
   }, []);
 
   const handleMouseMove = useCallback((clientX: number, clientY: number) => {
     if (!dragState.originalEvent || (!dragState.isDragging && !dragState.isResizing)) return;
 
-    const deltaX = clientX - dragState.startX;
-    const deltaY = clientY - dragState.startY;
-
-    // Convert pixel movement to time increments using the same system as positioning
-    // PIXELS_PER_HOUR px = 1 hour, so PIXELS_PER_HOUR/2 = 30 minutes
-    const halfHourIncrements = Math.round(deltaX / (PIXELS_PER_HOUR / 2));
-    const timeChange = halfHourIncrements * 30 * 60 * 1000; // milliseconds (30 minutes)
-    
-    // Convert vertical movement to position change (PIXELS_PER_SLOT = 1 position)
-    const positionChange = Math.round(deltaY / slotHeight);
-
     const originalEvent = dragState.originalEvent;
-    // endDate comes from the hook parameter (fallback default in signature)
+    const previewOptions = {
+      originalEvent,
+      dragType: dragState.dragType as NonNullable<DragState['dragType']>,
+      deltaX: clientX - dragState.startX,
+      deltaY: clientY - dragState.startY,
+      startDate,
+      endDate,
+      slotHeight,
+      slotCount
+    };
+    const updates = getDragPreviewUpdates(previewOptions);
+    const previewEvent = getContinuousDragPreview(previewOptions);
 
-    if (dragState.dragType === 'move') {
-      // Moving the entire event
-      const newPosition = Math.max(0, Math.min(Math.max(0, slotCount - 1), originalEvent.position + positionChange));
-
-      if (originalEvent.megaLock) {
-        return;
-      }
-
-      if (originalEvent.lockTime) {
-        if (newPosition !== originalEvent.position) {
-          const updates = { position: newPosition };
-
-          onEventUpdate(originalEvent.id, updates);
-
-          const cascadeUpdates = cascadeEventPositions(events, originalEvent, updates, slotCount);
-          if (cascadeUpdates.length > 0) {
-            onBatchUpdate(cascadeUpdates);
-          }
-        }
-        return;
-      }
-
-      const newStartTime = new Date(originalEvent.startTime.getTime() + timeChange);
-
-      // Round to nearest half hour
-      const roundedStartTime = roundToNearestHalfHour(newStartTime);
-      const duration = originalEvent.endTime.getTime() - originalEvent.startTime.getTime();
-      const roundedEndTime = new Date(roundedStartTime.getTime() + duration);
-
-      // Ensure the new time is within our timeline bounds
-      if (roundedStartTime >= startDate && roundedEndTime <= endDate) {
-        const updates = {
-          startTime: roundedStartTime,
-          endTime: roundedEndTime,
-          position: newPosition
-        };
-
-        // Apply the main update
-        onEventUpdate(originalEvent.id, updates);
-
-        // Check for cascading position updates
-        const cascadeUpdates = cascadeEventPositions(events, originalEvent, updates, slotCount);
-        if (cascadeUpdates.length > 0) {
-          onBatchUpdate(cascadeUpdates);
-        }
-      }
-
-    } else if (dragState.dragType === 'resize-start') {
-      if (originalEvent.lockTime || originalEvent.megaLock) return;
-
-      // Resizing from the start
-      const newStartTime = new Date(originalEvent.startTime.getTime() + timeChange);
-      const roundedStartTime = roundToNearestHalfHour(newStartTime);
-
-      // Ensure minimum 30-minute duration and that start time is before end time
-      const minEndTime = new Date(roundedStartTime.getTime() + 30 * 60 * 1000);
-      if (roundedStartTime < originalEvent.endTime && 
-          originalEvent.endTime >= minEndTime && 
-          roundedStartTime >= startDate) {
-        const updates = { startTime: roundedStartTime };
-        
-        // Apply the main update
-        onEventUpdate(originalEvent.id, updates);
-
-        // Check for cascading position updates due to time change
-        const cascadeUpdates = cascadeEventPositions(events, originalEvent, updates, slotCount);
-        if (cascadeUpdates.length > 0) {
-          onBatchUpdate(cascadeUpdates);
-        }
-      }
-
-    } else if (dragState.dragType === 'resize-end') {
-      if (originalEvent.lockTime || originalEvent.megaLock) return;
-
-      // Resizing from the end
-      const newEndTime = new Date(originalEvent.endTime.getTime() + timeChange);
-      const roundedEndTime = roundToNearestHalfHour(newEndTime);
-
-      // Ensure minimum 30-minute duration and that end time is after start time
-      const minEndTime = new Date(originalEvent.startTime.getTime() + 30 * 60 * 1000);
-      if (roundedEndTime >= minEndTime && 
-          roundedEndTime > originalEvent.startTime && 
-          roundedEndTime <= endDate) {
-        const updates = { endTime: roundedEndTime };
-        
-        // Apply the main update
-        onEventUpdate(originalEvent.id, updates);
-
-        // Check for cascading position updates due to time change
-        const cascadeUpdates = cascadeEventPositions(events, originalEvent, updates, slotCount);
-        if (cascadeUpdates.length > 0) {
-          onBatchUpdate(cascadeUpdates);
-        }
-      }
+    if (updates) {
+      pendingUpdateRef.current = { eventId: originalEvent.id, updates };
+    } else {
+      pendingUpdateRef.current = null;
     }
-  }, [dragState, onEventUpdate, onBatchUpdate, events, startDate, slotHeight, slotCount]);
+
+    setDragState(current => ({ ...current, previewEvent }));
+  }, [dragState, startDate, endDate, slotHeight, slotCount]);
 
   const endDrag = useCallback(() => {
+    const pendingUpdate = pendingUpdateRef.current;
+    pendingUpdateRef.current = null;
+
+    if (pendingUpdate) {
+      onEventUpdate(pendingUpdate.eventId, pendingUpdate.updates);
+    }
+
     setDragState({
       isDragging: false,
       isResizing: false,
       dragType: null,
       startX: 0,
       startY: 0,
-      originalEvent: null
+      originalEvent: null,
+      previewEvent: null
+    });
+  }, [onEventUpdate]);
+
+  const cancelDrag = useCallback(() => {
+    pendingUpdateRef.current = null;
+    setDragState({
+      isDragging: false,
+      isResizing: false,
+      dragType: null,
+      startX: 0,
+      startY: 0,
+      originalEvent: null,
+      previewEvent: null
     });
   }, []);
 
@@ -178,6 +230,7 @@ export const useDragAndResize = (
     startDrag,
     handleMouseMove,
     endDrag,
+    cancelDrag,
     dragRef
   };
 };

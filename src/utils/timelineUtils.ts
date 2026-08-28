@@ -77,6 +77,37 @@ const getCollisionGroup = (event: TimelineEvent): 'tangible' | 'intangible' => (
   isIntangibleEvent(event) ? 'intangible' : 'tangible'
 );
 
+export const getRequiredStackSlotCount = (events: TimelineEvent[], minimumSlotCount = 1): number => {
+  const maximumForGroup = (groupEvents: TimelineEvent[]) => {
+    const boundaries = groupEvents.flatMap(event => [
+      { time: getBufferedStartTime(event).getTime(), delta: 1 },
+      { time: event.endTime.getTime(), delta: -1 }
+    ]).sort((left, right) => left.time - right.time || left.delta - right.delta);
+    let activeCount = 0;
+    let maximumCount = 0;
+
+    boundaries.forEach(boundary => {
+      activeCount += boundary.delta;
+      maximumCount = Math.max(maximumCount, activeCount);
+    });
+
+    return maximumCount;
+  };
+
+  return Math.max(
+    minimumSlotCount,
+    maximumForGroup(events.filter(event => !isIntangibleEvent(event))),
+    maximumForGroup(events.filter(isIntangibleEvent))
+  );
+};
+
+export const getRenderedSlotCount = (events: TimelineEvent[], minimumSlotCount = 1): number => (
+  Math.max(
+    getRequiredStackSlotCount(events, minimumSlotCount),
+    ...events.map(event => event.position + 1)
+  )
+);
+
 const packEventsByStructure = (events: TimelineEvent[], maxSlots = 11): TimelineEvent[] => {
   const packedEvents: TimelineEvent[] = [];
 
@@ -92,6 +123,49 @@ const buildPackedPositionMap = (events: TimelineEvent[], maxSlots = 11): Map<str
   return new Map(
     packEventsByStructure(events, maxSlots).map(event => [event.id, event.position] as const)
   );
+};
+
+const buildCollisionFreePositionMap = (
+  events: TimelineEvent[],
+  maxSlots: number,
+  preserveMegaLocks = false
+): Map<string, number> => {
+  const packedEvents = preserveMegaLocks
+    ? events.filter(event => event.megaLock).map(event => ({ ...event }))
+    : [];
+  const sortedEvents = events.filter(event => !preserveMegaLocks || !event.megaLock).sort((left, right) => (
+    left.startTime.getTime() - right.startTime.getTime()
+    || left.endTime.getTime() - right.endTime.getTime()
+    || left.id.localeCompare(right.id)
+  ));
+
+  sortedEvents.forEach(event => {
+    const position = findAvailablePosition(packedEvents, event.startTime, event.endTime, event, maxSlots);
+    packedEvents.push({ ...event, position });
+  });
+
+  return new Map(packedEvents.map(event => [event.id, event.position] as const));
+};
+
+export const repackAllEventPositions = (
+  events: TimelineEvent[],
+  maxSlots: number
+): { eventId: string; updates: Partial<TimelineEvent> }[] => {
+  const updates: { eventId: string; updates: Partial<TimelineEvent> }[] = [];
+
+  (['tangible', 'intangible'] as const).forEach(group => {
+    const groupEvents = events.filter(event => getCollisionGroup(event) === group);
+    const packedPositions = buildPackedPositionMap(groupEvents, maxSlots);
+
+    groupEvents.forEach(event => {
+      const position = packedPositions.get(event.id);
+      if (position !== undefined && position !== event.position) {
+        updates.push({ eventId: event.id, updates: { position } });
+      }
+    });
+  });
+
+  return updates;
 };
 
 const overlapsWithoutBuffer = (left: TimelineEvent, right: TimelineEvent): boolean => {
@@ -256,12 +330,19 @@ export const cascadeEventPositions = (
   allEvents: TimelineEvent[],
   changedEvent: TimelineEvent,
   changedEventUpdates: Partial<TimelineEvent>,
-  maxSlots = 11
+  maxSlots = 11,
+  preserveChangedPosition = false
 ): { eventId: string; updates: Partial<TimelineEvent> }[] => {
-  const updates: { eventId: string; updates: Partial<TimelineEvent> }[] = [];
-  
   // Create the updated version of the changed event
   const updatedChangedEvent = { ...changedEvent, ...changedEventUpdates };
+
+  if (
+    changedEvent.megaLock
+    && changedEventUpdates.position !== undefined
+    && changedEventUpdates.position !== changedEvent.position
+  ) {
+    return [];
+  }
 
   // Get all other events
   const collisionGroup = getCollisionGroup(updatedChangedEvent);
@@ -273,13 +354,7 @@ export const cascadeEventPositions = (
     eventsOverlapWithoutBuffer(updatedChangedEvent, event)
   );
   
-  // If no direct conflicts, no cascading needed
-  if (directConflicts.length === 0) {
-    return updates;
-  }
-  
-  // For each conflicting event, find it a new position
-  const sortedConflicts = [...directConflicts].sort((left, right) => {
+  const sortConflicts = (left: TimelineEvent, right: TimelineEvent) => {
     const leftDuration = getEventDurationInMinutes(left.startTime, left.endTime);
     const rightDuration = getEventDurationInMinutes(right.startTime, right.endTime);
     const leftVenueRank = getVenueGroupRank(left.location);
@@ -293,58 +368,403 @@ export const cascadeEventPositions = (
       || left.position - right.position
       || left.startTime.getTime() - right.startTime.getTime()
       || left.endTime.getTime() - right.endTime.getTime();
-  });
+  };
+  const sourcePosition = changedEvent.position;
+  const targetPosition = updatedChangedEvent.position;
+  const preferredDirection: -1 | 1 = sourcePosition < targetPosition ? -1 : 1;
+  const movementCost = (event: TimelineEvent, fromPosition: number, toPosition: number) => (
+    fromPosition === toPosition
+      ? 0
+      : 30 + getEventDurationInMinutes(event.startTime, event.endTime) * Math.abs(toPosition - fromPosition)
+  );
+  const planCost = (positionUpdates: Map<string, number>) => (
+    [changedEvent, ...otherEvents].reduce((cost, event) => {
+      const finalPosition = positionUpdates.get(event.id)
+        ?? (event.id === changedEvent.id ? targetPosition : event.position);
+      const duration = getEventDurationInMinutes(event.startTime, event.endTime);
+      return cost
+        + movementCost(event, event.position, finalPosition)
+        + duration * finalPosition;
+    }, 0)
+  );
+  const finalizePositionUpdates = (positionUpdates: Map<string, number>) => {
+    const resolvedEvents = [updatedChangedEvent, ...otherEvents].map(event => {
+      const position = positionUpdates.get(event.id);
+      return position === undefined ? event : { ...event, position };
+    });
+    const hasCollision = resolvedEvents.some((event, eventIndex) => (
+      resolvedEvents.slice(eventIndex + 1).some(otherEvent => (
+        event.position === otherEvent.position
+        && eventsOverlapWithoutBuffer(event, otherEvent)
+      ))
+    ));
 
-  sortedConflicts.forEach(conflictingEvent => {
-    if (conflictingEvent.megaLock) {
-      return;
+    if (!hasCollision) {
+      return [...positionUpdates].map(([eventId, position]) => ({
+        eventId,
+        updates: { position }
+      }));
     }
 
-    // Create a temporary list of events to check against (excluding the conflicting event)
-    const eventsToCheckAgainst = [
-      updatedChangedEvent, // The changed event is now in this position
-      ...otherEvents.filter(e => e.id !== conflictingEvent.id)
-    ];
-    
-    // Find the first available position for this conflicting event
-    let newPosition = 0;
-    let positionFound = false;
-    
-    for (let pos = 0; pos < maxSlots && !positionFound; pos++) {
-      // Check if this position has any time conflicts
-      const hasConflict = eventsToCheckAgainst.some(otherEvent => 
-        otherEvent.position === pos && eventsOverlapWithoutBuffer(conflictingEvent, otherEvent)
-      );
-      
-      if (!hasConflict) {
-        newPosition = pos;
-        positionFound = true;
+    const collisionInvolvesMegaLock = resolvedEvents.some((event, eventIndex) => (
+      resolvedEvents.slice(eventIndex + 1).some(otherEvent => (
+        event.position === otherEvent.position
+        && eventsOverlapWithoutBuffer(event, otherEvent)
+        && (event.megaLock || otherEvent.megaLock)
+      ))
+    ));
+    if (collisionInvolvesMegaLock) return [];
+
+    const eventsToPack = preserveChangedPosition
+      ? resolvedEvents.map(event => event.id === changedEvent.id ? { ...event, megaLock: true } : event)
+      : resolvedEvents;
+    const packedPositions = buildCollisionFreePositionMap(eventsToPack, maxSlots, true);
+    const packedEvents = resolvedEvents.map(event => ({
+      ...event,
+      position: packedPositions.get(event.id) ?? event.position
+    }));
+    const packedEventsHaveCollision = packedEvents.some((event, eventIndex) => (
+      packedEvents.slice(eventIndex + 1).some(otherEvent => (
+        event.position === otherEvent.position
+        && eventsOverlapWithoutBuffer(event, otherEvent)
+      ))
+    ));
+    if (packedEventsHaveCollision) return [];
+
+    return resolvedEvents.flatMap(event => {
+      const packedPosition = packedPositions.get(event.id);
+      const currentPosition = event.id === changedEvent.id
+        ? targetPosition
+        : otherEvents.find(otherEvent => otherEvent.id === event.id)?.position;
+
+      return packedPosition !== undefined && packedPosition !== currentPosition
+        ? [{ eventId: event.id, updates: { position: packedPosition } }]
+        : [];
+    });
+  };
+
+  const buildCascadePlan = (changedPosition: number, direction: -1 | 1, allowOppositeDirection = false) => {
+    const changedAtPosition = { ...updatedChangedEvent, position: changedPosition };
+    const workingEvents = new Map<string, TimelineEvent>(
+      [changedAtPosition, ...otherEvents].map(event => [event.id, event])
+    );
+    const positionUpdates = new Map<string, number>();
+
+    if (changedPosition !== updatedChangedEvent.position) {
+      positionUpdates.set(changedEvent.id, changedPosition);
+    }
+
+    const moveOneSlot = (eventToMove: TimelineEvent, moveDirection: -1 | 1, depth = 0): boolean => {
+      if (eventToMove.megaLock) return false;
+
+      const currentEvent = workingEvents.get(eventToMove.id) ?? eventToMove;
+      const position = currentEvent.position + moveDirection;
+      if (position < 0 || position >= maxSlots) return false;
+
+      const eventsBeforeAttempt = new Map(workingEvents);
+      const updatesBeforeAttempt = new Map(positionUpdates);
+      const nearestClearPosition = Array.from(
+        { length: moveDirection === -1 ? currentEvent.position : maxSlots - currentEvent.position - 1 },
+        (_, index) => currentEvent.position + moveDirection * (index + 1)
+      ).find(candidatePosition => [...workingEvents.values()].every(event => (
+        event.id === currentEvent.id
+        || event.position !== candidatePosition
+        || !eventsOverlapWithoutBuffer(currentEvent, event)
+      )));
+
+      const blockers = [...workingEvents.values()]
+        .filter(event => (
+          event.id !== currentEvent.id
+          && event.position === position
+          && eventsOverlapWithoutBuffer(currentEvent, event)
+        ))
+        .sort(sortConflicts);
+      const currentDuration = getEventDurationInMinutes(currentEvent.startTime, currentEvent.endTime);
+      const canJumpLongerBlocker = blockers.some(blocker => (
+        getEventDurationInMinutes(blocker.startTime, blocker.endTime) > currentDuration
+      ));
+
+      if (preserveChangedPosition && position === sourcePosition) {
+        const oppositeDirection: -1 | 1 = moveDirection === -1 ? 1 : -1;
+        workingEvents.set(currentEvent.id, { ...currentEvent, position });
+        positionUpdates.set(currentEvent.id, position);
+        const sourceGapCascadeSucceeded = blockers.every(blocker => (
+          !eventsOverlapWithoutBuffer(blocker, changedAtPosition)
+          && moveOneSlot(blocker, oppositeDirection, depth + 1)
+        ));
+
+        if (sourceGapCascadeSucceeded) return true;
+
+        workingEvents.clear();
+        eventsBeforeAttempt.forEach((event, eventId) => workingEvents.set(eventId, event));
+        positionUpdates.clear();
+        updatesBeforeAttempt.forEach((updatedPosition, eventId) => positionUpdates.set(eventId, updatedPosition));
+      }
+
+      const adjacentCascadeSucceeded = blockers.every(blocker => moveOneSlot(blocker, moveDirection, depth + 1));
+
+      if (adjacentCascadeSucceeded) {
+        const addedDisplacements = [...positionUpdates.keys()]
+          .filter(eventId => !updatesBeforeAttempt.has(eventId))
+          .length + 1;
+        const distanceToClearPosition = nearestClearPosition === undefined
+          ? null
+          : Math.abs(nearestClearPosition - currentEvent.position);
+        const preservesPreferredOrder = preserveChangedPosition
+          || (distanceToClearPosition === null
+            ? !canJumpLongerBlocker
+            : addedDisplacements < distanceToClearPosition
+              || (addedDisplacements === distanceToClearPosition && !canJumpLongerBlocker));
+
+        if (preservesPreferredOrder) {
+          workingEvents.set(currentEvent.id, { ...currentEvent, position });
+          positionUpdates.set(currentEvent.id, position);
+          return true;
+        }
+      }
+
+      workingEvents.clear();
+      eventsBeforeAttempt.forEach((event, eventId) => workingEvents.set(eventId, event));
+      positionUpdates.clear();
+      updatesBeforeAttempt.forEach((updatedPosition, eventId) => positionUpdates.set(eventId, updatedPosition));
+
+      const jumpPosition = currentEvent.position + moveDirection * 2;
+      if (!canJumpLongerBlocker || jumpPosition < 0 || jumpPosition >= maxSlots) return false;
+
+      const jumpBlockers = [...workingEvents.values()]
+        .filter(event => (
+          event.id !== currentEvent.id
+          && event.position === jumpPosition
+          && eventsOverlapWithoutBuffer(currentEvent, event)
+        ))
+        .sort(sortConflicts);
+
+      if (!jumpBlockers.every(blocker => moveOneSlot(blocker, moveDirection, depth + 1))) {
+        workingEvents.clear();
+        eventsBeforeAttempt.forEach((event, eventId) => workingEvents.set(eventId, event));
+        positionUpdates.clear();
+        updatesBeforeAttempt.forEach((updatedPosition, eventId) => positionUpdates.set(eventId, updatedPosition));
+        return false;
+      }
+
+      workingEvents.set(currentEvent.id, { ...currentEvent, position: jumpPosition });
+      positionUpdates.set(currentEvent.id, jumpPosition);
+      return true;
+    };
+
+    const conflicts = otherEvents
+      .filter(event => (
+        event.position === changedPosition
+        && eventsOverlapWithoutBuffer(changedAtPosition, event)
+      ))
+      .sort(sortConflicts);
+
+    for (const conflict of conflicts) {
+      if (positionUpdates.has(conflict.id)) continue;
+
+      const eventsBeforeConflict = new Map(workingEvents);
+      const updatesBeforeConflict = new Map(positionUpdates);
+      if (moveOneSlot(conflict, direction)) continue;
+
+      workingEvents.clear();
+      eventsBeforeConflict.forEach((event, eventId) => workingEvents.set(eventId, event));
+      positionUpdates.clear();
+      updatesBeforeConflict.forEach((updatedPosition, eventId) => positionUpdates.set(eventId, updatedPosition));
+
+      if (allowOppositeDirection && moveOneSlot(conflict, direction === -1 ? 1 : -1)) continue;
+
+      return null;
+    }
+
+    return positionUpdates;
+  };
+
+  const crossedSlotCount = Math.max(1, Math.abs(targetPosition - sourcePosition));
+  const changedDuration = getEventDurationInMinutes(updatedChangedEvent.startTime, updatedChangedEvent.endTime);
+  const hasLongerDirectConflict = directConflicts.some(conflict => (
+    getEventDurationInMinutes(conflict.startTime, conflict.endTime) > changedDuration
+  ));
+  const normalBypassDirection: -1 | 1 = preferredDirection === -1 ? 1 : -1;
+  const normalBypassPosition = targetPosition + normalBypassDirection;
+
+  if (
+    !preserveChangedPosition
+    &&
+    sourcePosition !== targetPosition
+    && hasLongerDirectConflict
+    && (normalBypassPosition < 0 || normalBypassPosition >= maxSlots)
+  ) {
+    const clearBoundaryBypassPosition = Array.from(
+      { length: preferredDirection === -1 ? targetPosition : maxSlots - targetPosition - 1 },
+      (_, index) => targetPosition + preferredDirection * (index + 1)
+    ).find(candidatePosition => otherEvents.every(event => (
+      event.position !== candidatePosition
+      || !eventsOverlapWithoutBuffer(updatedChangedEvent, event)
+    )));
+
+    if (clearBoundaryBypassPosition !== undefined) {
+      return finalizePositionUpdates(new Map([[changedEvent.id, clearBoundaryBypassPosition]]));
+    }
+  }
+
+  const preferredPlan = buildCascadePlan(targetPosition, preferredDirection, !hasLongerDirectConflict);
+
+  let selectedPlan = preferredPlan;
+
+  if (preserveChangedPosition) {
+    const oppositeDirection: -1 | 1 = preferredDirection === -1 ? 1 : -1;
+    const oppositePlan = buildCascadePlan(targetPosition, oppositeDirection);
+
+    if (oppositePlan && (!selectedPlan || planCost(oppositePlan) < planCost(selectedPlan))) {
+      selectedPlan = oppositePlan;
+    }
+  }
+
+  if (!preserveChangedPosition && (!preferredPlan || (hasLongerDirectConflict && preferredPlan.size > crossedSlotCount * 2))) {
+    const bypassDirection: -1 | 1 = preferredDirection === -1 ? 1 : -1;
+    let bestBypassPlan: Map<string, number> | null = null;
+    let bestBypassCost = Number.POSITIVE_INFINITY;
+
+    for (
+      let bypassPosition = targetPosition + bypassDirection;
+      bypassPosition >= 0 && bypassPosition < maxSlots;
+      bypassPosition += bypassDirection
+    ) {
+      const bypassPlan = buildCascadePlan(bypassPosition, bypassDirection);
+      if (!bypassPlan) continue;
+
+      const bypassCost = bypassPlan.size + Math.abs(bypassPosition - targetPosition);
+      if (bypassCost < bestBypassCost) {
+        bestBypassPlan = bypassPlan;
+        bestBypassCost = bypassCost;
       }
     }
-    
-    // If we couldn't find a free position, use the last slot
-    if (!positionFound) {
-      newPosition = Math.max(0, maxSlots - 1);
+
+    if (bestBypassPlan && (!preferredPlan || bestBypassCost < preferredPlan.size)) {
+      selectedPlan = bestBypassPlan;
     }
-    
-    // Only add update if position actually changes
-    if (newPosition !== conflictingEvent.position) {
-      updates.push({
-        eventId: conflictingEvent.id,
-        updates: { position: newPosition }
-      });
-      
-      // Update our temporary list for the next iteration
-      const eventIndex = eventsToCheckAgainst.findIndex(e => e.id === conflictingEvent.id);
-      if (eventIndex !== -1) {
-        eventsToCheckAgainst[eventIndex] = { ...conflictingEvent, position: newPosition };
-      } else {
-        eventsToCheckAgainst.push({ ...conflictingEvent, position: newPosition });
+  }
+
+  if (!selectedPlan) {
+    if (directConflicts.some(event => event.megaLock)) return [];
+
+    const fallbackEvents = [updatedChangedEvent, ...otherEvents];
+    const adjacentConflict = preserveChangedPosition ? [...directConflicts].sort(sortConflicts)[0] : undefined;
+    const adjacentConflictPosition = targetPosition + preferredDirection;
+    const eventsToPack = preserveChangedPosition
+      ? fallbackEvents.map(event => {
+        if (event.id === changedEvent.id) return { ...event, megaLock: true };
+        if (
+          event.id === adjacentConflict?.id
+          && adjacentConflictPosition >= 0
+          && adjacentConflictPosition < maxSlots
+        ) {
+          return { ...event, position: adjacentConflictPosition, megaLock: true };
+        }
+        return event;
+      })
+      : fallbackEvents;
+    const packedPositions = buildCollisionFreePositionMap(
+      eventsToPack,
+      maxSlots,
+      true
+    );
+
+    const fallbackUpdates = new Map<string, number>();
+    fallbackEvents.forEach(event => {
+      const packedPosition = packedPositions.get(event.id);
+      const currentPosition = event.id === changedEvent.id ? targetPosition : event.position;
+
+      if (packedPosition !== undefined && packedPosition !== currentPosition) {
+        fallbackUpdates.set(event.id, packedPosition);
       }
+    });
+    return finalizePositionUpdates(fallbackUpdates);
+  }
+
+  const sourceTimeChanged = changedEvent.startTime.getTime() !== updatedChangedEvent.startTime.getTime()
+    || changedEvent.endTime.getTime() !== updatedChangedEvent.endTime.getTime();
+
+  if (sourcePosition !== targetPosition && !sourceTimeChanged) {
+    const finalEvents = new Map<string, TimelineEvent>(
+      [updatedChangedEvent, ...otherEvents].map(event => {
+        const plannedPosition = selectedPlan.get(event.id);
+        return [event.id, plannedPosition === undefined ? event : { ...event, position: plannedPosition }];
+      })
+    );
+    const compactionDirection: -1 | 1 = targetPosition < sourcePosition ? 1 : -1;
+    const firstCompactionPosition = sourcePosition;
+
+    for (
+      let position = firstCompactionPosition;
+      position >= 0 && position < maxSlots;
+      position += compactionDirection
+    ) {
+      const candidates = [...finalEvents.values()]
+        .filter(event => (
+          event.id !== changedEvent.id
+          && !event.megaLock
+          && eventsOverlapWithoutBuffer(updatedChangedEvent, event)
+          && (compactionDirection === 1 ? event.position > position : event.position < position)
+          && Math.abs(event.position - position) <= 2
+          && [...finalEvents.values()].every(blocker => (
+            blocker.id === event.id
+            || blocker.position !== position
+            || !eventsOverlapWithoutBuffer(event, blocker)
+          ))
+        ))
+        .sort((left, right) => (
+          getEventDurationInMinutes(left.startTime, left.endTime)
+          - getEventDurationInMinutes(right.startTime, right.endTime)
+        ) || (
+          compactionDirection === 1
+            ? left.position - right.position
+            : right.position - left.position
+        ) || sortConflicts(left, right));
+
+      const eventToCompact = candidates[0];
+      if (!eventToCompact) continue;
+
+      finalEvents.set(eventToCompact.id, { ...eventToCompact, position });
+      selectedPlan.set(eventToCompact.id, position);
     }
-  });
-  
-  return updates;
+  }
+
+  if (sourceTimeChanged && !selectedPlan.has(changedEvent.id)) {
+    const finalEvents = new Map<string, TimelineEvent>(
+      [updatedChangedEvent, ...otherEvents].map(event => {
+        const plannedPosition = selectedPlan.get(event.id);
+        return [event.id, plannedPosition === undefined ? event : { ...event, position: plannedPosition }];
+      })
+    );
+    const sourceBandCandidates = [...otherEvents]
+      .filter(event => (
+        !event.megaLock
+        && event.position > sourcePosition
+        && eventsOverlapWithoutBuffer(changedEvent, event)
+      ))
+      .sort((left, right) => left.position - right.position || sortConflicts(left, right));
+
+    sourceBandCandidates.forEach(candidate => {
+      const currentEvent = finalEvents.get(candidate.id) ?? candidate;
+
+      for (let position = sourcePosition; position < currentEvent.position; position += 1) {
+        const positionIsClear = [...finalEvents.values()].every(event => (
+          event.id === currentEvent.id
+          || event.position !== position
+          || !eventsOverlapWithoutBuffer(currentEvent, event)
+        ));
+
+        if (!positionIsClear) continue;
+
+        finalEvents.set(currentEvent.id, { ...currentEvent, position });
+        selectedPlan.set(currentEvent.id, position);
+        break;
+      }
+    });
+  }
+
+  return finalizePositionUpdates(selectedPlan);
 };
 
 export const repackEventPositions = (
