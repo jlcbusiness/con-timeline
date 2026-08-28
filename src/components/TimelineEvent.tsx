@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Edit3, GripVertical, ChevronLeft, ChevronRight, MapPin, Lock, ChevronRight as ChevronRightIcon } from 'lucide-react';
+import { Edit3, GripVertical, ChevronLeft, ChevronRight, Lock, ChevronRight as ChevronRightIcon } from 'lucide-react';
 import type { TimelineEvent as TimelineEventType } from '../types/timeline';
 import { getTimePosition, getEventWidth, getEventBufferWidth, getEventColors } from '../utils/timelineUtils';
 
@@ -10,6 +10,8 @@ type SubmenuPlacement = { opensLeft: boolean; width: number };
 
 const openContextMenuClosers = new Set<() => void>();
 let contextMenuBlockerInstalled = false;
+const openTooltipClosers = new Set<() => void>();
+let tooltipBlockerInstalled = false;
 
 const closeAllContextMenus = () => {
   openContextMenuClosers.forEach(close => close());
@@ -47,6 +49,32 @@ const installContextMenuBlocker = () => {
   document.addEventListener('pointerdown', handlePointerDownCapture, true);
   document.addEventListener('contextmenu', handleContextMenuCapture, true);
   contextMenuBlockerInstalled = true;
+};
+
+const closeAllTooltips = () => {
+  openTooltipClosers.forEach(close => close());
+};
+
+const isNodeInsideAnyTooltip = (target: EventTarget | null) => {
+  if (!(target instanceof Node)) return false;
+
+  return Array.from(document.querySelectorAll('[data-event-tooltip="true"]')).some(element =>
+    element.contains(target)
+  );
+};
+
+const installTooltipBlocker = () => {
+  if (tooltipBlockerInstalled) return;
+
+  const handlePointerDownCapture = (event: PointerEvent) => {
+    if (openTooltipClosers.size === 0) return;
+    if (isNodeInsideAnyTooltip(event.target)) return;
+
+    closeAllTooltips();
+  };
+
+  document.addEventListener('pointerdown', handlePointerDownCapture, true);
+  tooltipBlockerInstalled = true;
 };
 
 interface TimelineEventProps {
@@ -91,6 +119,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
   const [isLockSubmenuOpen, setIsLockSubmenuOpen] = useState(false);
   const [lockSubmenuPlacement, setLockSubmenuPlacement] = useState<SubmenuPlacement>({ opensLeft: false, width: 160 });
   const [colorSubmenuPlacement, setColorSubmenuPlacement] = useState<SubmenuPlacement>({ opensLeft: false, width: 124 });
+  const hasDescription = Boolean(event.description?.trim());
 
   // Use the unified positioning functions
   const leftPosition = getTimePosition(event.startTime, startDate);
@@ -108,14 +137,6 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
   // Each slot is 64px high, and we add 4px margin from the top of each slot
   const topPosition = event.position * slotHeight + 4;
 
-  const formatTime = (date: Date): string => {
-    return date.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    });
-  };
-
   const colorChoices = getEventColors();
 
   const getSubmenuPlacement = (triggerElement: HTMLDivElement | null, preferredWidth: number): SubmenuPlacement => {
@@ -132,20 +153,6 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
       opensLeft,
       width: Math.min(preferredWidth, opensLeft ? spaceToLeft : spaceToRight)
     };
-  };
-
-  const getDuration = (): string => {
-    const durationMs = event.endTime.getTime() - event.startTime.getTime();
-    const hours = Math.floor(durationMs / (1000 * 60 * 60));
-    const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
-    
-    if (hours === 0) {
-      return `${minutes}m`;
-    } else if (minutes === 0) {
-      return `${hours}h`;
-    } else {
-      return `${hours}h ${minutes}m`;
-    }
   };
 
   const handleMouseDown = (e: React.MouseEvent, type: 'move' | 'resize-start' | 'resize-end') => {
@@ -167,7 +174,11 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
     onEdit(event);
   };
 
-  const updateTooltipPosition = () => {
+  const closeTooltip = React.useCallback(() => {
+    setTooltipStyle(null);
+  }, []);
+
+  const updateTooltipPosition = React.useCallback(() => {
     const hostElement = hostRef.current;
     if (!hostElement) return;
 
@@ -185,6 +196,18 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
       top: `${rect.top}px`,
       transform: 'translate(-50%, calc(-100% - 0.5rem))'
     });
+  }, []);
+
+  const openTooltip = () => {
+    if (!hasDescription) {
+      closeTooltip();
+      return;
+    }
+
+    closeAllTooltips();
+    installTooltipBlocker();
+    openTooltipClosers.add(closeTooltip);
+    updateTooltipPosition();
   };
 
   const handleContextMenu = (e: React.MouseEvent) => {
@@ -195,12 +218,11 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
     setContextMenu({ x: e.clientX, y: e.clientY });
   };
 
-  const closeContextMenu = () => {
+  const closeContextMenu = React.useCallback(() => {
     setContextMenu(null);
-    openContextMenuClosers.delete(closeContextMenu);
     setIsColorSubmenuOpen(false);
     setIsLockSubmenuOpen(false);
-  };
+  }, []);
 
   useLayoutEffect(() => {
     const menuElement = menuRef.current;
@@ -214,7 +236,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
     if (x !== contextMenu.x || y !== contextMenu.y) {
       setContextMenu({ x, y });
     }
-  }, [contextMenu]);
+  }, [contextMenu, closeContextMenu]);
 
   const setLockMode = (lockMode: LockMode) => {
     onUpdateEvent(event.id, {
@@ -317,7 +339,35 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
       document.removeEventListener('keydown', handleKeyDown);
       openContextMenuClosers.delete(closeContextMenu);
     };
-  }, [contextMenu]);
+  }, [contextMenu, closeContextMenu]);
+
+  useEffect(() => {
+    if (!tooltipStyle) return;
+
+    openTooltipClosers.add(closeTooltip);
+    installTooltipBlocker();
+
+    const handlePointerDown = (pointerEvent: PointerEvent) => {
+      if (tooltipRef.current && !tooltipRef.current.contains(pointerEvent.target as Node)) {
+        closeTooltip();
+      }
+    };
+
+    const handleKeyDown = (keyboardEvent: KeyboardEvent) => {
+      if (keyboardEvent.key === 'Escape') {
+        closeTooltip();
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+      openTooltipClosers.delete(closeTooltip);
+    };
+  }, [tooltipStyle, closeTooltip]);
 
   useEffect(() => {
     const handleScrollOrResize = () => {
@@ -335,7 +385,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
       window.removeEventListener('scroll', handleScrollOrResize, true);
       window.removeEventListener('resize', handleScrollOrResize);
     };
-  }, [tooltipStyle]);
+  }, [tooltipStyle, updateTooltipPosition]);
 
   useEffect(() => {
     return () => {
@@ -359,18 +409,19 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
       style={{
         left: `${leftPosition}px`,
         top: `${topPosition}px`,
-        ['--event-width' as any]: `${Math.max(width, 80)}px`,
+        ['--event-width']: `${Math.max(width, 80)}px`,
         width: 'var(--event-width)',
         height: `${Math.max(slotHeight - 8, 40)}px`,
         backgroundColor: event.intangible ? 'transparent' : effectiveColor,
         color: 'white'
-      }}
+      } as React.CSSProperties & { ['--event-width']: string }}
       onDoubleClick={handleDoubleClick}
       onContextMenu={handleContextMenu}
-      onMouseEnter={updateTooltipPosition}
-      onMouseMove={updateTooltipPosition}
-      onMouseLeave={() => setTooltipStyle(null)}
-      title={`${event.title}${event.location ? ` @ ${event.location}` : ''}\n${formatTime(event.startTime)} - ${formatTime(event.endTime)}\n${getDuration()}\nDouble-click to edit, drag to move, drag edges to resize`}
+      onMouseEnter={hasDescription ? openTooltip : undefined}
+      onMouseMove={hasDescription ? updateTooltipPosition : undefined}
+      onMouseLeave={hasDescription ? closeTooltip : undefined}
+      onPointerLeave={hasDescription ? closeTooltip : undefined}
+      title={undefined}
     >
       {bufferWidth > 0 && (
         <div
@@ -495,26 +546,12 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
       {tooltipStyle && createPortal(
         <div
           ref={tooltipRef}
-          className="pointer-events-none z-[9998] rounded shadow-lg bg-gray-900 text-white text-xs whitespace-nowrap"
+          data-event-tooltip="true"
+          className="pointer-events-none z-[9998] rounded shadow-lg bg-gray-900 text-white text-xs whitespace-pre-line text-center"
           style={tooltipStyle}
         >
           <div className="px-3 py-2 rounded">
-            <div className="font-medium">{event.title}</div>
-            <div className="text-gray-300">
-              {formatTime(event.startTime)} - {formatTime(event.endTime)} ({getDuration()})
-            </div>
-            {event.location && (
-              <div className="text-gray-300 flex items-center gap-1">
-                <MapPin size={10} />
-                {event.location}
-              </div>
-            )}
-            {event.description && (
-              <div className="text-gray-300 mt-1 max-w-xs">{event.description}</div>
-            )}
-            <div className="text-gray-400 text-xs mt-1">
-              Double-click to edit • Drag to move • Drag edges to resize
-            </div>
+            <div className="max-w-xs text-gray-300">{event.description}</div>
           </div>
           <div className="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
         </div>,
