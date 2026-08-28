@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { roundToNearestHalfHour, getTimePosition, cascadeEventPositions, sortEventsByStructure, findAvailablePosition, repackEventPositions, getIntangibleVisibleSegments, getLocationDisplayColor } from '../timelineUtils';
+import type { TimelineEvent } from '../../types/timeline';
+import { roundToNearestHalfHour, getTimePosition, cascadeEventPositions, sortEventsByStructure, findAvailablePosition, repackEventPositions, getIntangibleVisibleSegments, getLocationDisplayColor, eventUpdateAffectsPosition } from '../timelineUtils';
 
 describe('timelineUtils', () => {
   it('rounds to nearest half hour correctly', () => {
@@ -51,6 +52,28 @@ describe('timelineUtils', () => {
     expect(
       cascadeEventPositions([changedEvent, megaLockedEvent] as any, changedEvent as any, {})
     ).toEqual([]);
+  });
+
+  it('does not reposition an event when a modal save only changes its lock mode', () => {
+    const event: TimelineEvent = {
+      id: 'event',
+      title: 'Event',
+      startTime: new Date(2026, 8, 5, 19),
+      endTime: new Date(2026, 8, 5, 20),
+      color: '#8b5cf6',
+      position: 1,
+      bufferBeforeMinutes: 0,
+      lockTime: true,
+      megaLock: false
+    };
+
+    expect(eventUpdateAffectsPosition(event, {
+      startTime: new Date(event.startTime),
+      endTime: new Date(event.endTime),
+      bufferBeforeMinutes: 0,
+      lockTime: true,
+      megaLock: true
+    })).toBe(false);
   });
 
   it('moves an unlocked intangible conflict when a locked event becomes intangible', () => {

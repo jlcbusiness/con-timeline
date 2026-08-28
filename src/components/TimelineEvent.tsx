@@ -59,6 +59,7 @@ interface TimelineEventProps {
   onUpdateEvent: (eventId: string, updates: Partial<TimelineEventType>) => void;
   onDeleteEvent: (eventId: string) => void;
   onDragStart: (event: TimelineEventType, clientX: number, clientY: number, type: 'move' | 'resize-start' | 'resize-end') => void;
+  onDragCancel: () => void;
   isDragging?: boolean;
   isResizing?: boolean;
 }
@@ -73,6 +74,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
   onUpdateEvent,
   onDeleteEvent,
   onDragStart,
+  onDragCancel,
   isDragging = false,
   isResizing = false
 }) => {
@@ -188,6 +190,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    onDragCancel();
     closeAllContextMenus();
     setContextMenu({ x: e.clientX, y: e.clientY });
   };

@@ -213,6 +213,15 @@ export const eventsOverlap = (event1: TimelineEvent, event2: TimelineEvent): boo
   return getBufferedStartTime(event1) < event2.endTime && event1.endTime > getBufferedStartTime(event2);
 };
 
+export const eventUpdateAffectsPosition = (
+  event: TimelineEvent,
+  updates: Partial<TimelineEvent>
+): boolean => (
+  (updates.startTime !== undefined && updates.startTime.getTime() !== event.startTime.getTime())
+  || (updates.endTime !== undefined && updates.endTime.getTime() !== event.endTime.getTime())
+  || (updates.bufferBeforeMinutes !== undefined && updates.bufferBeforeMinutes !== (event.bufferBeforeMinutes ?? 0))
+);
+
 const eventsOverlapWithoutBuffer = (event1: TimelineEvent, event2: TimelineEvent): boolean => {
   return event1.startTime < event2.endTime && event1.endTime > event2.startTime;
 };

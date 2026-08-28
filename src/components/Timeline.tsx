@@ -30,7 +30,8 @@ import {
   getDayKey,
   getTimePosition,
   getEventColors,
-  getLocationDisplayColor
+  getLocationDisplayColor,
+  eventUpdateAffectsPosition
 } from '../utils/timelineUtils';
 
 const DAY_COLUMN_WIDTH_STEP = 0.25;
@@ -310,9 +311,7 @@ export const Timeline: React.FC = () => {
 
     const nextEvent = { ...existingEvent, ...updates };
     const hasExplicitPosition = typeof updates.position === 'number';
-    const affectsPosition = updates.startTime !== undefined
-      || updates.endTime !== undefined
-      || updates.bufferBeforeMinutes !== undefined;
+    const affectsPosition = eventUpdateAffectsPosition(existingEvent, updates);
     const conflictsWithMegaLock = hasExplicitPosition && events.some(event => (
       event.id !== eventId
       && event.megaLock
@@ -1277,6 +1276,7 @@ export const Timeline: React.FC = () => {
                         onUpdateEvent={handleEventUpdate}
                         onDeleteEvent={handleEventDelete}
                         onDragStart={startDrag}
+                        onDragCancel={endDrag}
                         isDragging={dragState.isDragging && dragState.originalEvent?.id === event.id}
                         isResizing={dragState.isResizing && dragState.originalEvent?.id === event.id}
                       />
