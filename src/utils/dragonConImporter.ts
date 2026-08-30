@@ -337,7 +337,8 @@ export const addDragonConEvents = (
   scheduleText: string,
   existingEvents: TimelineEvent[],
   addEvent: (event: TimelineEvent) => void,
-  updateEvent?: (eventId: string, updates: Partial<TimelineEvent>) => void
+  updateEvent?: (eventId: string, updates: Partial<TimelineEvent>) => void,
+  updateDescriptions = false
 ) => {
   const newEvents = sortEventsByStructure(parseDragonConSchedule(scheduleText));
   const workingEvents = existingEvents.map(event => ({ ...event }));
@@ -359,13 +360,14 @@ export const addDragonConEvents = (
       const importedEventUpdates = {
         title: event.title,
         location: event.location,
-        description: event.description,
+        ...(updateDescriptions ? { description: event.description } : {}),
         startTime: event.startTime,
         endTime: event.endTime,
         updatedAt: new Date().toISOString()
       } satisfies Partial<TimelineEvent>;
 
       const replacedEvent = {
+        ...existingEvent,
         ...importedEventUpdates,
         position: existingEvent.position,
         id: existingEvent.id,

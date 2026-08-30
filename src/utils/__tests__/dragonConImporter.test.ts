@@ -46,7 +46,7 @@ Speakers: Sasha Arbogast — , Bill Keel —`;
     expect(events[0].color).toBe('#6B7280');
   });
 
-  it('overwrites events that already exist by title and time', () => {
+  it('preserves descriptions by default when updating events that already exist', () => {
     const existingEvent: TimelineEvent = {
       id: 'existing-1',
       title: 'Onesie Wednesday',
@@ -78,10 +78,10 @@ Speakers: Sasha Arbogast — , Bill Keel —`;
     expect(updates[0]?.updates.lockTime).toBeUndefined();
     expect(updates[0]?.updates.intangible).toBeUndefined();
     expect(updates[0]?.updates.bufferBeforeMinutes).toBeUndefined();
-    expect(updates[0]?.updates.description).toBe('');
+    expect(updates[0]?.updates.description).toBeUndefined();
   });
 
-  it('overwrites imported source fields on duplicate matches', () => {
+  it('overwrites descriptions on duplicate matches when enabled', () => {
     const existingEvent: TimelineEvent = {
       id: 'existing-2',
       title: 'Artemis Spaceship Bridge Simulator',
@@ -101,7 +101,8 @@ Speakers: Sasha Arbogast — , Bill Keel —`;
       `Dragon Con 2026 Schedule\nThursday, Sep 3\nArtemis Spaceship Bridge Simulator\n7:00PM — 11:55PM\nLocation: Westin 12th Floor`,
       [existingEvent],
       () => undefined,
-      (eventId, update) => updates.push({ eventId, updates: update })
+      (eventId, update) => updates.push({ eventId, updates: update }),
+      true
     );
 
     expect(count).toBe(1);
@@ -112,6 +113,18 @@ Speakers: Sasha Arbogast — , Bill Keel —`;
     expect(updates[0]?.updates.intangible).toBeUndefined();
     expect(updates[0]?.updates.bufferBeforeMinutes).toBeUndefined();
     expect(updates[0]?.updates.description).toBe('');
+  });
+
+  it('keeps parsed descriptions on new events when duplicate description updates are disabled', () => {
+    const added: TimelineEvent[] = [];
+
+    addDragonConEvents(
+      `Dragon Con 2026 Schedule\nThursday, Sep 3\nArtemis Spaceship Bridge Simulator\n7:00PM — 11:55PM\nLocation: Westin 12th Floor\nSpeakers: Sasha Arbogast`,
+      [],
+      event => added.push(event)
+    );
+
+    expect(added[0]?.description).toBe('Speakers: Sasha Arbogast');
   });
 
   it('keeps non-prefix text and spacing intact when cleaning descriptions', () => {

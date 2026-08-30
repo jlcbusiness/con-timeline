@@ -24,11 +24,13 @@ export const DragonConImporter: React.FC<DragonConImporterProps> = ({
   const [scheduleText, setScheduleText] = useState('');
   const [isImporting, setIsImporting] = useState(false);
   const [isLoadingPdf, setIsLoadingPdf] = useState(false);
+  const [updateDescriptions, setUpdateDescriptions] = useState(false);
   const [importResult, setImportResult] = useState<{ kind: 'success' | 'error'; message: string } | null>(null);
 
   useEffect(() => {
     if (isOpen) {
       setImportResult(null);
+      setUpdateDescriptions(false);
     }
   }, [isOpen]);
 
@@ -53,7 +55,7 @@ export const DragonConImporter: React.FC<DragonConImporterProps> = ({
     setIsImporting(true);
     setImportResult(null);
     try {
-      const eventCount = addDragonConEvents(scheduleText, existingEvents, onAddEvent, onUpdateEvent);
+      const eventCount = addDragonConEvents(scheduleText, existingEvents, onAddEvent, onUpdateEvent, updateDescriptions);
       await persistLocations(scheduleText);
       setImportResult({ kind: 'success', message: `Successfully imported or updated ${eventCount} Dragon Con events!` });
       setScheduleText('');
@@ -133,10 +135,6 @@ export const DragonConImporter: React.FC<DragonConImporterProps> = ({
               )}
 
               <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                <h3 className="font-medium text-purple-900 mb-2 flex items-center gap-2">
-                  <Calendar size={16} />
-                  How to Import Your Dragon Con Schedule
-                </h3>
                 <ul className="text-sm text-purple-800 space-y-1">
                   <li>• Upload the Dragon Con PDF or paste the extracted text</li>
                   <li>• The importer reads event titles, times, and locations from the schedule</li>
@@ -186,16 +184,15 @@ Skies Over Dragon Con - Thursday, Sep 1 8:30 PM"
                 />
               </div>
 
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h4 className="font-medium text-gray-900 mb-2">Import Features:</h4>
-                <ul className="text-sm text-gray-600 space-y-1">
-                  <li>• Automatically categorizes events by type (Star Trek, Science, etc.)</li>
-                  <li>• Assigns consistent colors to event categories</li>
-                  <li>• Infers event durations when only a start time is present</li>
-                  <li>• Finds optimal positioning to avoid overlaps</li>
-                  <li>• Keeps real locations from the PDF and ignores duplicates</li>
-                </ul>
-              </div>
+              <label className="flex items-center gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={updateDescriptions}
+                  onChange={event => setUpdateDescriptions(event.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                />
+                <span>Update Descriptions</span>
+              </label>
 
               <div className="flex gap-3 pt-4">
                 <button
