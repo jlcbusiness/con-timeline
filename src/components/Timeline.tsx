@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
-import { CalendarDays, Minus, Palette, Plus, RotateCcw, Save } from 'lucide-react';
+import { CalendarDays, Minus, Palette, Plus, RotateCcw, Save, Search } from 'lucide-react';
 import type { CosplayEntry, TimelineEvent as TimelineEventType } from '../types/timeline';
 import { TimelineEvent } from './TimelineEvent';
 import { DayColumnsView } from './DayColumnsView';
@@ -19,6 +19,7 @@ import { PIXELS_PER_HOUR, PIXELS_PER_SLOT, DEFAULT_START_DATE, DEFAULT_END_DATE 
 import { useSupabaseSession } from '../hooks/useSupabaseSession';
 import { supabase } from '../lib/supabase';
 import { AccountMenu } from './AccountMenu';
+import { EventSearchPane } from './EventSearchPane';
 import {
   generateTimeSlots,
   formatTimeSlot,
@@ -168,6 +169,11 @@ export const Timeline: React.FC = () => {
   const [clickedCosplayDayKey, setClickedCosplayDayKey] = useState<string | null>(null);
   const [nowJumpPopup, setNowJumpPopup] = useState<NowJumpPopupState>(null);
   const [useLocationColors, setUseLocationColors] = useState(getInitialUseLocationColors);
+  const [headerSearchQuery, setHeaderSearchQuery] = useState('');
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchImmediately, setSearchImmediately] = useState(false);
+  const [highlightedEventId, setHighlightedEventId] = useState<string | null>(null);
+  const [pendingCenteredEventId, setPendingCenteredEventId] = useState<string | null>(null);
 
   const timelineContentRef = useRef<HTMLDivElement | null>(null);
   const initialScrollTimelineIdRef = useRef<string | null>(null);
@@ -223,6 +229,13 @@ export const Timeline: React.FC = () => {
   const timelineHeaderHeight = 48;
   const timelineChromeHeight = 12;
   useEffect(() => {
+    setHeaderSearchQuery('');
+    setIsSearchOpen(false);
+    setHighlightedEventId(null);
+    setPendingCenteredEventId(null);
+  }, [activeId]);
+
+  useEffect(() => {
     if (!isDayColumnView) return;
 
     setMobileDayIndex(prev => Math.min(prev, Math.max(dayColumns.length - 1, 0)));
@@ -236,6 +249,30 @@ export const Timeline: React.FC = () => {
 
     element.scrollTop = 0;
   }, [mobileDayIndex, isMobileDayPager]);
+
+  useEffect(() => {
+    if (!highlightedEventId) return;
+
+    const timeout = window.setTimeout(() => setHighlightedEventId(null), 2200);
+    return () => window.clearTimeout(timeout);
+  }, [highlightedEventId]);
+
+  useEffect(() => {
+    if (!pendingCenteredEventId || !isMobileDayPager || !timelineContentRef.current) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      const eventElement = Array.from(
+        timelineContentRef.current?.querySelectorAll<HTMLElement>('[data-event-id]') ?? []
+      ).find(element => element.dataset.eventId === pendingCenteredEventId);
+
+      if (!eventElement) return;
+
+      eventElement.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+      setPendingCenteredEventId(null);
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [isMobileDayPager, mobileDayIndex, pendingCenteredEventId, viewMode]);
 
   // Event persistence
   const {
@@ -750,6 +787,53 @@ export const Timeline: React.FC = () => {
     setIsModalOpen(true);
   };
 
+  const handleDesktopSearchSubmit = (submitEvent: React.FormEvent<HTMLFormElement>) => {
+    submitEvent.preventDefault();
+    if (!headerSearchQuery.trim()) return;
+
+    setSearchImmediately(true);
+    setIsSearchOpen(true);
+  };
+
+  const handleMobileSearchOpen = () => {
+    setHeaderSearchQuery('');
+    setSearchImmediately(false);
+    setIsSearchOpen(true);
+  };
+
+  const handleSearchResultSelect = (event: TimelineEventType) => {
+    setIsSearchOpen(false);
+    setHighlightedEventId(event.id);
+
+    if (viewMode === 'timeline') {
+      const viewport = timelineContentRef.current;
+      if (!viewport) return;
+
+      const eventPosition = getTimePosition(event.startTime, startDate);
+      const maxScroll = Math.max(0, totalTimelineWidth - viewport.clientWidth);
+      const targetPosition = isMobileViewport
+        ? eventPosition - PIXELS_PER_HOUR / 2
+        : eventPosition - viewport.clientWidth / 2;
+      const centeredPosition = Math.max(0, Math.min(targetPosition, maxScroll));
+      viewport.scrollTo({ left: centeredPosition, behavior: 'smooth' });
+      setScrollPosition(centeredPosition);
+      return;
+    }
+
+    if (isMobileViewport) {
+      if (viewMode === 'priority-columns' && normalizeColor(event.color) !== normalizeColor(selectedColor)) {
+        setViewMode('daily-columns');
+      }
+
+      const targetIndex = dayColumns.findIndex(day => isSameDay(day, event.startTime));
+      if (targetIndex >= 0) setMobileDayIndex(targetIndex);
+      setPendingCenteredEventId(event.id);
+      return;
+    }
+
+    handleEventEdit(event);
+  };
+
   const handleEventCopy = (event: TimelineEventType) => {
     const startTime = new Date(event.startTime);
     const endTime = new Date(event.endTime);
@@ -1087,6 +1171,20 @@ export const Timeline: React.FC = () => {
           </div>
 
           <div className="flex items-center justify-end gap-1">
+            <form onSubmit={handleDesktopSearchSubmit} className="relative w-36 lg:w-44 xl:w-56">
+              <label>
+                <span className="sr-only">Search events</span>
+                <Search size={15} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="search"
+                  value={headerSearchQuery}
+                  onChange={event => setHeaderSearchQuery(event.target.value)}
+                  placeholder="Search events"
+                  className="h-9 w-full rounded-md border border-gray-300 bg-white pl-8 pr-2 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                />
+              </label>
+            </form>
+
             <TimelineSelector
               timelines={timelines}
               activeId={activeId}
@@ -1151,7 +1249,7 @@ export const Timeline: React.FC = () => {
       </div>
 
       <div className="border-b bg-white px-3 py-3 md:hidden">
-        <div className="flex w-full flex-wrap items-center justify-center gap-1 overflow-visible">
+        <div className="flex w-full items-center gap-1 overflow-visible">
           <TimelineSelector
             timelines={timelines}
             activeId={activeId}
@@ -1169,18 +1267,8 @@ export const Timeline: React.FC = () => {
               setManageMode('manage');
               setIsManageOpen(true);
             }}
+            fillAvailableWidth
           />
-
-          <button
-            type="button"
-            onClick={handleToggleViewMode}
-            className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white p-2 text-sm font-medium text-gray-800 hover:bg-gray-50"
-            title={viewMode === 'timeline' ? 'Switch to priority view' : viewMode === 'priority-columns' ? 'Switch to daily view' : 'Return to timeline view'}
-          >
-            <CalendarDays size={16} className={viewMode === 'timeline' ? 'text-blue-600' : viewMode === 'priority-columns' ? 'text-amber-500' : 'text-violet-600'} />
-          </button>
-
-          {spanViewControls}
 
           <EventManagementMenu
             onExport={exportEvents}
@@ -1189,6 +1277,25 @@ export const Timeline: React.FC = () => {
             onDragonCon={() => setIsDragonConImporterOpen(true)}
             eventCount={events.length}
           />
+
+          <button
+            type="button"
+            onClick={handleToggleViewMode}
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-gray-300 bg-white text-sm font-medium text-gray-800 hover:bg-gray-50"
+            title={viewMode === 'timeline' ? 'Switch to priority view' : viewMode === 'priority-columns' ? 'Switch to daily view' : 'Return to timeline view'}
+          >
+            <CalendarDays size={16} className={viewMode === 'timeline' ? 'text-blue-600' : viewMode === 'priority-columns' ? 'text-amber-500' : 'text-violet-600'} />
+          </button>
+
+          <button
+            type="button"
+            onClick={handleMobileSearchOpen}
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+            title="Search events"
+            aria-label="Search events"
+          >
+            <Search size={16} />
+          </button>
 
           {user && (
             <div className="shrink-0 whitespace-nowrap">
@@ -1422,6 +1529,7 @@ export const Timeline: React.FC = () => {
                         onDragCancel={cancelDrag}
                         isDragging={dragState.isDragging && dragState.originalEvent?.id === event.id}
                         isResizing={dragState.isResizing && dragState.originalEvent?.id === event.id}
+                        isSearchHighlighted={highlightedEventId === event.id}
                       />
                     ))}
 
@@ -1503,11 +1611,24 @@ export const Timeline: React.FC = () => {
                 onCosplayEntryCreate={handleCosplayEntryCreate}
                 onCosplayEntryEdit={handleCosplayEntryEdit}
                 onCosplayEntryMove={moveCosplayEntry}
+                highlightedEventId={highlightedEventId}
               />
             </div>
           </div>
         )}
       </div>
+
+      {isSearchOpen && (
+        <EventSearchPane
+          events={events}
+          initialQuery={headerSearchQuery}
+          searchImmediately={searchImmediately}
+          getEventColor={getDisplayColorForEvent}
+          onQueryChange={setHeaderSearchQuery}
+          onClose={() => setIsSearchOpen(false)}
+          onSelect={handleSearchResultSelect}
+        />
+      )}
 
       {/* Event Modal */}
       <EventModal

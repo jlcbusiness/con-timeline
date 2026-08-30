@@ -90,6 +90,7 @@ interface TimelineEventProps {
   onDragCancel: () => void;
   isDragging?: boolean;
   isResizing?: boolean;
+  isSearchHighlighted?: boolean;
 }
 
 export const TimelineEvent: React.FC<TimelineEventProps> = ({
@@ -104,7 +105,8 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
   onDragStart,
   onDragCancel,
   isDragging = false,
-  isResizing = false
+  isResizing = false,
+  isSearchHighlighted = false
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
   const lockSubmenuTriggerRef = useRef<HTMLDivElement>(null);
@@ -401,6 +403,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
   return (
     <div
       ref={hostRef}
+      data-event-id={event.id}
       className={`absolute ${eventStackClass} ${timeLockedClass} rounded-md shadow-sm border border-opacity-20 border-white group select-none touch-none transition-[width,transform,box-shadow] duration-150 ${
         isDragging || isResizing 
           ? 'shadow-lg z-50 cursor-grabbing'
@@ -413,7 +416,9 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
         width: 'var(--event-width)',
         height: `${Math.max(slotHeight - 8, 40)}px`,
         backgroundColor: event.intangible ? 'transparent' : effectiveColor,
-        color: 'white'
+        color: 'white',
+        borderWidth: isSearchHighlighted ? '4px' : undefined,
+        borderColor: isSearchHighlighted ? '#fde047' : undefined
       } as React.CSSProperties & { ['--event-width']: string }}
       onDoubleClick={handleDoubleClick}
       onContextMenu={handleContextMenu}

@@ -9,9 +9,10 @@ interface Props {
   onCreate: (name: string, startDate: string, endDate: string, slotCount?: number) => Promise<unknown>;
   onEditCurrent: () => void;
   onManage: () => void;
+  fillAvailableWidth?: boolean;
 }
 
-export const TimelineSelector: React.FC<Props> = ({ timelines, activeId, setActiveId, onCreate, onEditCurrent, onManage }) => {
+export const TimelineSelector: React.FC<Props> = ({ timelines, activeId, setActiveId, onCreate, onEditCurrent, onManage, fillAvailableWidth = false }) => {
   const activeTimelines = timelines.filter(t => !t.archived);
   const activeTimeline = activeTimelines.find(t => t.id === activeId);
   const [isOpen, setIsOpen] = useState(false);
@@ -47,12 +48,12 @@ export const TimelineSelector: React.FC<Props> = ({ timelines, activeId, setActi
   };
 
   return (
-    <div className="relative">
-      <div className="flex items-center gap-2">
+    <div className={`relative ${fillAvailableWidth ? 'min-w-0 flex-1' : ''}`}>
+      <div className={`flex items-center gap-2 ${fillAvailableWidth ? 'w-full' : ''}`}>
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className="max-w-[10rem] truncate rounded border border-gray-300 bg-white px-1.5 py-1.5 text-sm font-medium text-gray-800 hover:bg-gray-50 md:max-w-none"
+          className={`${fillAvailableWidth ? 'min-w-0 flex-1' : 'max-w-[10rem]'} truncate rounded border border-gray-300 bg-white px-1.5 py-1.5 text-sm font-medium text-gray-800 hover:bg-gray-50 md:max-w-none`}
         >
           {activeTimeline?.name ?? 'Select timeline'}
         </button>
