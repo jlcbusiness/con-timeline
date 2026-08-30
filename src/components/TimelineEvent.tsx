@@ -3,8 +3,10 @@ import { createPortal } from 'react-dom';
 import { Edit3, GripVertical, ChevronLeft, ChevronRight, Lock, ChevronRight as ChevronRightIcon } from 'lucide-react';
 import type { TimelineEvent as TimelineEventType } from '../types/timeline';
 import { getTimePosition, getEventWidth, getEventBufferWidth, getEventColors } from '../utils/timelineUtils';
+import { EVENT_BUFFER_OPTIONS_MINUTES } from '../config/timeline';
 
 const normalizeColor = (color: string) => color.trim().toLowerCase();
+const formatBuffer = (minutes: number) => minutes === 0 ? 'None' : minutes === 30 ? '30 min' : minutes === 60 ? '1 hr' : '2 hrs';
 type LockMode = 'off' | 'time' | 'mega';
 type SubmenuPlacement = { opensLeft: boolean; width: number };
 
@@ -116,6 +118,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
   const lockSubmenuTriggerRef = useRef<HTMLDivElement>(null);
   const colorSubmenuTriggerRef = useRef<HTMLDivElement>(null);
   const fandomSubmenuTriggerRef = useRef<HTMLDivElement>(null);
+  const bufferSubmenuTriggerRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
   const hostRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLSpanElement>(null);
@@ -126,16 +129,19 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
   const colorSubmenuCloseTimer = useRef<number | null>(null);
   const lockSubmenuCloseTimer = useRef<number | null>(null);
   const fandomSubmenuCloseTimer = useRef<number | null>(null);
+  const bufferSubmenuCloseTimer = useRef<number | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [tooltipStyle, setTooltipStyle] = useState<React.CSSProperties | null>(null);
   const [isColorSubmenuOpen, setIsColorSubmenuOpen] = useState(false);
   const [isLockSubmenuOpen, setIsLockSubmenuOpen] = useState(false);
   const [isFandomSubmenuOpen, setIsFandomSubmenuOpen] = useState(false);
+  const [isBufferSubmenuOpen, setIsBufferSubmenuOpen] = useState(false);
   const [isAddingFandom, setIsAddingFandom] = useState(false);
   const [newFandomName, setNewFandomName] = useState('');
   const [lockSubmenuPlacement, setLockSubmenuPlacement] = useState<SubmenuPlacement>({ opensLeft: false, width: 160 });
   const [colorSubmenuPlacement, setColorSubmenuPlacement] = useState<SubmenuPlacement>({ opensLeft: false, width: 124 });
   const [fandomSubmenuPlacement, setFandomSubmenuPlacement] = useState<SubmenuPlacement>({ opensLeft: false, width: 220 });
+  const [bufferSubmenuPlacement, setBufferSubmenuPlacement] = useState<SubmenuPlacement>({ opensLeft: false, width: 140 });
   const [fandomTagMaxWidth, setFandomTagMaxWidth] = useState<number | null>(null);
   const [isTitleTruncated, setIsTitleTruncated] = useState(false);
   const hasDescription = Boolean(event.description?.trim());
@@ -243,6 +249,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
     setIsColorSubmenuOpen(false);
     setIsLockSubmenuOpen(false);
     setIsFandomSubmenuOpen(false);
+    setIsBufferSubmenuOpen(false);
     setIsAddingFandom(false);
     setNewFandomName('');
   }, []);
@@ -366,6 +373,33 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
     onUpdateEvent(event.id, { fandom });
     setIsFandomSubmenuOpen(false);
     closeContextMenu();
+  };
+
+  const updateEventBuffer = (bufferBeforeMinutes: number) => {
+    onUpdateEvent(event.id, { bufferBeforeMinutes });
+    setIsBufferSubmenuOpen(false);
+    closeContextMenu();
+  };
+
+  const openBufferSubmenu = () => {
+    if (bufferSubmenuCloseTimer.current !== null) {
+      window.clearTimeout(bufferSubmenuCloseTimer.current);
+      bufferSubmenuCloseTimer.current = null;
+    }
+
+    setBufferSubmenuPlacement(getSubmenuPlacement(bufferSubmenuTriggerRef.current, 140));
+    setIsBufferSubmenuOpen(true);
+  };
+
+  const closeBufferSubmenuSoon = () => {
+    if (bufferSubmenuCloseTimer.current !== null) {
+      window.clearTimeout(bufferSubmenuCloseTimer.current);
+    }
+
+    bufferSubmenuCloseTimer.current = window.setTimeout(() => {
+      setIsBufferSubmenuOpen(false);
+      bufferSubmenuCloseTimer.current = null;
+    }, 140);
   };
 
   const handleNewFandomKeyDown = (keyboardEvent: React.KeyboardEvent<HTMLInputElement>) => {
@@ -513,6 +547,9 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
       }
       if (fandomSubmenuCloseTimer.current !== null) {
         window.clearTimeout(fandomSubmenuCloseTimer.current);
+      }
+      if (bufferSubmenuCloseTimer.current !== null) {
+        window.clearTimeout(bufferSubmenuCloseTimer.current);
       }
     };
   }, []);
@@ -915,6 +952,48 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
                 {fandomSuggestions.length === 0 && (
                   <div className="px-3 py-2 text-sm text-gray-500">No fandoms yet</div>
                 )}
+              </div>
+            )}
+          </div>
+          <div
+            ref={bufferSubmenuTriggerRef}
+            className="relative"
+            onMouseEnter={openBufferSubmenu}
+            onMouseLeave={closeBufferSubmenuSoon}
+          >
+            <button
+              type="button"
+              role="menuitem"
+              aria-haspopup="menu"
+              aria-expanded={isBufferSubmenuOpen}
+              onClick={openBufferSubmenu}
+              className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+            >
+              <span>Buffer</span>
+              <ChevronRightIcon size={14} className="text-gray-400" />
+            </button>
+
+            {isBufferSubmenuOpen && (
+              <div
+                className={`absolute top-0 z-[10000] min-w-0 overflow-hidden rounded-md border border-gray-200 bg-white py-1 shadow-xl ${bufferSubmenuPlacement.opensLeft ? 'right-full mr-1' : 'left-full ml-1'}`}
+                style={{ width: `${bufferSubmenuPlacement.width}px` }}
+                onMouseEnter={openBufferSubmenu}
+                onMouseLeave={closeBufferSubmenuSoon}
+                role="radiogroup"
+                aria-label="Event waiting buffer"
+              >
+                {EVENT_BUFFER_OPTIONS_MINUTES.map(minutes => (
+                  <button
+                    key={minutes}
+                    type="button"
+                    role="radio"
+                    aria-checked={(event.bufferBeforeMinutes ?? 0) === minutes}
+                    onClick={() => updateEventBuffer(minutes)}
+                    className={`w-full px-3 py-2 text-left text-sm ${(event.bufferBeforeMinutes ?? 0) === minutes ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
+                  >
+                    {formatBuffer(minutes)}
+                  </button>
+                ))}
               </div>
             )}
           </div>

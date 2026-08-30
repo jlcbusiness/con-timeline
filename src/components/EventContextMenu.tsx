@@ -3,9 +3,10 @@ import { createPortal } from 'react-dom';
 import { ChevronRight } from 'lucide-react';
 import type { TimelineEvent } from '../types/timeline';
 import { getEventColors } from '../utils/timelineUtils';
+import { EVENT_BUFFER_OPTIONS_MINUTES } from '../config/timeline';
 
 type LockMode = 'off' | 'time' | 'mega';
-type Submenu = 'lock' | 'fandom' | 'color' | null;
+type Submenu = 'lock' | 'fandom' | 'color' | 'buffer' | null;
 
 interface EventContextMenuProps {
   event: TimelineEvent;
@@ -21,6 +22,7 @@ interface EventContextMenuProps {
 }
 
 const normalizeColor = (color: string) => color.trim().toLowerCase();
+const formatBuffer = (minutes: number) => minutes === 0 ? 'None' : minutes === 30 ? '30 min' : minutes === 60 ? '1 hr' : '2 hrs';
 
 export const EventContextMenu: React.FC<EventContextMenuProps> = ({
   event,
@@ -240,6 +242,37 @@ export const EventContextMenu: React.FC<EventContextMenuProps> = ({
             ) : (
               <div className="px-3 py-2 text-sm text-gray-500">No fandoms yet</div>
             )}
+          </div>
+        )}
+      </div>
+
+      <div className="relative">
+        <button
+          type="button"
+          role="menuitem"
+          aria-haspopup="menu"
+          aria-expanded={openSubmenu === 'buffer'}
+          onMouseEnter={mouseEvent => openMenu('buffer', mouseEvent.currentTarget, 140)}
+          onClick={clickEvent => openMenu('buffer', clickEvent.currentTarget, 140)}
+          className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+        >
+          <span>Buffer</span>
+          <ChevronRight size={14} className="text-gray-400" />
+        </button>
+        {openSubmenu === 'buffer' && (
+          <div className={submenuClass} style={{ width: `${submenuWidth}px` }} role="radiogroup" aria-label="Event waiting buffer">
+            {EVENT_BUFFER_OPTIONS_MINUTES.map(minutes => (
+              <button
+                key={minutes}
+                type="button"
+                role="radio"
+                aria-checked={(event.bufferBeforeMinutes ?? 0) === minutes}
+                onClick={() => updateAndClose({ bufferBeforeMinutes: minutes })}
+                className={`w-full px-3 py-2 text-left text-sm ${(event.bufferBeforeMinutes ?? 0) === minutes ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
+              >
+                {formatBuffer(minutes)}
+              </button>
+            ))}
           </div>
         )}
       </div>
