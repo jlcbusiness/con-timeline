@@ -88,6 +88,7 @@ export const EventSearchPane: React.FC<EventSearchPaneProps> = ({
   const [hasSearched, setHasSearched] = useState(searchImmediately && Boolean(initialQuery.trim()));
   const [sortField, setSortField] = useState<EventSortField>('title');
   const [sortDirection, setSortDirection] = useState<SortDirection>('ascending');
+  const [hidePast, setHidePast] = useState(false);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -118,7 +119,8 @@ export const EventSearchPane: React.FC<EventSearchPaneProps> = ({
     ? searchEvents(events, submittedQuery, {
         fields: submittedFields,
         sortField,
-        sortDirection
+        sortDirection,
+        hidePast
       })
     : [];
 
@@ -228,7 +230,22 @@ export const EventSearchPane: React.FC<EventSearchPaneProps> = ({
                 })}
               </fieldset>
 
-              <div className="flex shrink-0 items-center gap-1" aria-label="Sort controls">
+              <div className="flex shrink-0 items-center gap-1" aria-label="Search result controls">
+                <button
+                  type="button"
+                  onClick={() => setHidePast(current => !current)}
+                  aria-pressed={hidePast}
+                  className={hidePast
+                    ? 'inline-flex h-9 w-9 items-center justify-center rounded-md border border-blue-600 bg-blue-600 text-white transition-colors hover:bg-blue-700'
+                    : 'inline-flex h-9 w-9 items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 transition-colors hover:bg-gray-50'}
+                  title={hidePast ? 'Showing only current and upcoming events' : 'Hide events that have ended'}
+                  aria-label={hidePast ? 'Show past events' : 'Hide past events'}
+                >
+                  <span className="inline-flex items-center" aria-hidden="true">
+                    <span className="translate-y-[0.5px] text-[13px] font-black leading-none">!</span>
+                    <Hourglass size={15} className="-ml-0.5" />
+                  </span>
+                </button>
                 <button
                   type="button"
                   onClick={handleSortFieldCycle}

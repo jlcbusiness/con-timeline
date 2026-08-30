@@ -8,6 +8,7 @@ export interface EventSearchOptions {
   fields: SearchField[];
   sortField: EventSortField;
   sortDirection: SortDirection;
+  hidePast?: boolean;
 }
 
 const compareText = (left: string, right: string) =>
@@ -46,10 +47,15 @@ export const searchEvents = (
   const normalizedQuery = query.trim().toLocaleLowerCase();
   if (!normalizedQuery || options.fields.length === 0) return [];
 
-  const matches = events.filter(event => options.fields.some(field => {
-    const value = event[field] ?? '';
-    return value.toLocaleLowerCase().includes(normalizedQuery);
-  }));
+  const currentTime = Date.now();
+  const matches = events.filter(event => {
+    if (options.hidePast && event.endTime.getTime() < currentTime) return false;
+
+    return options.fields.some(field => {
+      const value = event[field] ?? '';
+      return value.toLocaleLowerCase().includes(normalizedQuery);
+    });
+  });
 
   return matches.sort((left, right) => {
     const primaryComparison = compareByField(left, right, options.sortField);

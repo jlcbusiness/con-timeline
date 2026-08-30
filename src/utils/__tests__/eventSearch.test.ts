@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { TimelineEvent } from '../../types/timeline';
 import { searchEvents, type EventSearchOptions } from '../eventSearch';
 
@@ -19,6 +19,8 @@ const defaultOptions: EventSearchOptions = {
 };
 
 describe('searchEvents', () => {
+  afterEach(() => vi.useRealTimers());
+
   const events = [
     createEvent({ id: 'panel', title: 'Writing Panel', description: 'Meet the authors', location: 'Hilton 201' }),
     createEvent({ id: 'parade', title: 'Parade', description: 'Peachtree Street', location: 'Outside' }),
@@ -34,6 +36,19 @@ describe('searchEvents', () => {
   it('returns no results for an empty query or no fields', () => {
     expect(searchEvents(events, '  ', defaultOptions)).toEqual([]);
     expect(searchEvents(events, 'panel', { ...defaultOptions, fields: [] })).toEqual([]);
+  });
+
+  it('hides events that ended before the current time when requested', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-09-03T11:00:00'));
+    const timedEvents = [
+      createEvent({ id: 'past', title: 'Panel Past', endTime: new Date('2026-09-03T10:59:59') }),
+      createEvent({ id: 'ending-now', title: 'Panel Ending Now', endTime: new Date('2026-09-03T11:00:00') }),
+      createEvent({ id: 'future', title: 'Panel Future', endTime: new Date('2026-09-03T12:00:00') })
+    ];
+
+    expect(searchEvents(timedEvents, 'panel', { ...defaultOptions, hidePast: true }).map(event => event.id))
+      .toEqual(['ending-now', 'future']);
   });
 
   it('sorts in either direction and uses start time then title as tie-breakers', () => {
