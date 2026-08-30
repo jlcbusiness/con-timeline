@@ -299,7 +299,7 @@ export const DayColumnsView: React.FC<DayColumnsViewProps> = ({
                                 className="inline-flex min-w-0 items-center overflow-hidden whitespace-nowrap rounded-md border border-slate-300 px-1.5 py-[3.25px] text-[10px] font-semibold leading-normal text-slate-700"
                                 title={event.fandom}
                               >
-                                <span className="min-w-0 translate-y-px truncate">{event.fandom}</span>
+                                <span className="min-w-0 truncate">{event.fandom}</span>
                               </span>
                             )}
                             <span className="ml-auto shrink-0 rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-600">

@@ -287,7 +287,7 @@ export const EventSearchPane: React.FC<EventSearchPaneProps> = ({
                       </div>
                     )}
                     {(event.description?.trim() || event.fandom?.trim()) && (
-                      <div className="mt-2 flex min-w-0 items-end gap-2 text-xs leading-5 text-gray-500">
+                      <div className="-mr-1 mt-2 flex min-w-0 items-end gap-2 text-xs leading-5 text-gray-500">
                         {event.description?.trim() && (
                           <span className="min-w-0 flex-1 line-clamp-2">{event.description}</span>
                         )}
