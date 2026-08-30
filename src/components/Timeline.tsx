@@ -1626,6 +1626,18 @@ export const Timeline: React.FC = () => {
           onQueryChange={setHeaderSearchQuery}
           onClose={() => setIsSearchOpen(false)}
           onSelect={handleSearchResultSelect}
+          onEventEdit={event => {
+            setIsSearchOpen(false);
+            handleEventEdit(event);
+          }}
+          onEventCopy={event => {
+            setIsSearchOpen(false);
+            handleEventCopy(event);
+          }}
+          onEventUpdate={handleEventUpdate}
+          onEventDelete={handleEventDelete}
+          fandomSuggestions={suggestedFandoms}
+          onAddFandom={addFandom}
         />
       )}
 

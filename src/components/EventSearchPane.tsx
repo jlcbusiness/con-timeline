@@ -7,6 +7,7 @@ import {
   type SearchField,
   type SortDirection
 } from '../utils/eventSearch';
+import { EventContextMenu } from './EventContextMenu';
 
 interface EventSearchPaneProps {
   events: TimelineEvent[];
@@ -16,6 +17,12 @@ interface EventSearchPaneProps {
   onQueryChange: (query: string) => void;
   onClose: () => void;
   onSelect: (event: TimelineEvent) => void;
+  onEventEdit: (event: TimelineEvent) => void;
+  onEventCopy: (event: TimelineEvent) => void;
+  onEventUpdate: (eventId: string, updates: Partial<TimelineEvent>) => void;
+  onEventDelete: (eventId: string) => void;
+  fandomSuggestions: string[];
+  onAddFandom: (name: string) => { name: string };
 }
 
 const SEARCH_FIELDS: { field: SearchField; label: string }[] = [
@@ -100,9 +107,18 @@ export const EventSearchPane: React.FC<EventSearchPaneProps> = ({
   getEventColor,
   onQueryChange,
   onClose,
-  onSelect
+  onSelect,
+  onEventEdit,
+  onEventCopy,
+  onEventUpdate,
+  onEventDelete,
+  fandomSuggestions,
+  onAddFandom
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
+  const longPressTimerRef = useRef<number | null>(null);
+  const longPressStartRef = useRef<{ pointerId: number; x: number; y: number } | null>(null);
+  const suppressResultClickRef = useRef(false);
   const [query, setQuery] = useState(initialQuery);
   const [selectedFields, setSelectedFields] = useState<SearchField[]>(['title', 'description', 'location', 'fandom']);
   const [submittedQuery, setSubmittedQuery] = useState(searchImmediately ? initialQuery.trim() : '');
@@ -111,6 +127,30 @@ export const EventSearchPane: React.FC<EventSearchPaneProps> = ({
   const [sortField, setSortField] = useState<EventSortField>('title');
   const [sortDirection, setSortDirection] = useState<SortDirection>('ascending');
   const [hidePast, setHidePast] = useState(false);
+  const [eventContextMenu, setEventContextMenu] = useState<{ event: TimelineEvent; x: number; y: number } | null>(null);
+
+  const clearLongPress = () => {
+    if (longPressTimerRef.current !== null) window.clearTimeout(longPressTimerRef.current);
+    longPressTimerRef.current = null;
+    longPressStartRef.current = null;
+  };
+
+  const handleResultPointerDown = (pointerEvent: React.PointerEvent<HTMLButtonElement>, event: TimelineEvent) => {
+    if (pointerEvent.pointerType !== 'touch') return;
+    clearLongPress();
+    longPressStartRef.current = { pointerId: pointerEvent.pointerId, x: pointerEvent.clientX, y: pointerEvent.clientY };
+    longPressTimerRef.current = window.setTimeout(() => {
+      suppressResultClickRef.current = true;
+      setEventContextMenu({ event, x: pointerEvent.clientX, y: pointerEvent.clientY });
+      clearLongPress();
+    }, 500);
+  };
+
+  const handleResultPointerMove = (pointerEvent: React.PointerEvent<HTMLButtonElement>) => {
+    const start = longPressStartRef.current;
+    if (!start || start.pointerId !== pointerEvent.pointerId) return;
+    if (Math.hypot(pointerEvent.clientX - start.x, pointerEvent.clientY - start.y) > 8) clearLongPress();
+  };
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -130,12 +170,20 @@ export const EventSearchPane: React.FC<EventSearchPaneProps> = ({
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && eventContextMenu) {
+        event.preventDefault();
+        event.stopPropagation();
+        setEventContextMenu(null);
+        return;
+      }
       if (event.key === 'Escape') onClose();
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, [eventContextMenu, onClose]);
+
+  useEffect(() => () => clearLongPress(), []);
 
   const results = hasSearched
     ? searchEvents(events, submittedQuery, {
@@ -310,7 +358,26 @@ export const EventSearchPane: React.FC<EventSearchPaneProps> = ({
                   <button
                     key={event.id}
                     type="button"
-                    onClick={() => onSelect(event)}
+                    data-search-result-event-id={event.id}
+                    onClick={clickEvent => {
+                      if (suppressResultClickRef.current) {
+                        clickEvent.preventDefault();
+                        clickEvent.stopPropagation();
+                        suppressResultClickRef.current = false;
+                        return;
+                      }
+                      onSelect(event);
+                    }}
+                    onPointerDown={pointerEvent => handleResultPointerDown(pointerEvent, event)}
+                    onPointerMove={handleResultPointerMove}
+                    onPointerUp={clearLongPress}
+                    onPointerCancel={clearLongPress}
+                    onContextMenu={contextMenuEvent => {
+                      contextMenuEvent.preventDefault();
+                      contextMenuEvent.stopPropagation();
+                      clearLongPress();
+                      setEventContextMenu({ event, x: contextMenuEvent.clientX, y: contextMenuEvent.clientY });
+                    }}
                     className="relative w-full overflow-hidden rounded-md border border-gray-200 bg-white py-3 pl-5 pr-4 text-left shadow-sm hover:border-blue-300 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-300"
                   >
                     <span
@@ -360,6 +427,26 @@ export const EventSearchPane: React.FC<EventSearchPaneProps> = ({
           )}
         </div>
       </section>
+      {eventContextMenu && (
+        <EventContextMenu
+          event={eventContextMenu.event}
+          x={eventContextMenu.x}
+          y={eventContextMenu.y}
+          fandomSuggestions={fandomSuggestions}
+          onAddFandom={onAddFandom}
+          onClose={() => setEventContextMenu(null)}
+          onEdit={event => {
+            setEventContextMenu(null);
+            onEventEdit(event);
+          }}
+          onCopy={event => {
+            setEventContextMenu(null);
+            onEventCopy(event);
+          }}
+          onUpdateEvent={onEventUpdate}
+          onDeleteEvent={onEventDelete}
+        />
+      )}
     </div>
   );
 };
