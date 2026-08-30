@@ -881,10 +881,7 @@ export const Timeline: React.FC = () => {
   const handleEventDelete = (eventId: string) => {
     const remainingEvents = events.filter(event => event.id !== eventId);
     const requiredSlotCount = getRequiredStackSlotCount(remainingEvents, configuredSlotCount);
-    const needsCompaction = remainingEvents.some(event => event.position >= requiredSlotCount);
-    const repackUpdates = needsCompaction
-      ? repackAllEventPositions(remainingEvents, requiredSlotCount)
-      : [];
+    const repackUpdates = repackAllEventPositions(remainingEvents, requiredSlotCount);
 
     if (repackUpdates.length > 0) {
       batchUpdateEvents(repackUpdates);
