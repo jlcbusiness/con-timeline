@@ -154,6 +154,9 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
   const resizeWingWidth = 12;
   const resizeWingOffset = resizeWingWidth / 2;
   const effectiveColor = displayColor ?? event.color;
+  const isYellowTangible = !event.intangible && normalizeColor(effectiveColor) === '#ffc800';
+  const renderedColor = isYellowTangible ? '#ffe53b' : effectiveColor;
+  const tangibleTextColor = isYellowTangible ? '#925d01' : 'white';
   const eventStackClass = event.intangible ? 'z-[5]' : bufferWidth > 0 ? 'z-30' : 'z-10';
   const timeLockedClass = event.lockTime ? 'ring-2 ring-white/40 ring-inset' : '';
   const intangibleBodyClass = event.intangible ? 'opacity-[0.35] saturate-75' : '';
@@ -569,8 +572,8 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
         ['--event-width']: `${Math.max(width, 80)}px`,
         width: 'var(--event-width)',
         height: `${Math.max(slotHeight - 8, 40)}px`,
-        backgroundColor: event.intangible ? 'transparent' : effectiveColor,
-        color: 'white',
+        backgroundColor: event.intangible ? 'transparent' : renderedColor,
+        color: event.intangible ? 'white' : tangibleTextColor,
         borderWidth: isSearchHighlighted ? '4px' : undefined,
         borderColor: isSearchHighlighted ? '#fde047' : undefined
       } as React.CSSProperties & { ['--event-width']: string }}
@@ -588,7 +591,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
           style={{
             left: `${-bufferWidth}px`,
             width: `${bufferWidth}px`,
-            backgroundColor: effectiveColor,
+            backgroundColor: renderedColor,
             opacity: 0.18,
             borderLeft: '1px solid rgba(255, 255, 255, 0.35)',
             borderTopLeftRadius: '0.375rem',
@@ -607,7 +610,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
           style={{
             left: `${-resizeWingOffset}px`,
             width: `${resizeWingWidth}px`,
-            backgroundColor: effectiveColor
+            backgroundColor: renderedColor
           }}
         />
 
@@ -668,7 +671,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
           style={{
             right: `${-resizeWingOffset}px`,
             width: `${resizeWingWidth}px`,
-            backgroundColor: effectiveColor
+            backgroundColor: renderedColor
           }}
         />
 
@@ -761,9 +764,9 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
               <span
                 ref={fandomTagRef}
                 data-event-fandom-tag="true"
-                className="min-w-0 max-w-full truncate rounded-md border border-white/70 px-1.5 py-0.5 text-[11px] font-medium leading-snug text-white shadow-sm"
+                className="min-w-0 max-w-full truncate rounded-md border border-white/70 px-1.5 py-0.5 text-[11px] font-medium leading-snug shadow-sm"
                 title={event.fandom}
-                style={{ backgroundColor: effectiveColor, maxWidth: fandomTagMaxWidth === null ? undefined : `${fandomTagMaxWidth}px` }}
+                style={{ backgroundColor: renderedColor, color: tangibleTextColor, maxWidth: fandomTagMaxWidth === null ? undefined : `${fandomTagMaxWidth}px` }}
               >
                 {event.fandom}
               </span>
@@ -773,7 +776,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
             <div
               ref={lockBadgeRef}
               className={`shrink-0 rounded-full px-[1mm] py-[1mm] ${event.megaLock ? 'border border-black/80 bg-white text-black' : ''}`}
-              style={event.lockTime && !event.megaLock ? { backgroundColor: effectiveColor } : undefined}
+              style={event.lockTime && !event.megaLock ? { backgroundColor: renderedColor } : undefined}
             >
               <Lock size={10} className={event.megaLock ? 'text-black' : 'text-white opacity-90'} />
             </div>
