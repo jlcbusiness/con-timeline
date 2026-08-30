@@ -516,6 +516,46 @@ describe('timelineUtils', () => {
       .toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
   });
 
+  it('keeps multiple ULTRA entries pinned during full repacking', () => {
+    const createEvent = (id: string, position: number, megaLock = false): TimelineEvent => ({
+      id,
+      title: id,
+      startTime: new Date(2026, 8, 5, 14),
+      endTime: new Date(2026, 8, 5, 15),
+      color: '#3b82f6',
+      position,
+      lockTime: megaLock,
+      megaLock
+    });
+    const events = [
+      createEvent('unlocked-a', 4),
+      createEvent('unlocked-b', 6),
+      createEvent('ultra-a', 8, true),
+      createEvent('ultra-b', 9, true)
+    ];
+
+    const updates = repackAllEventPositions(events, 10);
+    const positions = Object.fromEntries(updates.map(update => [update.eventId, update.updates.position]));
+
+    expect(positions['ultra-a']).toBeUndefined();
+    expect(positions['ultra-b']).toBeUndefined();
+    expect(positions['unlocked-a']).toBe(0);
+    expect(positions['unlocked-b']).toBe(1);
+  });
+
+  it('does not move a fully covered intangible ULTRA entry', () => {
+    const tangible: TimelineEvent = {
+      id: 'tangible', title: 'Tangible', startTime: new Date(2026, 8, 5, 14), endTime: new Date(2026, 8, 5, 16), color: '#3b82f6', position: 7
+    };
+    const ultraIntangible: TimelineEvent = {
+      id: 'ultra-intangible', title: 'ULTRA Intangible', startTime: new Date(2026, 8, 5, 14), endTime: new Date(2026, 8, 5, 16), color: '#8b5cf6', position: 7, intangible: true, lockTime: true, megaLock: true
+    };
+
+    expect(repackAllEventPositions([tangible, ultraIntangible], 10)).toEqual([
+      { eventId: 'tangible', updates: { position: 0 } }
+    ]);
+  });
+
   it('does not cascade Mega-Locked events into another slot', () => {
     const changedEvent = { id: 'changed', startTime: new Date(2025, 7, 27, 10), endTime: new Date(2025, 7, 27, 11), position: 0 };
     const megaLockedEvent = { id: 'mega-locked', megaLock: true, startTime: new Date(2025, 7, 27, 10), endTime: new Date(2025, 7, 27, 11), position: 0 };

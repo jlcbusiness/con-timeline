@@ -109,9 +109,9 @@ export const getRenderedSlotCount = (events: TimelineEvent[], minimumSlotCount =
 );
 
 const packEventsByStructure = (events: TimelineEvent[], maxSlots = 11): TimelineEvent[] => {
-  const packedEvents: TimelineEvent[] = [];
+  const packedEvents = events.filter(event => event.megaLock).map(event => ({ ...event }));
 
-  sortEventsForPackingGroup(events).forEach(event => {
+  sortEventsForPackingGroup(events.filter(event => !event.megaLock)).forEach(event => {
     const position = findAvailablePosition(packedEvents, event.startTime, event.endTime, event, maxSlots);
     packedEvents.push({ ...event, position });
   });
@@ -142,7 +142,9 @@ const adjustPackedIntangibleVisibility = (
   const positions = new Map(resolvedEvents.map(event => [event.id, event.position] as const));
 
   resolvedEvents.filter(event => (
-    isIntangibleEvent(event) && (!candidateEventIds || candidateEventIds.has(event.id))
+    isIntangibleEvent(event)
+    && !event.megaLock
+    && (!candidateEventIds || candidateEventIds.has(event.id))
   )).forEach(event => {
     if (getIntangibleVisibleSegments(event, resolvedEvents).length > 0) return;
 
