@@ -192,7 +192,7 @@ export const EventSearchPane: React.FC<EventSearchPaneProps> = ({
             </div>
 
             <div className="mt-3 flex items-center justify-between gap-2">
-              <fieldset className="flex min-w-0 items-center gap-2 md:gap-x-3">
+              <fieldset className="grid min-w-0 grid-cols-2 items-center gap-x-2 gap-y-[2px] min-[440px]:flex min-[440px]:gap-x-3 min-[440px]:gap-y-0">
                 <legend className="sr-only">Search fields</legend>
                 {SEARCH_FIELDS.map(({ field, label }) => {
                   const checked = selectedFields.includes(field);
@@ -209,8 +209,8 @@ export const EventSearchPane: React.FC<EventSearchPaneProps> = ({
                       />
                       {field === 'description' ? (
                         <>
-                          <span className="md:hidden">Descript</span>
-                          <span className="hidden md:inline">{label}</span>
+                          <span className="min-[360px]:hidden min-[440px]:inline min-[480px]:hidden">Descript</span>
+                          <span className="hidden min-[360px]:inline min-[440px]:hidden min-[480px]:inline">{label}</span>
                         </>
                       ) : label}
                     </label>
