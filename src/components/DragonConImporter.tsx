@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Upload, Calendar, Sparkles, X } from 'lucide-react';
+import { Upload, Sparkles, X } from 'lucide-react';
 import type { TimelineEvent } from '../types/timeline';
 import { addDragonConEvents, parseDragonConSchedule } from '../utils/dragonConImporter';
 import { extractDragonConScheduleTextFromPdf } from '../utils/dragonConPdf';
