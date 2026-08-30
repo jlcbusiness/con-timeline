@@ -34,7 +34,9 @@ import {
   getTimePosition,
   getEventColors,
   getLocationDisplayColor,
+  getBufferedStartTime,
   eventUpdateAffectsPosition,
+  eventUpdateAttemptsMegaLockedMovement,
   getRequiredStackSlotCount,
   getRenderedSlotCount,
   repackAllEventPositions
@@ -393,11 +395,10 @@ export const Timeline: React.FC = () => {
     const requiredSlotCount = getRequiredStackSlotCount(nextEvents, configuredSlotCount);
     const hasExplicitPosition = typeof updates.position === 'number';
     const affectsPosition = eventUpdateAffectsPosition(existingEvent, updates);
+    const changesBuffer = updates.bufferBeforeMinutes !== undefined
+      && updates.bufferBeforeMinutes !== (existingEvent.bufferBeforeMinutes ?? 0);
     const isResize = (updates.startTime !== undefined) !== (updates.endTime !== undefined);
-    const attemptsMegaLockedMovement = existingEvent.megaLock && (
-      affectsPosition
-      || (hasExplicitPosition && updates.position !== existingEvent.position)
-    );
+    const attemptsMegaLockedMovement = eventUpdateAttemptsMegaLockedMovement(existingEvent, updates);
     const conflictsWithMegaLock = hasExplicitPosition && events.some(event => (
       event.id !== eventId
       && event.megaLock
@@ -459,6 +460,23 @@ export const Timeline: React.FC = () => {
       batchUpdateEvents([
         { eventId, updates: { ...updates, position: positionForEditedEvent } },
         ...repackUpdates.filter(update => update.eventId !== eventId)
+      ]);
+    } else if (existingEvent.megaLock && changesBuffer) {
+      const bufferedEventForCascade = {
+        ...nextEvent,
+        startTime: getBufferedStartTime(nextEvent)
+      };
+      const cascadeUpdates = cascadeEventPositions(
+        events,
+        bufferedEventForCascade,
+        { position: existingEvent.position },
+        requiredSlotCount,
+        true
+      );
+
+      batchUpdateEvents([
+        { eventId, updates },
+        ...cascadeUpdates.filter(update => update.eventId !== eventId)
       ]);
     } else if (hasExplicitPosition) {
       const cascadeUpdates = cascadeEventPositions(events, existingEvent, updates, requiredSlotCount, true);

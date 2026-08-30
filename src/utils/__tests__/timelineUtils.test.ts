@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { TimelineEvent } from '../../types/timeline';
-import { roundToNearestHalfHour, getTimePosition, cascadeEventPositions, sortEventsByStructure, findAvailablePosition, repackEventPositions, getIntangibleVisibleSegments, getLocationDisplayColor, eventUpdateAffectsPosition, getRequiredStackSlotCount, getRenderedSlotCount, repackAllEventPositions } from '../timelineUtils';
+import { roundToNearestHalfHour, getTimePosition, cascadeEventPositions, sortEventsByStructure, findAvailablePosition, repackEventPositions, getIntangibleVisibleSegments, getLocationDisplayColor, eventUpdateAffectsPosition, eventUpdateAttemptsMegaLockedMovement, getRequiredStackSlotCount, getRenderedSlotCount, repackAllEventPositions } from '../timelineUtils';
 
 describe('timelineUtils', () => {
   it('rounds to nearest half hour correctly', () => {
@@ -586,6 +586,24 @@ describe('timelineUtils', () => {
       lockTime: true,
       megaLock: true
     })).toBe(false);
+  });
+
+  it('allows buffer updates on an ULTRA lock without allowing movement', () => {
+    const event: TimelineEvent = {
+      id: 'ultra-event',
+      title: 'ULTRA Event',
+      startTime: new Date(2026, 8, 5, 19),
+      endTime: new Date(2026, 8, 5, 20),
+      color: '#8b5cf6',
+      position: 1,
+      bufferBeforeMinutes: 0,
+      lockTime: true,
+      megaLock: true
+    };
+
+    expect(eventUpdateAttemptsMegaLockedMovement(event, { bufferBeforeMinutes: 30 })).toBe(false);
+    expect(eventUpdateAttemptsMegaLockedMovement(event, { position: 2 })).toBe(true);
+    expect(eventUpdateAttemptsMegaLockedMovement(event, { startTime: new Date(2026, 8, 5, 18, 30) })).toBe(true);
   });
 
   it('moves an unlocked intangible conflict when a locked event becomes intangible', () => {

@@ -356,6 +356,15 @@ export const eventUpdateAffectsPosition = (
   || (updates.bufferBeforeMinutes !== undefined && updates.bufferBeforeMinutes !== (event.bufferBeforeMinutes ?? 0))
 );
 
+export const eventUpdateAttemptsMegaLockedMovement = (
+  event: TimelineEvent,
+  updates: Partial<TimelineEvent>
+): boolean => event.megaLock === true && (
+  (updates.startTime !== undefined && updates.startTime.getTime() !== event.startTime.getTime())
+  || (updates.endTime !== undefined && updates.endTime.getTime() !== event.endTime.getTime())
+  || (updates.position !== undefined && updates.position !== event.position)
+);
+
 const eventsOverlapWithoutBuffer = (event1: TimelineEvent, event2: TimelineEvent): boolean => {
   return event1.startTime < event2.endTime && event1.endTime > event2.startTime;
 };
