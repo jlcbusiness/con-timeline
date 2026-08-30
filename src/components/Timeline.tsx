@@ -20,6 +20,7 @@ import { useSupabaseSession } from '../hooks/useSupabaseSession';
 import { supabase } from '../lib/supabase';
 import { AccountMenu } from './AccountMenu';
 import { EventSearchPane } from './EventSearchPane';
+import { getLocationSuggestions } from '../utils/locationSuggestions';
 import {
   generateTimeSlots,
   formatTimeSlot,
@@ -362,43 +363,13 @@ export const Timeline: React.FC = () => {
     return `${startMonth} ${startDay} - ${endMonth} ${endDay}, ${year}`;
   };
 
-  const getLocationSuggestions = () => {
-    const usage = new Map<string, { name: string; count: number; lastUsed: number }>();
-
-    events.forEach((event, index) => {
-      const name = event.location?.trim();
-      if (!name) return;
-
-      const key = name.toLowerCase();
-      const timestamp = new Date(event.updatedAt || event.createdAt || index).getTime();
-      const existing = usage.get(key);
-
-      if (existing) {
-        existing.count += 1;
-        existing.lastUsed = Math.max(existing.lastUsed, timestamp);
-        existing.name = name;
-      } else {
-        usage.set(key, { name, count: 1, lastUsed: timestamp });
-      }
-    });
-
-    const sortedByRecentUse = [...usage.values()]
-      .sort((a, b) => b.lastUsed - a.lastUsed)
-      .map(item => item.name);
-
-    const recentLocations = sortedByRecentUse.slice(0, 3);
-    const recentKeys = new Set(recentLocations.map(name => name.toLowerCase()));
-
-    const popularLocations = [...usage.values()]
-      .filter(item => !recentKeys.has(item.name.toLowerCase()))
-      .sort((a, b) => b.count - a.count || b.lastUsed - a.lastUsed)
-      .slice(0, 3)
-      .map(item => item.name);
-
-    return { recentLocations, popularLocations };
-  };
-
-  const { recentLocations, popularLocations } = getLocationSuggestions();
+  const suggestedLocations = getLocationSuggestions(events);
+  const locationOptions = Array.from(new Map(
+    [
+      ...locations.map(item => item.name),
+      ...events.map(event => event.location?.trim()).filter((name): name is string => Boolean(name))
+    ].map(name => [name.toLocaleLowerCase(), name])
+  ).values()).sort((left, right) => left.localeCompare(right, undefined, { sensitivity: 'base' }));
 
   // Handle event updates for drag, resize, modal edits, and context-menu toggles
   const handleEventUpdate = (eventId: string, updates: Partial<TimelineEventType>) => {
@@ -1644,8 +1615,8 @@ export const Timeline: React.FC = () => {
         initialStartTime={clickedTime}
         locations={locations}
         onAddLocation={addLocation}
-        recentLocations={recentLocations}
-        popularLocations={popularLocations}
+        locationOptions={locationOptions}
+        suggestedLocations={suggestedLocations}
       />
 
       <CosplayEntryModal

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { X, Calendar, Clock, Palette, MapPin, Plus, Lock } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Calendar, Clock, Palette, MapPin, Plus, Lock, ChevronDown } from 'lucide-react';
 import type { TimelineEvent, Location } from '../types/timeline';
 import { getEventColors, roundToNearestHalfHour } from '../utils/timelineUtils';
 import { EVENT_BUFFER_OPTIONS_MINUTES } from '../config/timeline';
@@ -17,8 +17,8 @@ interface EventModalProps {
   initialStartTime?: Date;
   locations: Location[];
   onAddLocation: (name: string) => Location;
-  recentLocations: string[];
-  popularLocations: string[];
+  locationOptions: string[];
+  suggestedLocations: string[];
 }
 
 export const EventModal: React.FC<EventModalProps> = ({
@@ -31,8 +31,8 @@ export const EventModal: React.FC<EventModalProps> = ({
   initialStartTime,
   locations,
   onAddLocation,
-  recentLocations,
-  popularLocations
+  locationOptions,
+  suggestedLocations
 }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -46,7 +46,10 @@ export const EventModal: React.FC<EventModalProps> = ({
   const [lockMode, setLockMode] = useState<LockMode>('off');
   const [intangible, setIntangible] = useState(false);
   const [isCreateLocationOpen, setIsCreateLocationOpen] = useState(false);
+  const [isLocationMenuOpen, setIsLocationMenuOpen] = useState(false);
+  const [locationFilterQuery, setLocationFilterQuery] = useState('');
   const [newLocationName, setNewLocationName] = useState('');
+  const locationPickerRef = useRef<HTMLDivElement>(null);
 
   // Get colors once, outside of useEffect
   const colors = getEventColors();
@@ -71,6 +74,8 @@ export const EventModal: React.FC<EventModalProps> = ({
       setLockMode(event.megaLock ? 'mega' : event.lockTime ? 'time' : 'off');
       setIntangible(event.intangible ?? false);
       setIsCreateLocationOpen(false);
+      setIsLocationMenuOpen(false);
+      setLocationFilterQuery('');
       setNewLocationName('');
     } else if (initialEvent) {
       setTitle(initialEvent.title);
@@ -85,6 +90,8 @@ export const EventModal: React.FC<EventModalProps> = ({
       setLockMode(initialEvent.megaLock ? 'mega' : initialEvent.lockTime ? 'time' : 'off');
       setIntangible(initialEvent.intangible ?? false);
       setIsCreateLocationOpen(false);
+      setIsLocationMenuOpen(false);
+      setLocationFilterQuery('');
       setNewLocationName('');
     } else if (initialStartTime) {
       const rounded = roundToNearestHalfHour(initialStartTime);
@@ -103,9 +110,25 @@ export const EventModal: React.FC<EventModalProps> = ({
       setLockMode('off');
       setIntangible(false);
       setIsCreateLocationOpen(false);
+      setIsLocationMenuOpen(false);
+      setLocationFilterQuery('');
       setNewLocationName('');
     }
   }, [event, initialEvent, initialStartTime]);
+
+  useEffect(() => {
+    if (!isLocationMenuOpen) return;
+
+    const handlePointerDown = (pointerEvent: PointerEvent) => {
+      if (!locationPickerRef.current?.contains(pointerEvent.target as Node)) {
+        setIsLocationMenuOpen(false);
+        setLocationFilterQuery('');
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => document.removeEventListener('pointerdown', handlePointerDown);
+  }, [isLocationMenuOpen]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -200,6 +223,8 @@ export const EventModal: React.FC<EventModalProps> = ({
 
   const handleLocationSelect = (selectedLocation: string) => {
     setLocation(selectedLocation);
+    setIsLocationMenuOpen(false);
+    setLocationFilterQuery('');
   };
 
   const handleCreateLocation = () => {
@@ -217,6 +242,11 @@ export const EventModal: React.FC<EventModalProps> = ({
   };
 
   if (!isOpen) return null;
+
+  const normalizedLocationQuery = locationFilterQuery.trim().toLocaleLowerCase();
+  const filteredLocations = locationOptions.filter(name =>
+    !normalizedLocationQuery || name.toLocaleLowerCase().includes(normalizedLocationQuery)
+  );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-2 sm:p-4">
@@ -259,16 +289,73 @@ export const EventModal: React.FC<EventModalProps> = ({
             
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <input
-                  id="event-location"
-                  type="text"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
-                  placeholder="Enter or select location"
-                  list="locations-list"
-                  autoComplete="off"
-                />
+                <div ref={locationPickerRef} className="relative min-w-0 flex-1">
+                  <input
+                    id="event-location"
+                    type="text"
+                    role="combobox"
+                    aria-expanded={isLocationMenuOpen}
+                    aria-controls="event-location-options"
+                    value={location}
+                    onFocus={() => {
+                      setLocationFilterQuery('');
+                      setIsLocationMenuOpen(true);
+                    }}
+                    onChange={(e) => {
+                      setLocation(e.target.value);
+                      setLocationFilterQuery(e.target.value);
+                      setIsLocationMenuOpen(true);
+                    }}
+                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 pr-10 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter or select location"
+                    autoComplete="off"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (isLocationMenuOpen) {
+                        setIsLocationMenuOpen(false);
+                        setLocationFilterQuery('');
+                        return;
+                      }
+
+                      setLocationFilterQuery('');
+                      setIsLocationMenuOpen(true);
+                    }}
+                    className="absolute inset-y-0 right-0 inline-flex w-10 items-center justify-center text-gray-500 hover:text-gray-800"
+                    title="Show locations"
+                    aria-label="Show locations"
+                  >
+                    <ChevronDown size={17} className={`transition-transform ${isLocationMenuOpen ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {isLocationMenuOpen && (
+                    <div
+                      id="event-location-options"
+                      role="listbox"
+                      className="absolute left-0 right-0 top-full z-30 mt-1 max-h-48 overflow-y-auto rounded-md border border-gray-200 bg-white py-1 shadow-lg"
+                    >
+                      {filteredLocations.length > 0 ? filteredLocations.map(name => (
+                        <button
+                          key={name.toLocaleLowerCase()}
+                          type="button"
+                          role="option"
+                          aria-selected={location.toLocaleLowerCase() === name.toLocaleLowerCase()}
+                          onClick={() => handleLocationSelect(name)}
+                          className={`block w-full px-3 py-2 text-left text-sm ${
+                            location.toLocaleLowerCase() === name.toLocaleLowerCase()
+                              ? 'bg-blue-50 font-medium text-blue-700'
+                              : 'text-gray-700 hover:bg-gray-100'
+                          }`}
+                        >
+                          {name}
+                        </button>
+                      )) : (
+                        <div className="px-3 py-2 text-sm text-gray-500">No matching locations</div>
+                      )}
+                    </div>
+                  )}
+                </div>
                 <button
                   type="button"
                   onClick={() => {
@@ -282,57 +369,25 @@ export const EventModal: React.FC<EventModalProps> = ({
                   <Plus size={16} />
                 </button>
               </div>
-              
-              <datalist id="locations-list">
-                {locations.map((loc) => (
-                  <option key={loc.id} value={loc.name} />
-                ))}
-              </datalist>
 
-              {(recentLocations.length > 0 || popularLocations.length > 0) && (
-                <div className="space-y-2">
-                  {recentLocations.length > 0 && (
-                    <div>
-                      <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">Recent</div>
-                      <div className="flex flex-wrap gap-1">
-                        {recentLocations.map((name) => (
-                          <button
-                            key={name}
-                            type="button"
-                            onClick={() => handleLocationSelect(name)}
-                            className={`px-2 py-1 text-xs rounded-md border transition-colors ${
-                              location === name
-                                ? 'bg-blue-100 border-blue-300 text-blue-700'
-                                : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200'
-                            }`}
-                          >
-                            {name}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {popularLocations.length > 0 && (
-                    <div>
-                      <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">Popular</div>
-                      <div className="flex flex-wrap gap-1">
-                        {popularLocations.map((name) => (
-                          <button
-                            key={name}
-                            type="button"
-                            onClick={() => handleLocationSelect(name)}
-                            className={`px-2 py-1 text-xs rounded-md border transition-colors ${
-                              location === name
-                                ? 'bg-blue-100 border-blue-300 text-blue-700'
-                                : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200'
-                            }`}
-                          >
-                            {name}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+              {suggestedLocations.length > 0 && (
+                <div>
+                  <div className="flex flex-wrap gap-1">
+                    {suggestedLocations.map((name) => (
+                      <button
+                        key={name.toLocaleLowerCase()}
+                        type="button"
+                        onClick={() => handleLocationSelect(name)}
+                        className={`px-2 py-1 text-xs rounded-md border transition-colors ${
+                          location === name
+                            ? 'bg-blue-100 border-blue-300 text-blue-700'
+                            : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        {name}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
