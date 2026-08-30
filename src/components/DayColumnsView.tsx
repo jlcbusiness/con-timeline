@@ -2,6 +2,7 @@ import React from 'react';
 import { Clock, GripVertical, MapPin } from 'lucide-react';
 import type { CosplayEntry, TimelineEvent as TimelineEventType } from '../types/timeline';
 import { formatDateHeader, getDayKey, getLocationDisplayColor } from '../utils/timelineUtils';
+import { EventContextMenu } from './EventContextMenu';
 
 interface DayColumnsViewProps {
   days: Date[];
@@ -10,6 +11,11 @@ interface DayColumnsViewProps {
   columnWidth: number;
   useLocationColors: boolean;
   onEventEdit: (event: TimelineEventType) => void;
+  onEventCopy: (event: TimelineEventType) => void;
+  onEventUpdate: (eventId: string, updates: Partial<TimelineEventType>) => void;
+  onEventDelete: (eventId: string) => void;
+  fandomSuggestions: string[];
+  onAddFandom: (name: string) => { name: string };
   onCosplayEntryCreate: (day: Date) => void;
   onCosplayEntryEdit: (entry: CosplayEntry) => void;
   onCosplayEntryMove: (entryId: string, targetDayKey: string) => void;
@@ -60,6 +66,11 @@ export const DayColumnsView: React.FC<DayColumnsViewProps> = ({
   columnWidth,
   useLocationColors,
   onEventEdit,
+  onEventCopy,
+  onEventUpdate,
+  onEventDelete,
+  fandomSuggestions,
+  onAddFandom,
   onCosplayEntryCreate,
   onCosplayEntryEdit,
   onCosplayEntryMove,
@@ -70,6 +81,37 @@ export const DayColumnsView: React.FC<DayColumnsViewProps> = ({
     lastDayKey: null
   });
   const dragPointerIdRef = React.useRef<number | null>(null);
+  const longPressTimerRef = React.useRef<number | null>(null);
+  const longPressStartRef = React.useRef<{ pointerId: number; x: number; y: number } | null>(null);
+  const suppressEventClickRef = React.useRef(false);
+  const [eventContextMenu, setEventContextMenu] = React.useState<{ event: TimelineEventType; x: number; y: number } | null>(null);
+
+  const clearLongPress = () => {
+    if (longPressTimerRef.current !== null) window.clearTimeout(longPressTimerRef.current);
+    longPressTimerRef.current = null;
+    longPressStartRef.current = null;
+  };
+
+  React.useEffect(() => () => {
+    if (longPressTimerRef.current !== null) window.clearTimeout(longPressTimerRef.current);
+  }, []);
+
+  const handleEventPointerDown = (pointerEvent: React.PointerEvent<HTMLButtonElement>, event: TimelineEventType) => {
+    if (pointerEvent.pointerType !== 'touch') return;
+    clearLongPress();
+    longPressStartRef.current = { pointerId: pointerEvent.pointerId, x: pointerEvent.clientX, y: pointerEvent.clientY };
+    longPressTimerRef.current = window.setTimeout(() => {
+      suppressEventClickRef.current = true;
+      setEventContextMenu({ event, x: pointerEvent.clientX, y: pointerEvent.clientY });
+      clearLongPress();
+    }, 500);
+  };
+
+  const handleEventPointerMove = (pointerEvent: React.PointerEvent<HTMLButtonElement>) => {
+    const start = longPressStartRef.current;
+    if (!start || start.pointerId !== pointerEvent.pointerId) return;
+    if (Math.hypot(pointerEvent.clientX - start.x, pointerEvent.clientY - start.y) > 8) clearLongPress();
+  };
 
   const filteredEvents = [...events]
     .sort((left, right) => left.startTime.getTime() - right.startTime.getTime());
@@ -274,8 +316,26 @@ export const DayColumnsView: React.FC<DayColumnsViewProps> = ({
                         data-event-id={event.id}
                         className={`group w-full overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-slate-300 ${event.intangible ? 'opacity-[0.65] saturate-75' : ''}`}
                         style={highlightedEventId === event.id ? { borderWidth: '4px', borderColor: '#fde047' } : undefined}
-                        onClick={() => onEventEdit(event)}
+                        onClick={clickEvent => {
+                          if (suppressEventClickRef.current) {
+                            clickEvent.preventDefault();
+                            clickEvent.stopPropagation();
+                            suppressEventClickRef.current = false;
+                            return;
+                          }
+                          onEventEdit(event);
+                        }}
                         onDoubleClick={() => onEventEdit(event)}
+                        onPointerDown={pointerEvent => handleEventPointerDown(pointerEvent, event)}
+                        onPointerMove={handleEventPointerMove}
+                        onPointerUp={clearLongPress}
+                        onPointerCancel={clearLongPress}
+                        onContextMenu={contextMenuEvent => {
+                          contextMenuEvent.preventDefault();
+                          contextMenuEvent.stopPropagation();
+                          clearLongPress();
+                          setEventContextMenu({ event, x: contextMenuEvent.clientX, y: contextMenuEvent.clientY });
+                        }}
                         title={`${event.title}\n${formatTime(event.startTime)} - ${formatTime(event.endTime)} (${formatDuration(event.startTime, event.endTime)})${event.location ? `\n${event.location}` : ''}${event.description ? `\n${event.description}` : ''}`}
                       >
                         <div className="h-1.5 w-full" style={{ backgroundColor: displayColor }} />
@@ -344,6 +404,20 @@ export const DayColumnsView: React.FC<DayColumnsViewProps> = ({
           );
         })}
       </div>
+      {eventContextMenu && (
+        <EventContextMenu
+          event={eventContextMenu.event}
+          x={eventContextMenu.x}
+          y={eventContextMenu.y}
+          fandomSuggestions={fandomSuggestions}
+          onAddFandom={onAddFandom}
+          onClose={() => setEventContextMenu(null)}
+          onEdit={onEventEdit}
+          onCopy={onEventCopy}
+          onUpdateEvent={onEventUpdate}
+          onDeleteEvent={onEventDelete}
+        />
+      )}
     </div>
   );
 };

@@ -1593,6 +1593,11 @@ export const Timeline: React.FC = () => {
                 columnWidth={dayColumnWidth}
                 useLocationColors={useLocationColors}
                 onEventEdit={handleEventEdit}
+                onEventCopy={handleEventCopy}
+                onEventUpdate={handleEventUpdate}
+                onEventDelete={handleEventDelete}
+                fandomSuggestions={suggestedFandoms}
+                onAddFandom={addFandom}
                 onCosplayEntryCreate={handleCosplayEntryCreate}
                 onCosplayEntryEdit={handleCosplayEntryEdit}
                 onCosplayEntryMove={moveCosplayEntry}

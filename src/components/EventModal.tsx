@@ -605,7 +605,7 @@ export const EventModal: React.FC<EventModalProps> = ({
                     onClick={() => setLockMode(mode)}
                     className={`border-r border-gray-300 px-2 py-1.5 text-xs font-medium last:border-r-0 ${lockMode === mode ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
                   >
-                    {mode === 'off' ? 'Off' : mode === 'time' ? 'Time' : 'MEGA'}
+                    {mode === 'off' ? 'Off' : mode === 'time' ? 'Time' : 'ULTRA'}
                   </button>
                 ))}
               </div>

@@ -686,7 +686,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
         <div
           ref={menuRef}
           data-event-context-menu="true"
-          className="fixed z-[9999] min-w-52 overflow-visible rounded-md border border-gray-200 bg-white py-1 shadow-xl"
+          className="fixed z-[9999] min-w-[13rem] overflow-visible rounded-md border border-gray-200 bg-white py-1 shadow-xl"
           style={{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }}
           role="menu"
           aria-label={`Event actions for ${event.title}`}
@@ -728,7 +728,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
                         onClick={() => setLockMode(mode)}
                         className={`w-full px-3 py-2 text-left text-sm ${currentMode === mode ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
                       >
-                        {mode === 'off' ? 'Off' : mode === 'time' ? 'Time' : 'MEGA'}
+                        {mode === 'off' ? 'Off' : mode === 'time' ? 'Time' : 'ULTRA'}
                       </button>
                     );
                   })}
