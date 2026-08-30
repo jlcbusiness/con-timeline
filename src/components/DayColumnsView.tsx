@@ -296,7 +296,7 @@ export const DayColumnsView: React.FC<DayColumnsViewProps> = ({
                             {!event.intangible && event.fandom?.trim() && (
                               <span
                                 data-event-fandom-tag="true"
-                                className="min-w-0 truncate rounded border border-slate-300 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-slate-700"
+                                className="min-w-0 truncate rounded border border-slate-300 px-1.5 py-[3.25px] text-[10px] font-semibold leading-normal text-slate-700"
                                 title={event.fandom}
                               >
                                 {event.fandom}
