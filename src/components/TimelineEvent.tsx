@@ -86,6 +86,8 @@ interface TimelineEventProps {
   onCopy: (event: TimelineEventType) => void;
   onUpdateEvent: (eventId: string, updates: Partial<TimelineEventType>) => void;
   onDeleteEvent: (eventId: string) => void;
+  fandomSuggestions: string[];
+  onAddFandom: (name: string) => { name: string };
   onDragStart: (event: TimelineEventType, clientX: number, clientY: number, type: 'move' | 'resize-start' | 'resize-end') => void;
   onDragCancel: () => void;
   isDragging?: boolean;
@@ -102,6 +104,8 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
   onCopy,
   onUpdateEvent,
   onDeleteEvent,
+  fandomSuggestions,
+  onAddFandom,
   onDragStart,
   onDragCancel,
   isDragging = false,
@@ -111,16 +115,25 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
   const menuRef = useRef<HTMLDivElement>(null);
   const lockSubmenuTriggerRef = useRef<HTMLDivElement>(null);
   const colorSubmenuTriggerRef = useRef<HTMLDivElement>(null);
+  const fandomSubmenuTriggerRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
   const hostRef = useRef<HTMLDivElement>(null);
+  const locationRef = useRef<HTMLSpanElement>(null);
+  const lockBadgeRef = useRef<HTMLDivElement>(null);
   const colorSubmenuCloseTimer = useRef<number | null>(null);
   const lockSubmenuCloseTimer = useRef<number | null>(null);
+  const fandomSubmenuCloseTimer = useRef<number | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [tooltipStyle, setTooltipStyle] = useState<React.CSSProperties | null>(null);
   const [isColorSubmenuOpen, setIsColorSubmenuOpen] = useState(false);
   const [isLockSubmenuOpen, setIsLockSubmenuOpen] = useState(false);
+  const [isFandomSubmenuOpen, setIsFandomSubmenuOpen] = useState(false);
+  const [isAddingFandom, setIsAddingFandom] = useState(false);
+  const [newFandomName, setNewFandomName] = useState('');
   const [lockSubmenuPlacement, setLockSubmenuPlacement] = useState<SubmenuPlacement>({ opensLeft: false, width: 160 });
   const [colorSubmenuPlacement, setColorSubmenuPlacement] = useState<SubmenuPlacement>({ opensLeft: false, width: 124 });
+  const [fandomSubmenuPlacement, setFandomSubmenuPlacement] = useState<SubmenuPlacement>({ opensLeft: false, width: 220 });
+  const [fandomTagMaxWidth, setFandomTagMaxWidth] = useState<number | null>(null);
   const hasDescription = Boolean(event.description?.trim());
 
   // Use the unified positioning functions
@@ -224,6 +237,9 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
     setContextMenu(null);
     setIsColorSubmenuOpen(false);
     setIsLockSubmenuOpen(false);
+    setIsFandomSubmenuOpen(false);
+    setIsAddingFandom(false);
+    setNewFandomName('');
   }, []);
 
   useLayoutEffect(() => {
@@ -235,7 +251,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
     const x = Math.max(viewportPadding, Math.min(contextMenu.x, window.innerWidth - menuRect.width - viewportPadding));
     const y = Math.max(viewportPadding, Math.min(contextMenu.y, window.innerHeight - menuRect.height - viewportPadding));
 
-    if (x !== contextMenu.x || y !== contextMenu.y) {
+    if (Math.abs(x - contextMenu.x) > 0.5 || Math.abs(y - contextMenu.y) > 0.5) {
       setContextMenu({ x, y });
     }
   }, [contextMenu, closeContextMenu]);
@@ -288,6 +304,11 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
     onCopy(event);
   };
 
+  const handleEdit = () => {
+    closeContextMenu();
+    onEdit(event);
+  };
+
   const updateEventColor = (color: string) => {
     onUpdateEvent(event.id, { color });
     setIsColorSubmenuOpen(false);
@@ -313,6 +334,44 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
       setIsColorSubmenuOpen(false);
       colorSubmenuCloseTimer.current = null;
     }, 140);
+  };
+
+  const openFandomSubmenu = () => {
+    if (fandomSubmenuCloseTimer.current !== null) {
+      window.clearTimeout(fandomSubmenuCloseTimer.current);
+      fandomSubmenuCloseTimer.current = null;
+    }
+
+    setFandomSubmenuPlacement(getSubmenuPlacement(fandomSubmenuTriggerRef.current, 220));
+    setIsFandomSubmenuOpen(true);
+  };
+
+  const closeFandomSubmenuSoon = () => {
+    if (fandomSubmenuCloseTimer.current !== null) {
+      window.clearTimeout(fandomSubmenuCloseTimer.current);
+    }
+
+    fandomSubmenuCloseTimer.current = window.setTimeout(() => {
+      setIsFandomSubmenuOpen(false);
+      fandomSubmenuCloseTimer.current = null;
+    }, 140);
+  };
+
+  const updateEventFandom = (fandom?: string) => {
+    onUpdateEvent(event.id, { fandom });
+    setIsFandomSubmenuOpen(false);
+    closeContextMenu();
+  };
+
+  const handleNewFandomKeyDown = (keyboardEvent: React.KeyboardEvent<HTMLInputElement>) => {
+    if (keyboardEvent.key !== 'Enter') return;
+
+    keyboardEvent.preventDefault();
+    keyboardEvent.stopPropagation();
+    const name = newFandomName.trim();
+    if (!name) return;
+
+    updateEventFandom(onAddFandom(name).name);
   };
 
   useEffect(() => {
@@ -389,6 +448,32 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
     };
   }, [tooltipStyle, updateTooltipPosition]);
 
+  useLayoutEffect(() => {
+    const hostElement = hostRef.current;
+    const locationElement = locationRef.current;
+    if (event.intangible || !event.fandom?.trim() || !locationElement || !hostElement) {
+      setFandomTagMaxWidth(null);
+      return;
+    }
+
+    const updateFandomTagWidth = () => {
+      const hostRect = hostElement.getBoundingClientRect();
+      const locationRect = locationElement.getBoundingClientRect();
+      const lockRect = lockBadgeRef.current?.getBoundingClientRect();
+      const tagRightEdge = lockRect ? lockRect.left - 4 : hostRect.right - 4;
+      const availableWidth = Math.max(0, Math.floor(tagRightEdge - locationRect.right - 4));
+      setFandomTagMaxWidth(current => current === availableWidth ? current : availableWidth);
+    };
+
+    updateFandomTagWidth();
+    const resizeObserver = new ResizeObserver(updateFandomTagWidth);
+    resizeObserver.observe(hostElement);
+    resizeObserver.observe(locationElement);
+    if (lockBadgeRef.current) resizeObserver.observe(lockBadgeRef.current);
+
+    return () => resizeObserver.disconnect();
+  }, [event.fandom, event.intangible, event.location, event.lockTime, event.megaLock, slotHeight]);
+
   useEffect(() => {
     return () => {
       if (colorSubmenuCloseTimer.current !== null) {
@@ -396,6 +481,9 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
       }
       if (lockSubmenuCloseTimer.current !== null) {
         window.clearTimeout(lockSubmenuCloseTimer.current);
+      }
+      if (fandomSubmenuCloseTimer.current !== null) {
+        window.clearTimeout(fandomSubmenuCloseTimer.current);
       }
     };
   }, []);
@@ -497,6 +585,8 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
                 <span className="sr-only">{event.location}</span>
               ) : (
                 <span
+                  ref={locationRef}
+                  data-event-location="true"
                   className="whitespace-normal break-words text-xs leading-snug opacity-90"
                 >
                   {event.location}
@@ -568,12 +658,27 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
         <div className="absolute -inset-1 border-2 border-white border-dashed rounded-md pointer-events-none"></div>
       )}
 
-      {(event.lockTime || event.megaLock) && (
-        <div
-          className={`absolute bottom-1 right-1 z-20 pointer-events-none rounded-full px-[1mm] py-[1mm] ${event.megaLock ? 'bg-white text-black border border-black/80' : ''}`}
-          style={event.lockTime && !event.megaLock ? { backgroundColor: effectiveColor } : undefined}
-        >
-          <Lock size={10} className={event.megaLock ? 'text-black' : 'opacity-90 text-white'} />
+      {((!event.intangible && event.fandom?.trim()) || event.lockTime || event.megaLock) && (
+        <div className="pointer-events-none absolute bottom-1 right-1 z-20 flex max-w-[calc(100%-0.5rem)] items-center justify-end gap-1">
+          {!event.intangible && event.fandom?.trim() && (
+            <span
+              data-event-fandom-tag="true"
+              className="min-w-0 max-w-full truncate rounded border border-white/70 px-1.5 py-0.5 text-[11px] font-medium leading-snug text-white shadow-sm"
+              title={event.fandom}
+              style={{ backgroundColor: effectiveColor, maxWidth: fandomTagMaxWidth === null ? undefined : `${fandomTagMaxWidth}px` }}
+            >
+              {event.fandom}
+            </span>
+          )}
+          {(event.lockTime || event.megaLock) && (
+            <div
+              ref={lockBadgeRef}
+              className={`shrink-0 rounded-full px-[1mm] py-[1mm] ${event.megaLock ? 'border border-black/80 bg-white text-black' : ''}`}
+              style={event.lockTime && !event.megaLock ? { backgroundColor: effectiveColor } : undefined}
+            >
+              <Lock size={10} className={event.megaLock ? 'text-black' : 'text-white opacity-90'} />
+            </div>
+          )}
         </div>
       )}
 
@@ -631,6 +736,76 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
               </div>
             )}
           </div>
+          <div
+            ref={fandomSubmenuTriggerRef}
+            className="relative"
+            onMouseEnter={openFandomSubmenu}
+            onMouseLeave={closeFandomSubmenuSoon}
+          >
+            <button
+              type="button"
+              role="menuitem"
+              aria-haspopup="menu"
+              aria-expanded={isFandomSubmenuOpen}
+              onClick={openFandomSubmenu}
+              className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+            >
+              <span>Fandom</span>
+              <ChevronRightIcon size={14} className="text-gray-400" />
+            </button>
+
+            {isFandomSubmenuOpen && (
+              <div
+                className={`absolute top-0 z-[10000] min-w-0 overflow-hidden rounded-md border border-gray-200 bg-white py-1 shadow-xl ${fandomSubmenuPlacement.opensLeft ? 'right-full mr-1' : 'left-full ml-1'}`}
+                style={{ width: `${fandomSubmenuPlacement.width}px` }}
+                onMouseEnter={openFandomSubmenu}
+                onMouseLeave={closeFandomSubmenuSoon}
+                role="menu"
+                aria-label="Set event fandom"
+              >
+                {event.fandom?.trim() && (
+                  <button type="button" role="menuitem" onClick={() => updateEventFandom(undefined)} className="w-full truncate px-3 py-2 text-left text-sm text-red-800 hover:bg-red-50" title={`Remove ${event.fandom}`}>
+                    Remove
+                  </button>
+                )}
+                {isAddingFandom ? (
+                  <div className="border-t border-gray-100 px-2 py-2">
+                    <input
+                      autoFocus
+                      type="text"
+                      value={newFandomName}
+                      onChange={changeEvent => setNewFandomName(changeEvent.target.value)}
+                      onKeyDown={handleNewFandomKeyDown}
+                      className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                      placeholder="Fandom name"
+                      aria-label="New fandom name"
+                    />
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => setIsAddingFandom(true)}
+                    className="w-full border-t border-gray-100 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                  >
+                    Add
+                  </button>
+                )}
+                {fandomSuggestions.length > 0 && (
+                  <div className="border-t border-gray-100 pt-1">
+                    {fandomSuggestions.map(fandom => (
+                      <button key={fandom.toLocaleLowerCase()} type="button" role="menuitemradio" aria-checked={event.fandom?.toLocaleLowerCase() === fandom.toLocaleLowerCase()} onClick={() => updateEventFandom(fandom)} className={`w-full truncate px-3 py-2 text-left text-sm ${event.fandom?.toLocaleLowerCase() === fandom.toLocaleLowerCase() ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`} title={fandom}>
+                        {fandom}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {fandomSuggestions.length === 0 && (
+                  <div className="px-3 py-2 text-sm text-gray-500">No fandoms yet</div>
+                )}
+              </div>
+            )}
+          </div>
           <button
             type="button"
             role="menuitemcheckbox"
@@ -681,6 +856,14 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
               </div>
             )}
           </div>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={handleEdit}
+            className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+          >
+            <span>Edit</span>
+          </button>
           <button
             type="button"
             role="menuitem"

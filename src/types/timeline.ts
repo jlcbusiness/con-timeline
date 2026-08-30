@@ -3,6 +3,7 @@ export interface TimelineEvent {
   title: string;
   description?: string;
   location?: string;
+  fandom?: string;
   startTime: Date;
   endTime: Date;
   color: string;

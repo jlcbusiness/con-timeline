@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { TimelineEvent } from '../../types/timeline';
-import { getLocationSuggestions } from '../locationSuggestions';
+import { getFandomSuggestionGroups, getFandomSuggestions, getLocationSuggestions } from '../locationSuggestions';
 
 const createEvent = (id: string, location: string, updatedAt: string): TimelineEvent => ({
   id,
@@ -49,5 +49,21 @@ describe('getLocationSuggestions', () => {
     ];
 
     expect(getLocationSuggestions(events)).toHaveLength(5);
+  });
+
+  it('uses the same ranking for fandoms and creates unique context-menu groups', () => {
+    const events = [
+      { ...createEvent('a1', '', '2026-08-01T10:00:00Z'), fandom: 'Star Wars' },
+      { ...createEvent('a2', '', '2026-08-11T10:00:00Z'), fandom: 'star wars' },
+      { ...createEvent('b1', '', '2026-08-10T10:00:00Z'), fandom: 'Star Trek' },
+      { ...createEvent('c1', '', '2026-08-09T10:00:00Z'), fandom: 'Doctor Who' },
+      { ...createEvent('d1', '', '2026-08-08T10:00:00Z'), fandom: 'Marvel' }
+    ];
+
+    expect(getFandomSuggestions(events)).toEqual(['star wars', 'Star Trek', 'Doctor Who', 'Marvel']);
+    expect(getFandomSuggestionGroups(events, 2)).toEqual({
+      recent: ['star wars', 'Star Trek'],
+      popular: ['Doctor Who', 'Marvel']
+    });
   });
 });

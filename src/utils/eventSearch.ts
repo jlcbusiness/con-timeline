@@ -1,7 +1,7 @@
 import type { TimelineEvent } from '../types/timeline';
 
-export type SearchField = 'title' | 'description' | 'location';
-export type EventSortField = 'title' | 'startTime' | 'location' | 'duration';
+export type SearchField = 'title' | 'description' | 'location' | 'fandom';
+export type EventSortField = 'title' | 'startTime' | 'location' | 'fandom' | 'duration';
 export type SortDirection = 'ascending' | 'descending';
 
 export interface EventSearchOptions {
@@ -18,19 +18,20 @@ const compareStableFallback = (left: TimelineEvent, right: TimelineEvent) => {
   return startDifference || compareText(left.title, right.title) || left.id.localeCompare(right.id);
 };
 
-const compareLocation = (left: TimelineEvent, right: TimelineEvent) => {
-  const leftLocation = left.location?.trim() ?? '';
-  const rightLocation = right.location?.trim() ?? '';
+const compareOptionalText = (leftValue: string | undefined, rightValue: string | undefined) => {
+  const leftText = leftValue?.trim() ?? '';
+  const rightText = rightValue?.trim() ?? '';
 
-  if (!leftLocation && rightLocation) return 1;
-  if (leftLocation && !rightLocation) return -1;
-  return compareText(leftLocation, rightLocation);
+  if (!leftText && rightText) return 1;
+  if (leftText && !rightText) return -1;
+  return compareText(leftText, rightText);
 };
 
 const compareByField = (left: TimelineEvent, right: TimelineEvent, field: EventSortField) => {
   if (field === 'title') return compareText(left.title, right.title);
   if (field === 'startTime') return left.startTime.getTime() - right.startTime.getTime();
-  if (field === 'location') return compareLocation(left, right);
+  if (field === 'location') return compareOptionalText(left.location, right.location);
+  if (field === 'fandom') return compareOptionalText(left.fandom, right.fandom);
 
   const leftDuration = left.endTime.getTime() - left.startTime.getTime();
   const rightDuration = right.endTime.getTime() - right.startTime.getTime();
@@ -54,9 +55,9 @@ export const searchEvents = (
     const primaryComparison = compareByField(left, right, options.sortField);
     if (primaryComparison === 0) return compareStableFallback(left, right);
 
-    if (options.sortField === 'location') {
-      const leftIsBlank = !left.location?.trim();
-      const rightIsBlank = !right.location?.trim();
+    if (options.sortField === 'location' || options.sortField === 'fandom') {
+      const leftIsBlank = !left[options.sortField]?.trim();
+      const rightIsBlank = !right[options.sortField]?.trim();
       if (leftIsBlank !== rightIsBlank) return primaryComparison;
     }
 

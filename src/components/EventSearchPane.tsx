@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowDown, ArrowUp, Clock, Hourglass, MapPin, Search, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Clock, Fan, Hourglass, MapPin, Search, X } from 'lucide-react';
 import type { TimelineEvent } from '../types/timeline';
 import {
   searchEvents,
@@ -21,15 +21,17 @@ interface EventSearchPaneProps {
 const SEARCH_FIELDS: { field: SearchField; label: string }[] = [
   { field: 'title', label: 'Title' },
   { field: 'description', label: 'Description' },
-  { field: 'location', label: 'Location' }
+  { field: 'location', label: 'Location' },
+  { field: 'fandom', label: 'Fandom' }
 ];
 
-const SORT_FIELDS: EventSortField[] = ['title', 'startTime', 'location', 'duration'];
+const SORT_FIELDS: EventSortField[] = ['title', 'startTime', 'location', 'fandom', 'duration'];
 
 const SORT_LABELS: Record<EventSortField, string> = {
   title: 'title',
   startTime: 'start time',
   location: 'location',
+  fandom: 'fandom',
   duration: 'duration'
 };
 
@@ -55,6 +57,7 @@ const SortFieldIcon: React.FC<{ field: EventSortField }> = ({ field }) => {
   }
   if (field === 'startTime') return <Clock size={17} aria-hidden="true" />;
   if (field === 'location') return <MapPin size={17} aria-hidden="true" />;
+  if (field === 'fandom') return <Fan size={17} aria-hidden="true" />;
   return <Hourglass size={17} aria-hidden="true" />;
 };
 
@@ -69,9 +72,9 @@ export const EventSearchPane: React.FC<EventSearchPaneProps> = ({
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState(initialQuery);
-  const [selectedFields, setSelectedFields] = useState<SearchField[]>(['title', 'description', 'location']);
+  const [selectedFields, setSelectedFields] = useState<SearchField[]>(['title', 'description', 'location', 'fandom']);
   const [submittedQuery, setSubmittedQuery] = useState(searchImmediately ? initialQuery.trim() : '');
-  const [submittedFields, setSubmittedFields] = useState<SearchField[]>(['title', 'description', 'location']);
+  const [submittedFields, setSubmittedFields] = useState<SearchField[]>(['title', 'description', 'location', 'fandom']);
   const [hasSearched, setHasSearched] = useState(searchImmediately && Boolean(initialQuery.trim()));
   const [sortField, setSortField] = useState<EventSortField>('title');
   const [sortDirection, setSortDirection] = useState<SortDirection>('ascending');

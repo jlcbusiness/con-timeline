@@ -14,6 +14,7 @@ const mapEventRow = (event: any): TimelineEvent => ({
   title: event.title,
   description: event.description || '',
   location: event.metadata?.location || '',
+  fandom: event.metadata?.fandom || '',
   startTime: new Date(event.start_time),
   endTime: new Date(event.end_time),
   color: event.metadata?.color || '#3B82F6',
@@ -38,6 +39,7 @@ const buildEventRow = (event: TimelineEvent, timelineId: string, userId: string)
   metadata: {
     color: event.color,
     location: event.location || '',
+    fandom: event.fandom || '',
     bufferBeforeMinutes: event.bufferBeforeMinutes ?? 0,
     lockTime: event.lockTime ?? false,
     megaLock: event.megaLock ?? false,

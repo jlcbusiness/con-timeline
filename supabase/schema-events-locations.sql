@@ -50,6 +50,21 @@ create index if not exists idx_locations_user_id on locations(user_id);
 create unique index if not exists idx_locations_timeline_user_name_key
   on locations(timeline_id, user_id, lower(trim(name)));
 
+-- Fandoms
+create table if not exists fandoms (
+  id uuid primary key default gen_random_uuid(),
+  timeline_id uuid references timelines(id) on delete cascade,
+  user_id uuid not null,
+  name text not null,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create index if not exists idx_fandoms_timeline_id on fandoms(timeline_id);
+create index if not exists idx_fandoms_user_id on fandoms(user_id);
+create unique index if not exists idx_fandoms_timeline_user_name_key
+  on fandoms(timeline_id, user_id, lower(trim(name)));
+
 -- Trigger to update updated_at
 create or replace function trigger_set_timestamp()
 returns trigger as $$
@@ -62,10 +77,12 @@ $$ language plpgsql;
 drop trigger if exists trg_timelines_timestamp on timelines;
 drop trigger if exists trg_events_timestamp on events;
 drop trigger if exists trg_locations_timestamp on locations;
+drop trigger if exists trg_fandoms_timestamp on fandoms;
 
 create trigger trg_timelines_timestamp before update on timelines for each row execute procedure trigger_set_timestamp();
 create trigger trg_events_timestamp before update on events for each row execute procedure trigger_set_timestamp();
 create trigger trg_locations_timestamp before update on locations for each row execute procedure trigger_set_timestamp();
+create trigger trg_fandoms_timestamp before update on fandoms for each row execute procedure trigger_set_timestamp();
 
 -- Enable Row Level Security and policies
 alter table timelines enable row level security;
@@ -97,6 +114,12 @@ create policy locations_select_policy on locations for select using (user_id = a
 create policy locations_insert_policy on locations for insert with check (user_id = auth.uid());
 create policy locations_update_policy on locations for update using (user_id = auth.uid()) with check (user_id = auth.uid());
 create policy locations_delete_policy on locations for delete using (user_id = auth.uid());
+
+alter table fandoms enable row level security;
+create policy fandoms_select_policy on fandoms for select using (user_id = auth.uid());
+create policy fandoms_insert_policy on fandoms for insert with check (user_id = auth.uid());
+create policy fandoms_update_policy on fandoms for update using (user_id = auth.uid()) with check (user_id = auth.uid());
+create policy fandoms_delete_policy on fandoms for delete using (user_id = auth.uid());
 
 -- Cosplay entries
 create table if not exists cosplay_entries (

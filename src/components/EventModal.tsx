@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Calendar, Clock, Palette, MapPin, Plus, Lock, ChevronDown } from 'lucide-react';
+import { X, Calendar, Clock, Palette, MapPin, Plus, Lock, ChevronDown, Heart } from 'lucide-react';
 import type { TimelineEvent, Location } from '../types/timeline';
 import { getEventColors, roundToNearestHalfHour } from '../utils/timelineUtils';
 import { EVENT_BUFFER_OPTIONS_MINUTES } from '../config/timeline';
@@ -19,6 +19,9 @@ interface EventModalProps {
   onAddLocation: (name: string) => Location;
   locationOptions: string[];
   suggestedLocations: string[];
+  fandomOptions: string[];
+  suggestedFandoms: string[];
+  onAddFandom: (name: string) => { name: string };
 }
 
 export const EventModal: React.FC<EventModalProps> = ({
@@ -32,11 +35,15 @@ export const EventModal: React.FC<EventModalProps> = ({
   locations,
   onAddLocation,
   locationOptions,
-  suggestedLocations
+  suggestedLocations,
+  fandomOptions,
+  suggestedFandoms,
+  onAddFandom
 }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState('');
+  const [fandom, setFandom] = useState('');
   const [startDateValue, setStartDateValue] = useState('');
   const [startTimeValue, setStartTimeValue] = useState('');
   const [endDateValue, setEndDateValue] = useState('');
@@ -49,7 +56,12 @@ export const EventModal: React.FC<EventModalProps> = ({
   const [isLocationMenuOpen, setIsLocationMenuOpen] = useState(false);
   const [locationFilterQuery, setLocationFilterQuery] = useState('');
   const [newLocationName, setNewLocationName] = useState('');
+  const [isCreateFandomOpen, setIsCreateFandomOpen] = useState(false);
+  const [isFandomMenuOpen, setIsFandomMenuOpen] = useState(false);
+  const [fandomFilterQuery, setFandomFilterQuery] = useState('');
+  const [newFandomName, setNewFandomName] = useState('');
   const locationPickerRef = useRef<HTMLDivElement>(null);
+  const fandomPickerRef = useRef<HTMLDivElement>(null);
 
   // Get colors once, outside of useEffect
   const colors = getEventColors();
@@ -65,6 +77,7 @@ export const EventModal: React.FC<EventModalProps> = ({
       setTitle(event.title);
       setDescription(event.description || '');
       setLocation(event.location || '');
+      setFandom(event.fandom || '');
       setStartDateValue(formatDateValue(event.startTime));
       setStartTimeValue(formatTimeValue(event.startTime));
       setEndDateValue(formatDateValue(event.endTime));
@@ -81,6 +94,7 @@ export const EventModal: React.FC<EventModalProps> = ({
       setTitle(initialEvent.title);
       setDescription(initialEvent.description || '');
       setLocation(initialEvent.location || '');
+      setFandom(initialEvent.fandom || '');
       setStartDateValue(formatDateValue(initialEvent.startTime));
       setStartTimeValue(formatTimeValue(initialEvent.startTime));
       setEndDateValue(formatDateValue(initialEvent.endTime));
@@ -101,6 +115,7 @@ export const EventModal: React.FC<EventModalProps> = ({
       setTitle('');
       setDescription('');
       setLocation('');
+      setFandom('');
       setStartDateValue(formatDateValue(rounded));
       setStartTimeValue(formatTimeValue(rounded));
       setEndDateValue(formatDateValue(end));
@@ -130,6 +145,20 @@ export const EventModal: React.FC<EventModalProps> = ({
     return () => document.removeEventListener('pointerdown', handlePointerDown);
   }, [isLocationMenuOpen]);
 
+  useEffect(() => {
+    if (!isFandomMenuOpen) return;
+
+    const handlePointerDown = (pointerEvent: PointerEvent) => {
+      if (!fandomPickerRef.current?.contains(pointerEvent.target as Node)) {
+        setIsFandomMenuOpen(false);
+        setFandomFilterQuery('');
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => document.removeEventListener('pointerdown', handlePointerDown);
+  }, [isFandomMenuOpen]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
@@ -143,6 +172,7 @@ export const EventModal: React.FC<EventModalProps> = ({
       title: title.trim(),
       description: description.trim(),
       location: location.trim(),
+      fandom: fandom.trim(),
       startTime,
       endTime,
       color,
@@ -241,11 +271,31 @@ export const EventModal: React.FC<EventModalProps> = ({
     setIsCreateLocationOpen(false);
   };
 
+  const handleFandomSelect = (selectedFandom: string) => {
+    setFandom(selectedFandom);
+    setIsFandomMenuOpen(false);
+    setFandomFilterQuery('');
+  };
+
+  const handleCreateFandom = () => {
+    const trimmedName = newFandomName.trim();
+    if (!trimmedName) return;
+
+    const savedFandom = onAddFandom(trimmedName);
+    setFandom(savedFandom.name);
+    setNewFandomName('');
+    setIsCreateFandomOpen(false);
+  };
+
   if (!isOpen) return null;
 
   const normalizedLocationQuery = locationFilterQuery.trim().toLocaleLowerCase();
   const filteredLocations = locationOptions.filter(name =>
     !normalizedLocationQuery || name.toLocaleLowerCase().includes(normalizedLocationQuery)
+  );
+  const normalizedFandomQuery = fandomFilterQuery.trim().toLocaleLowerCase();
+  const filteredFandoms = fandomOptions.filter(name =>
+    !normalizedFandomQuery || name.toLocaleLowerCase().includes(normalizedFandomQuery)
   );
 
   return (
@@ -587,6 +637,103 @@ export const EventModal: React.FC<EventModalProps> = ({
             </div>
           </div>
 
+          <div className="relative">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <label htmlFor="event-fandom" className="block text-sm font-medium text-gray-700">
+                <Heart size={16} className="mr-1 inline" />
+                Fandom (Optional)
+              </label>
+              {fandom.trim() && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFandom('');
+                    setFandomFilterQuery('');
+                    setIsFandomMenuOpen(false);
+                  }}
+                  className="text-xs font-medium text-red-800 hover:text-red-950 hover:underline"
+                >
+                  (Remove)
+                </button>
+              )}
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <div ref={fandomPickerRef} className="relative min-w-0 flex-1">
+                  <input
+                    id="event-fandom"
+                    type="text"
+                    role="combobox"
+                    aria-expanded={isFandomMenuOpen}
+                    aria-controls="event-fandom-options"
+                    value={fandom}
+                    onFocus={() => {
+                      setFandomFilterQuery('');
+                      setIsFandomMenuOpen(true);
+                    }}
+                    onChange={(changeEvent) => {
+                      setFandom(changeEvent.target.value);
+                      setFandomFilterQuery(changeEvent.target.value);
+                      setIsFandomMenuOpen(true);
+                    }}
+                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 pr-10 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter or select fandom"
+                    autoComplete="off"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFandomFilterQuery('');
+                      setIsFandomMenuOpen(current => !current);
+                    }}
+                    className="absolute inset-y-0 right-0 inline-flex w-10 items-center justify-center text-gray-500 hover:text-gray-800"
+                    title="Show fandoms"
+                    aria-label="Show fandoms"
+                  >
+                    <ChevronDown size={17} className={`transition-transform ${isFandomMenuOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  {isFandomMenuOpen && (
+                    <div id="event-fandom-options" role="listbox" aria-label="Fandoms" className="absolute left-0 right-0 top-full z-30 mt-1 max-h-48 overflow-y-auto rounded-md border border-gray-200 bg-white py-1 shadow-lg">
+                      {filteredFandoms.length > 0 ? filteredFandoms.map(name => (
+                        <button
+                          key={name.toLocaleLowerCase()}
+                          type="button"
+                          role="option"
+                          aria-selected={fandom.toLocaleLowerCase() === name.toLocaleLowerCase()}
+                          onClick={() => handleFandomSelect(name)}
+                          className={`block w-full px-3 py-2 text-left text-sm ${fandom.toLocaleLowerCase() === name.toLocaleLowerCase() ? 'bg-blue-50 font-medium text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}
+                        >
+                          {name}
+                        </button>
+                      )) : <div className="px-3 py-2 text-sm text-gray-500">No matching fandoms</div>}
+                    </div>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNewFandomName(fandom.trim());
+                    setIsCreateFandomOpen(true);
+                  }}
+                  className="inline-flex shrink-0 items-center justify-center rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-700 hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                  aria-label="Add a new fandom"
+                  title="Add a new fandom"
+                >
+                  <Plus size={16} />
+                </button>
+              </div>
+              {suggestedFandoms.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {suggestedFandoms.map(name => (
+                    <button key={name.toLocaleLowerCase()} type="button" onClick={() => handleFandomSelect(name)} className={`rounded-md border px-2 py-1 text-xs transition-colors ${fandom === name ? 'border-blue-300 bg-blue-100 text-blue-700' : 'border-gray-300 bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+                      {name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
           <div>
             <label htmlFor="event-description" className="block text-sm font-medium text-gray-700 mb-2">
               Description (Optional)
@@ -665,6 +812,20 @@ export const EventModal: React.FC<EventModalProps> = ({
                 >
                   Save
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {isCreateFandomOpen && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 p-4">
+            <div className="w-full max-w-sm rounded-lg bg-white p-4 shadow-xl sm:p-5">
+              <h3 className="text-base font-semibold text-gray-900">Add fandom</h3>
+              <p className="mt-1 text-sm text-gray-600">Create a new fandom for this event.</p>
+              <input autoFocus type="text" value={newFandomName} onChange={(changeEvent) => setNewFandomName(changeEvent.target.value)} className="mt-4 w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Fandom name" />
+              <div className="mt-5 flex justify-end gap-3">
+                <button type="button" onClick={() => { setIsCreateFandomOpen(false); setNewFandomName(''); }} className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
+                <button type="button" onClick={handleCreateFandom} className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">Save</button>
               </div>
             </div>
           </div>

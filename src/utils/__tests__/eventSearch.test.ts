@@ -59,4 +59,16 @@ describe('searchEvents', () => {
     expect(searchEvents(events, 'a', { ...defaultOptions, sortField: 'location' }).map(event => event.id)).toEqual(['panel', 'parade', 'workshop']);
     expect(searchEvents(events, 'a', { ...defaultOptions, sortField: 'location', sortDirection: 'descending' }).map(event => event.id)).toEqual(['parade', 'panel', 'workshop']);
   });
+
+  it('searches fandoms and sorts them alphabetically with blanks last', () => {
+    const fandomEvents = [
+      createEvent({ id: 'blank', title: 'Panel Blank' }),
+      createEvent({ id: 'zelda', title: 'Panel Zelda', fandom: 'The Legend of Zelda' }),
+      createEvent({ id: 'avatar', title: 'Panel Avatar', fandom: 'Avatar' })
+    ];
+
+    expect(searchEvents(fandomEvents, 'zelda', { ...defaultOptions, fields: ['fandom'] }).map(event => event.id)).toEqual(['zelda']);
+    expect(searchEvents(fandomEvents, 'panel', { ...defaultOptions, sortField: 'fandom' }).map(event => event.id)).toEqual(['avatar', 'zelda', 'blank']);
+    expect(searchEvents(fandomEvents, 'panel', { ...defaultOptions, sortField: 'fandom', sortDirection: 'descending' }).map(event => event.id)).toEqual(['zelda', 'avatar', 'blank']);
+  });
 });

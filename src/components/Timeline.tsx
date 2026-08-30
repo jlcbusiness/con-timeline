@@ -10,6 +10,7 @@ import { DragonConImporter } from './DragonConImporter';
 import { useDragAndResize } from '../hooks/useDragAndResize';
 import { useEventPersistence } from '../hooks/useEventPersistence';
 import { useLocationPersistence } from '../hooks/useLocationPersistence';
+import { useFandomPersistence } from '../hooks/useFandomPersistence';
 import { TimelineSelector } from './TimelineSelector';
 import { ManageTimelinesModal } from './ManageTimelinesModal';
 import { useTimelinePersistence } from '../hooks/useTimelinePersistence';
@@ -20,7 +21,7 @@ import { useSupabaseSession } from '../hooks/useSupabaseSession';
 import { supabase } from '../lib/supabase';
 import { AccountMenu } from './AccountMenu';
 import { EventSearchPane } from './EventSearchPane';
-import { getLocationSuggestions } from '../utils/locationSuggestions';
+import { getFandomSuggestions, getLocationSuggestions } from '../utils/locationSuggestions';
 import {
   generateTimeSlots,
   formatTimeSlot,
@@ -368,6 +369,14 @@ export const Timeline: React.FC = () => {
     [
       ...locations.map(item => item.name),
       ...events.map(event => event.location?.trim()).filter((name): name is string => Boolean(name))
+    ].map(name => [name.toLocaleLowerCase(), name])
+  ).values()).sort((left, right) => left.localeCompare(right, undefined, { sensitivity: 'base' }));
+  const { fandoms, addFandom } = useFandomPersistence(activeId);
+  const suggestedFandoms = getFandomSuggestions(events);
+  const fandomOptions = Array.from(new Map(
+    [
+      ...fandoms.map(item => item.name),
+      ...events.map(event => event.fandom?.trim()).filter((name): name is string => Boolean(name))
     ].map(name => [name.toLocaleLowerCase(), name])
   ).values()).sort((left, right) => left.localeCompare(right, undefined, { sensitivity: 'base' }));
 
@@ -817,6 +826,7 @@ export const Timeline: React.FC = () => {
       title: event.title,
       description: event.description,
       location: event.location,
+      fandom: event.fandom,
       startTime,
       endTime,
       color: event.color,
@@ -1095,7 +1105,7 @@ export const Timeline: React.FC = () => {
   return (
     <div className="h-screen bg-gray-50 flex flex-col">
       <div
-        className="hidden shadow-sm border-b px-6 py-4 bg-white md:block"
+        className="hidden shadow-sm border-b px-6 py-4 bg-white min-[1100px]:block"
       >
         <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-4">
           <div className="min-w-0">
@@ -1141,39 +1151,41 @@ export const Timeline: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-1">
-            <form onSubmit={handleDesktopSearchSubmit} className="relative w-36 lg:w-44 xl:w-56">
-              <label>
-                <span className="sr-only">Search events</span>
-                <Search size={15} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="search"
-                  value={headerSearchQuery}
-                  onChange={event => setHeaderSearchQuery(event.target.value)}
-                  placeholder="Search events"
-                  className="h-9 w-full rounded-md border border-gray-300 bg-white pl-8 pr-2 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-                />
-              </label>
-            </form>
+          <div className="relative flex items-start justify-end gap-1 pb-10 min-[1400px]:items-center min-[1400px]:pb-0">
+            <div className="contents min-[1400px]:flex min-[1400px]:flex-row-reverse min-[1400px]:items-center min-[1400px]:gap-1">
+              <TimelineSelector
+                timelines={timelines}
+                activeId={activeId}
+                setActiveId={setActiveId}
+                onCreate={createTimeline}
+                onEditCurrent={() => {
+                  if (!activeId) return;
+                  setManageEditTimelineId(activeId);
+                  setManageEditSection('timeline');
+                  setManageMode('edit');
+                  setIsManageOpen(true);
+                }}
+                onManage={() => {
+                  setManageEditTimelineId(null);
+                  setManageMode('manage');
+                  setIsManageOpen(true);
+                }}
+              />
 
-            <TimelineSelector
-              timelines={timelines}
-              activeId={activeId}
-              setActiveId={setActiveId}
-              onCreate={createTimeline}
-              onEditCurrent={() => {
-                if (!activeId) return;
-                setManageEditTimelineId(activeId);
-                setManageEditSection('timeline');
-                setManageMode('edit');
-                setIsManageOpen(true);
-              }}
-              onManage={() => {
-                setManageEditTimelineId(null);
-                setManageMode('manage');
-                setIsManageOpen(true);
-              }}
-            />
+              <form onSubmit={handleDesktopSearchSubmit} className="absolute bottom-0 right-0 w-36 lg:w-44 xl:w-56 min-[1400px]:static">
+                <label>
+                  <span className="sr-only">Search events</span>
+                  <Search size={15} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="search"
+                    value={headerSearchQuery}
+                    onChange={event => setHeaderSearchQuery(event.target.value)}
+                    placeholder="Search events"
+                    className="h-9 w-full rounded-md border border-gray-300 bg-white pl-8 pr-2 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                  />
+                </label>
+              </form>
+            </div>
 
             {spanViewControls}
 
@@ -1219,7 +1231,7 @@ export const Timeline: React.FC = () => {
         </div>
       </div>
 
-      <div className="border-b bg-white px-3 py-3 md:hidden">
+      <div className="border-b bg-white px-3 py-3 min-[1100px]:hidden">
         <div className="flex w-full items-center gap-1 overflow-visible">
           <TimelineSelector
             timelines={timelines}
@@ -1278,7 +1290,7 @@ export const Timeline: React.FC = () => {
         <div className="mt-2 flex min-w-0 flex-col items-center justify-center gap-1">
           <span className="text-sm font-medium text-gray-700 text-center">{currentRangeLabel}</span>
           <div
-            className="grid w-full justify-center gap-1 py-[2mm] text-xs text-gray-600 md:hidden"
+            className="grid w-full justify-center gap-1 py-[2mm] text-xs text-gray-600 min-[1100px]:hidden"
             style={{ gridTemplateColumns: `repeat(${mobileJumpColumnCount}, max-content)` }}
           >
             {jumpToDates.map(({ day, target, label }) => (
@@ -1304,7 +1316,7 @@ export const Timeline: React.FC = () => {
           </div>
 
           {isPriorityView && (
-            <div className="grid w-full grid-cols-10 gap-1 pt-[1mm] md:hidden">
+            <div className="grid w-full grid-cols-10 gap-1 pt-[1mm] min-[1100px]:hidden">
               {colorChoices.map(color => (
                 <button
                   key={color.value}
@@ -1496,6 +1508,8 @@ export const Timeline: React.FC = () => {
                         onCopy={handleEventCopy}
                         onUpdateEvent={handleEventUpdate}
                         onDeleteEvent={handleEventDelete}
+                        fandomSuggestions={suggestedFandoms}
+                        onAddFandom={addFandom}
                         onDragStart={startDrag}
                         onDragCancel={cancelDrag}
                         isDragging={dragState.isDragging && dragState.originalEvent?.id === event.id}
@@ -1617,6 +1631,9 @@ export const Timeline: React.FC = () => {
         onAddLocation={addLocation}
         locationOptions={locationOptions}
         suggestedLocations={suggestedLocations}
+        fandomOptions={fandomOptions}
+        suggestedFandoms={suggestedFandoms}
+        onAddFandom={addFandom}
       />
 
       <CosplayEntryModal
