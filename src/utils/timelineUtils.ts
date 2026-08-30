@@ -125,6 +125,51 @@ const buildPackedPositionMap = (events: TimelineEvent[], maxSlots = 11): Map<str
   );
 };
 
+const MINIMUM_INTANGIBLE_VISIBLE_MS = 30 * 60 * 1000;
+
+const hasMinimumIntangibleVisibility = (event: TimelineEvent, events: TimelineEvent[]): boolean => (
+  getIntangibleVisibleSegments(event, events).some(segment => (
+    segment.endTime.getTime() - segment.startTime.getTime() >= MINIMUM_INTANGIBLE_VISIBLE_MS
+  ))
+);
+
+const adjustPackedIntangibleVisibility = (
+  events: TimelineEvent[],
+  maxSlots: number,
+  candidateEventIds?: Set<string>
+): Map<string, number> => {
+  const resolvedEvents = events.map(event => ({ ...event }));
+  const positions = new Map(resolvedEvents.map(event => [event.id, event.position] as const));
+
+  resolvedEvents.filter(event => (
+    isIntangibleEvent(event) && (!candidateEventIds || candidateEventIds.has(event.id))
+  )).forEach(event => {
+    if (getIntangibleVisibleSegments(event, resolvedEvents).length > 0) return;
+
+    const candidatePositions = Array.from({ length: maxSlots }, (_, position) => position)
+      .filter(position => position !== event.position)
+      .sort((left, right) => Math.abs(left - event.position) - Math.abs(right - event.position) || left - right);
+    const nextPosition = candidatePositions.find(position => {
+      const candidate = { ...event, position };
+      const hasIntangibleCollision = resolvedEvents.some(otherEvent => (
+        otherEvent.id !== event.id
+        && isIntangibleEvent(otherEvent)
+        && otherEvent.position === position
+        && eventsOverlapWithoutBuffer(candidate, otherEvent)
+      ));
+
+      return !hasIntangibleCollision && hasMinimumIntangibleVisibility(candidate, resolvedEvents);
+    });
+
+    if (nextPosition === undefined) return;
+
+    event.position = nextPosition;
+    positions.set(event.id, nextPosition);
+  });
+
+  return positions;
+};
+
 const buildCollisionFreePositionMap = (
   events: TimelineEvent[],
   maxSlots: number,
@@ -163,6 +208,21 @@ export const repackAllEventPositions = (
         updates.push({ eventId: event.id, updates: { position } });
       }
     });
+  });
+
+  const packedEvents = events.map(event => {
+    const position = updates.find(update => update.eventId === event.id)?.updates.position;
+    return position === undefined ? event : { ...event, position };
+  });
+  const visibilityPositions = adjustPackedIntangibleVisibility(packedEvents, maxSlots);
+
+  packedEvents.filter(isIntangibleEvent).forEach(event => {
+    const position = visibilityPositions.get(event.id);
+    if (position === undefined || position === event.position) return;
+
+    const existingUpdate = updates.find(update => update.eventId === event.id);
+    if (existingUpdate) existingUpdate.updates.position = position;
+    else updates.push({ eventId: event.id, updates: { position } });
   });
 
   return updates;
@@ -387,6 +447,53 @@ export const cascadeEventPositions = (
         + duration * finalPosition;
     }, 0)
   );
+  const applyIntangibleVisibility = (positionUpdates: Map<string, number>) => {
+    const resolvedEvents = allEvents.map(event => {
+      const updatedEvent = event.id === changedEvent.id ? updatedChangedEvent : event;
+      const position = positionUpdates.get(event.id);
+      return position === undefined ? updatedEvent : { ...updatedEvent, position };
+    });
+    const candidateEventIds = new Set(
+      resolvedEvents
+        .filter(event => isIntangibleEvent(event) && positionUpdates.has(event.id))
+        .map(event => event.id)
+    );
+    const changedEventAffectsLayout = changedEvent.position !== targetPosition
+      || changedEvent.startTime.getTime() !== updatedChangedEvent.startTime.getTime()
+      || changedEvent.endTime.getTime() !== updatedChangedEvent.endTime.getTime()
+      || changedEvent.intangible !== updatedChangedEvent.intangible;
+
+    if (isIntangibleEvent(updatedChangedEvent) && changedEventAffectsLayout) {
+      candidateEventIds.add(updatedChangedEvent.id);
+    }
+
+    resolvedEvents.filter(isIntangibleEvent).forEach(event => {
+      const originalEvent = allEvents.find(original => original.id === event.id);
+      if (
+        originalEvent
+        && getIntangibleVisibleSegments(originalEvent, allEvents).length > 0
+        && getIntangibleVisibleSegments(event, resolvedEvents).length === 0
+      ) {
+        candidateEventIds.add(event.id);
+      }
+    });
+
+    const visibilityPositions = adjustPackedIntangibleVisibility(resolvedEvents, maxSlots, candidateEventIds);
+    const resolvedUpdates = new Map<string, number>();
+
+    resolvedEvents.forEach(event => {
+      const position = visibilityPositions.get(event.id) ?? event.position;
+      const baselinePosition = event.id === changedEvent.id ? targetPosition : allEvents.find(original => original.id === event.id)?.position;
+      if (baselinePosition !== undefined && position !== baselinePosition) {
+        resolvedUpdates.set(event.id, position);
+      }
+    });
+
+    return [...resolvedUpdates].map(([eventId, position]) => ({
+      eventId,
+      updates: { position }
+    }));
+  };
   const finalizePositionUpdates = (positionUpdates: Map<string, number>) => {
     const resolvedEvents = [updatedChangedEvent, ...otherEvents].map(event => {
       const position = positionUpdates.get(event.id);
@@ -400,10 +507,7 @@ export const cascadeEventPositions = (
     ));
 
     if (!hasCollision) {
-      return [...positionUpdates].map(([eventId, position]) => ({
-        eventId,
-        updates: { position }
-      }));
+      return applyIntangibleVisibility(positionUpdates);
     }
 
     const collisionInvolvesMegaLock = resolvedEvents.some((event, eventIndex) => (
@@ -431,16 +535,19 @@ export const cascadeEventPositions = (
     ));
     if (packedEventsHaveCollision) return [];
 
-    return resolvedEvents.flatMap(event => {
+    const packedUpdates = new Map<string, number>();
+    resolvedEvents.forEach(event => {
       const packedPosition = packedPositions.get(event.id);
       const currentPosition = event.id === changedEvent.id
         ? targetPosition
         : otherEvents.find(otherEvent => otherEvent.id === event.id)?.position;
 
-      return packedPosition !== undefined && packedPosition !== currentPosition
-        ? [{ eventId: event.id, updates: { position: packedPosition } }]
-        : [];
+      if (packedPosition !== undefined && packedPosition !== currentPosition) {
+        packedUpdates.set(event.id, packedPosition);
+      }
     });
+
+    return applyIntangibleVisibility(packedUpdates);
   };
 
   const buildCascadePlan = (changedPosition: number, direction: -1 | 1, allowOppositeDirection = false) => {
@@ -804,6 +911,21 @@ export const repackEventPositions = (
 
       updates.push({ eventId: event.id, updates: { position: nextPosition } });
     });
+  });
+
+  const packedEvents = updatedEvents.map(event => {
+    const position = updates.find(update => update.eventId === event.id)?.updates.position;
+    return position === undefined ? event : { ...event, position };
+  });
+  const visibilityPositions = adjustPackedIntangibleVisibility(packedEvents, maxSlots);
+
+  packedEvents.filter(isIntangibleEvent).forEach(event => {
+    const position = visibilityPositions.get(event.id);
+    if (position === undefined || position === event.position) return;
+
+    const existingUpdate = updates.find(update => update.eventId === event.id);
+    if (existingUpdate) existingUpdate.updates.position = position;
+    else updates.push({ eventId: event.id, updates: { position } });
   });
 
   return updates;

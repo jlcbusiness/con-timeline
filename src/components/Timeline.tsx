@@ -393,6 +393,7 @@ export const Timeline: React.FC = () => {
     const requiredSlotCount = getRequiredStackSlotCount(nextEvents, configuredSlotCount);
     const hasExplicitPosition = typeof updates.position === 'number';
     const affectsPosition = eventUpdateAffectsPosition(existingEvent, updates);
+    const isResize = (updates.startTime !== undefined) !== (updates.endTime !== undefined);
     const attemptsMegaLockedMovement = existingEvent.megaLock && (
       affectsPosition
       || (hasExplicitPosition && updates.position !== existingEvent.position)
@@ -449,6 +450,14 @@ export const Timeline: React.FC = () => {
             position: positionForEditedEvent
           }
         },
+        ...repackUpdates.filter(update => update.eventId !== eventId)
+      ]);
+    } else if (nextEvent.intangible && isResize) {
+      const repackUpdates = repackEventPositions(events, eventId, updates, requiredSlotCount);
+      const positionForEditedEvent = repackUpdates.find(update => update.eventId === eventId)?.updates.position ?? existingEvent.position;
+
+      batchUpdateEvents([
+        { eventId, updates: { ...updates, position: positionForEditedEvent } },
         ...repackUpdates.filter(update => update.eventId !== eventId)
       ]);
     } else if (hasExplicitPosition) {
@@ -1553,7 +1562,7 @@ export const Timeline: React.FC = () => {
                                 opacity: 0.8
                               }}
                             >
-                                <span className={`whitespace-normal break-words text-center leading-snug ${event.location?.trim() ? '-translate-y-px' : ''}`}>
+                                <span className={`line-clamp-3 break-words text-center leading-snug ${event.location?.trim() ? '-translate-y-px' : ''}`}>
                                   {event.title}
                                 </span>
                             </div>

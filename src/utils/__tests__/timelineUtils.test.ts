@@ -613,6 +613,68 @@ describe('timelineUtils', () => {
     ).toEqual([{ eventId: 'existing-intangible', updates: { position: 1 } }]);
   });
 
+  it('moves an intangible again when a cascade places it behind a tangible event', () => {
+    const changedIntangible = {
+      id: 'changed-intangible',
+      title: 'Changed Intangible',
+      intangible: true,
+      startTime: new Date(2025, 7, 27, 10),
+      endTime: new Date(2025, 7, 27, 12),
+      position: 0
+    };
+    const cascadedIntangible = {
+      id: 'cascaded-intangible',
+      title: 'Cascaded Intangible',
+      intangible: true,
+      startTime: new Date(2025, 7, 27, 10),
+      endTime: new Date(2025, 7, 27, 12),
+      position: 0
+    };
+    const tangibleBlocker = {
+      id: 'tangible-blocker',
+      title: 'Tangible Blocker',
+      startTime: new Date(2025, 7, 27, 10),
+      endTime: new Date(2025, 7, 27, 12),
+      position: 1
+    };
+
+    const updates = cascadeEventPositions(
+      [changedIntangible, cascadedIntangible, tangibleBlocker] as any,
+      changedIntangible as any,
+      { position: 0 },
+      3
+    );
+
+    expect(updates).toEqual([{ eventId: 'cascaded-intangible', updates: { position: 2 } }]);
+  });
+
+  it('moves an intangible when a tangible cascade newly covers it', () => {
+    const movedTangible = {
+      id: 'moved-tangible',
+      title: 'Moved Tangible',
+      startTime: new Date(2025, 7, 27, 10),
+      endTime: new Date(2025, 7, 27, 12),
+      position: 0
+    };
+    const intangible = {
+      id: 'intangible',
+      title: 'Intangible',
+      intangible: true,
+      startTime: new Date(2025, 7, 27, 10),
+      endTime: new Date(2025, 7, 27, 12),
+      position: 1
+    };
+
+    const updates = cascadeEventPositions(
+      [movedTangible, intangible] as any,
+      movedTangible as any,
+      { position: 1 },
+      3
+    );
+
+    expect(updates).toEqual([{ eventId: 'intangible', updates: { position: 0 } }]);
+  });
+
   it('sorts imported events by start time, duration, venue, room, and source order', () => {
     const events = [
       { id: 'short', title: 'Short', location: 'Hilton Galleria 7', startTime: new Date(2025, 7, 27, 10), endTime: new Date(2025, 7, 27, 10, 30), position: 0 },
@@ -713,6 +775,49 @@ describe('timelineUtils', () => {
       { eventId: 'middle', updates: { position: 0 } },
       { eventId: 'bottom', updates: { position: 1 } }
     ]);
+  });
+
+  it('moves a fully covered intangible to the nearest row with 30 visible minutes', () => {
+    const events = [
+      { id: 'solid-top', title: 'Solid Top', startTime: new Date(2025, 8, 4, 10), endTime: new Date(2025, 8, 4, 12), position: 0 },
+      { id: 'solid-middle', title: 'Solid Middle', startTime: new Date(2025, 8, 4, 10), endTime: new Date(2025, 8, 4, 11, 45), position: 1 },
+      { id: 'ghost', title: 'Ghost', intangible: true, startTime: new Date(2025, 8, 4, 10), endTime: new Date(2025, 8, 4, 12), position: 0 }
+    ];
+
+    const updates = repackAllEventPositions(events as any, 3);
+
+    expect(updates.find(update => update.eventId === 'ghost')?.updates.position).toBe(2);
+  });
+
+  it('does not move a partially visible intangible during repacking', () => {
+    const events = [
+      { id: 'solid', title: 'Solid', startTime: new Date(2025, 8, 4, 10), endTime: new Date(2025, 8, 4, 11, 45), position: 0 },
+      { id: 'ghost', title: 'Ghost', intangible: true, startTime: new Date(2025, 8, 4, 10), endTime: new Date(2025, 8, 4, 12), position: 0 }
+    ];
+
+    expect(repackAllEventPositions(events as any, 2)).toEqual([]);
+  });
+
+  it('moves an intangible when resizing removes its last visible section', () => {
+    const events = [
+      { id: 'solid', title: 'Solid', startTime: new Date(2025, 8, 4, 10), endTime: new Date(2025, 8, 4, 12), position: 0 },
+      { id: 'ghost', title: 'Ghost', intangible: true, startTime: new Date(2025, 8, 4, 10), endTime: new Date(2025, 8, 4, 12, 30), position: 0 }
+    ];
+
+    const updates = repackEventPositions(events as any, 'ghost', { endTime: new Date(2025, 8, 4, 12), position: 0 }, 2);
+
+    expect(updates.find(update => update.eventId === 'ghost')?.updates.position).toBe(1);
+  });
+
+  it('moves an intangible back when resizing restores a 30-minute visible section', () => {
+    const events = [
+      { id: 'solid', title: 'Solid', startTime: new Date(2025, 8, 4, 10), endTime: new Date(2025, 8, 4, 12), position: 0 },
+      { id: 'ghost', title: 'Ghost', intangible: true, startTime: new Date(2025, 8, 4, 10), endTime: new Date(2025, 8, 4, 12), position: 1 }
+    ];
+
+    const updates = repackEventPositions(events as any, 'ghost', { endTime: new Date(2025, 8, 4, 12, 30), position: 1 }, 2);
+
+    expect(updates.find(update => update.eventId === 'ghost')?.updates.position).toBe(0);
   });
 
   it('splits intangible visibility into uncovered segments', () => {

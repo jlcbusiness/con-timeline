@@ -144,6 +144,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
   const leftPosition = getTimePosition(event.startTime, startDate);
   const width = getEventWidth(event.startTime, event.endTime);
   const bufferWidth = getEventBufferWidth(event);
+  const isAtLeastTwoHours = event.endTime.getTime() - event.startTime.getTime() >= 2 * 60 * 60 * 1000;
   const resizeWingWidth = 12;
   const resizeWingOffset = resizeWingWidth / 2;
   const effectiveColor = displayColor ?? event.color;
@@ -649,17 +650,39 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
         </div>
       </div>
 
-      {event.intangible && event.location?.trim() && (
-        <div
-          className="absolute inset-x-0 bottom-1 z-20 pointer-events-none flex items-end px-2 text-[11px] font-medium"
+      {event.intangible && isAtLeastTwoHours && event.fandom?.trim() && (
+        <span
+          data-event-fandom-tag="true"
+          className="pointer-events-none absolute right-1 top-1 z-20 max-w-[calc(100%-0.5rem)] truncate rounded-md border border-current px-1.5 py-0.5 text-[11px] font-medium leading-snug shadow-sm"
+          title={event.fandom}
           style={{ color: `color-mix(in srgb, ${effectiveColor} 60%, black)`, opacity: 0.35 }}
         >
-          <span className="min-w-0 flex-1 truncate whitespace-nowrap text-left leading-snug">
-            {event.location}
-          </span>
-          {((event.endTime.getTime() - event.startTime.getTime()) / (1000 * 60 * 60)) >= 2 && (
+          {event.fandom}
+        </span>
+      )}
+
+      {event.intangible && (event.location?.trim() || (!isAtLeastTwoHours && event.fandom?.trim())) && (
+        <div
+          className="absolute inset-x-0 bottom-1 z-20 pointer-events-none flex items-end gap-1 px-2 text-[11px] font-medium"
+          style={{ color: `color-mix(in srgb, ${effectiveColor} 60%, black)`, opacity: 0.35 }}
+        >
+          {event.location?.trim() && (
+            <span className="min-w-0 flex-1 truncate whitespace-nowrap text-left leading-snug">
+              {event.location}
+            </span>
+          )}
+          {isAtLeastTwoHours && event.location?.trim() && (
             <span className="flex-shrink-0 whitespace-nowrap text-right leading-snug">
               {event.location}
+            </span>
+          )}
+          {!isAtLeastTwoHours && event.fandom?.trim() && (
+            <span
+              data-event-fandom-tag="true"
+              className="-mr-1 ml-auto max-w-full shrink-0 truncate rounded-md border border-current px-1.5 py-0.5 leading-snug shadow-sm"
+              title={event.fandom}
+            >
+              {event.fandom}
             </span>
           )}
         </div>
