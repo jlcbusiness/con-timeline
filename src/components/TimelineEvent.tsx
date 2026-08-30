@@ -157,6 +157,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
   const isYellowTangible = !event.intangible && normalizeColor(effectiveColor) === '#ffc800';
   const renderedColor = isYellowTangible ? '#ffe53b' : effectiveColor;
   const tangibleTextColor = isYellowTangible ? '#925d01' : 'white';
+  const ultraLockLineColor = `color-mix(in srgb, ${renderedColor} 55%, black)`;
   const eventStackClass = event.intangible ? 'z-[5]' : bufferWidth > 0 ? 'z-30' : 'z-10';
   const timeLockedClass = event.lockTime ? 'ring-2 ring-white/40 ring-inset' : '';
   const intangibleBodyClass = event.intangible ? 'opacity-[0.35] saturate-75' : '';
@@ -775,10 +776,18 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
           {(event.lockTime || event.megaLock) && (
             <div
               ref={lockBadgeRef}
-              className={`shrink-0 rounded-full px-[1mm] py-[1mm] ${event.megaLock ? 'border border-black/80 bg-white text-black' : ''}`}
-              style={event.lockTime && !event.megaLock ? { backgroundColor: renderedColor } : undefined}
+              className={`shrink-0 rounded-full px-[1mm] py-[1mm] ${event.megaLock ? 'border' : ''}`}
+              style={event.megaLock
+                ? {
+                    backgroundColor: 'rgba(255, 255, 255, 0.70)',
+                    backdropFilter: 'blur(3px)',
+                    WebkitBackdropFilter: 'blur(3px)',
+                    borderColor: ultraLockLineColor,
+                    color: ultraLockLineColor
+                  }
+                : event.lockTime ? { backgroundColor: renderedColor } : undefined}
             >
-              <Lock size={10} className={event.megaLock ? 'text-black' : 'text-white opacity-90'} />
+              <Lock size={10} className={event.megaLock ? '' : 'text-white opacity-90'} />
             </div>
           )}
         </div>
