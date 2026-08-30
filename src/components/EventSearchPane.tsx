@@ -51,6 +51,16 @@ const formatDuration = (event: TimelineEvent) => {
   return `${hours}h ${remainingMinutes}m`;
 };
 
+const SearchFandomTag: React.FC<{ fandom: string }> = ({ fandom }) => (
+  <span
+    data-search-fandom-tag="true"
+    className="-mr-1 ml-auto max-w-[70%] shrink-0 truncate rounded-md border border-gray-500 px-1.5 text-xs font-medium leading-[18px] text-gray-500"
+    title={fandom}
+  >
+    {fandom}
+  </span>
+);
+
 const SortFieldIcon: React.FC<{ field: EventSortField }> = ({ field }) => {
   if (field === 'title') {
     return <span className="font-serif text-lg font-bold leading-none" aria-hidden="true">T</span>;
@@ -276,29 +286,31 @@ export const EventSearchPane: React.FC<EventSearchPaneProps> = ({
                       <span className="min-w-0 flex-1 truncate text-sm font-semibold text-gray-900">{event.title}</span>
                       <span className="shrink-0 text-xs font-medium text-gray-500">{formatDuration(event)}</span>
                     </div>
-                    <div className="mt-1 text-xs text-gray-600">
-                      {event.startTime.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                      {' | '}{formatTime(event.startTime)} - {formatTime(event.endTime)}
+                    <div className="mt-1 flex min-w-0 items-end gap-2 text-xs text-gray-600">
+                      <span className="min-w-0 flex-1">
+                        {event.startTime.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                        {' | '}{formatTime(event.startTime)} - {formatTime(event.endTime)}
+                      </span>
+                      {event.fandom?.trim() && !event.location?.trim() && !event.description?.trim() && (
+                        <SearchFandomTag fandom={event.fandom} />
+                      )}
                     </div>
                     {event.location?.trim() && (
-                      <div className="mt-1 flex items-center gap-1 text-xs text-gray-600">
-                        <MapPin size={12} className="shrink-0 text-gray-400" />
-                        <span className="truncate">{event.location}</span>
+                      <div className="mt-1 flex min-w-0 items-end gap-2 text-xs text-gray-600">
+                        <span className="flex min-w-0 flex-1 items-center gap-1">
+                          <MapPin size={12} className="shrink-0 text-gray-400" />
+                          <span className="truncate">{event.location}</span>
+                        </span>
+                        {event.fandom?.trim() && !event.description?.trim() && (
+                          <SearchFandomTag fandom={event.fandom} />
+                        )}
                       </div>
                     )}
-                    {(event.description?.trim() || event.fandom?.trim()) && (
-                      <div className="-mr-1 mt-2 flex min-w-0 items-end gap-2 text-xs leading-5 text-gray-500">
-                        {event.description?.trim() && (
-                          <span className="min-w-0 flex-1 line-clamp-2">{event.description}</span>
-                        )}
+                    {event.description?.trim() && (
+                      <div className="mt-2 flex min-w-0 items-end gap-2 text-xs leading-5 text-gray-500">
+                        <span className="min-w-0 flex-1 line-clamp-2">{event.description}</span>
                         {event.fandom?.trim() && (
-                          <span
-                            data-search-fandom-tag="true"
-                            className="ml-auto max-w-[70%] shrink-0 truncate rounded-md border border-gray-500 px-1.5 text-xs font-medium leading-[18px] text-gray-500"
-                            title={event.fandom}
-                          >
-                            {event.fandom}
-                          </span>
+                          <SearchFandomTag fandom={event.fandom} />
                         )}
                       </div>
                     )}

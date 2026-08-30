@@ -44,6 +44,15 @@ const formatDuration = (startTime: Date, endTime: Date): string => {
   return `${hours}h ${minutes}m`;
 };
 
+const DurationBadge: React.FC<{ startTime: Date; endTime: Date }> = ({ startTime, endTime }) => (
+  <span
+    data-event-duration="true"
+    className="ml-auto shrink-0 rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-600"
+  >
+    {formatDuration(startTime, endTime)}
+  </span>
+);
+
 export const DayColumnsView: React.FC<DayColumnsViewProps> = ({
   days,
   events,
@@ -254,6 +263,9 @@ export const DayColumnsView: React.FC<DayColumnsViewProps> = ({
                   <div className="space-y-3">
                     {dayEvents.map(event => {
                       const displayColor = useLocationColors ? getLocationDisplayColor(event.location) : event.color;
+                      const hasFandom = !event.intangible && Boolean(event.fandom?.trim());
+                      const hasDescription = Boolean(event.description?.trim());
+                      const hasLocation = Boolean(event.location?.trim());
 
                       return (
                       <button
@@ -274,26 +286,43 @@ export const DayColumnsView: React.FC<DayColumnsViewProps> = ({
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-1 whitespace-nowrap text-[11px] text-slate-500">
-                            <Clock size={11} className="flex-shrink-0" />
-                            <span>{formatTime(event.startTime)} - {formatTime(event.endTime)}</span>
+                          <div className="flex min-w-0 items-center gap-2 text-[11px] text-slate-500">
+                            <span className="flex min-w-0 flex-1 items-center gap-1 whitespace-nowrap">
+                              <Clock size={11} className="flex-shrink-0" />
+                              <span className="truncate">{formatTime(event.startTime)} - {formatTime(event.endTime)}</span>
+                            </span>
+                            {!hasFandom && !hasDescription && !hasLocation && (
+                              <DurationBadge startTime={event.startTime} endTime={event.endTime} />
+                            )}
                           </div>
 
-                          {event.location && (
-                            <div className="flex items-center gap-1 text-[11px] text-slate-600">
-                              <MapPin size={11} className="flex-shrink-0 text-slate-400" />
-                              <span className="truncate">{event.location}</span>
+                          {hasLocation && (
+                            <div className="flex min-w-0 items-center gap-2 text-[11px] text-slate-600">
+                              <span className="flex min-w-0 flex-1 items-center gap-1">
+                                <MapPin size={11} className="flex-shrink-0 text-slate-400" />
+                                <span className="truncate">{event.location}</span>
+                              </span>
+                              {!hasFandom && !hasDescription && (
+                                <DurationBadge startTime={event.startTime} endTime={event.endTime} />
+                              )}
                             </div>
                           )}
 
-                          {event.description && (
+                          {hasDescription && !hasFandom && (
+                            <div className="flex min-w-0 items-end gap-2">
+                              <div className="max-h-16 min-w-0 flex-1 overflow-hidden text-[11px] leading-5 text-slate-500">
+                                {event.description}
+                              </div>
+                              <DurationBadge startTime={event.startTime} endTime={event.endTime} />
+                            </div>
+                          )}
+                          {hasFandom && hasDescription && (
                             <div className="max-h-16 overflow-hidden text-[11px] leading-5 text-slate-500">
                               {event.description}
                             </div>
                           )}
-
-                          <div className="flex min-w-0 items-center justify-between gap-2 pt-1">
-                            {!event.intangible && event.fandom?.trim() && (
+                          {hasFandom && (
+                            <div className="flex min-w-0 items-center justify-between gap-2 pt-1">
                               <span
                                 data-event-fandom-tag="true"
                                 className="inline-flex min-w-0 items-center overflow-hidden whitespace-nowrap rounded-md border border-slate-300 px-1.5 py-[3.25px] text-[10px] font-semibold leading-normal text-slate-700"
@@ -301,11 +330,9 @@ export const DayColumnsView: React.FC<DayColumnsViewProps> = ({
                               >
                                 <span className="min-w-0 truncate">{event.fandom}</span>
                               </span>
-                            )}
-                            <span className="ml-auto shrink-0 rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
-                              {formatDuration(event.startTime, event.endTime)}
-                            </span>
-                          </div>
+                              <DurationBadge startTime={event.startTime} endTime={event.endTime} />
+                            </div>
+                          )}
                         </div>
                       </button>
                       );
