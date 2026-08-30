@@ -59,6 +59,24 @@ const DurationBadge: React.FC<{ startTime: Date; endTime: Date }> = ({ startTime
   </span>
 );
 
+const OverflowTitle: React.FC<{ title: string; className: string }> = ({ title, className }) => {
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const [isTruncated, setIsTruncated] = React.useState(false);
+
+  React.useLayoutEffect(() => {
+    const element = titleRef.current;
+    if (!element) return;
+
+    const updateTruncation = () => setIsTruncated(element.scrollWidth > element.clientWidth);
+    updateTruncation();
+    const resizeObserver = new ResizeObserver(updateTruncation);
+    resizeObserver.observe(element);
+    return () => resizeObserver.disconnect();
+  }, [title]);
+
+  return <div ref={titleRef} className={className} title={isTruncated ? title : undefined}>{title}</div>;
+};
+
 export const DayColumnsView: React.FC<DayColumnsViewProps> = ({
   days,
   events,
@@ -336,13 +354,12 @@ export const DayColumnsView: React.FC<DayColumnsViewProps> = ({
                           clearLongPress();
                           setEventContextMenu({ event, x: contextMenuEvent.clientX, y: contextMenuEvent.clientY });
                         }}
-                        title={`${event.title}\n${formatTime(event.startTime)} - ${formatTime(event.endTime)} (${formatDuration(event.startTime, event.endTime)})${event.location ? `\n${event.location}` : ''}${event.description ? `\n${event.description}` : ''}`}
                       >
                         <div className="h-1.5 w-full" style={{ backgroundColor: displayColor }} />
                         <div className="space-y-2 p-3">
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0 flex-1">
-                              <div className="truncate text-sm font-semibold text-slate-900">{event.title}</div>
+                              <OverflowTitle className="truncate text-sm font-semibold text-slate-900" title={event.title} />
                             </div>
                           </div>
 

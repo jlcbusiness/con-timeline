@@ -1433,11 +1433,12 @@ export const Timeline: React.FC = () => {
                     {timeSlots.map((slot, index) => {
                       const isNewDay = index === 0 || slot.getDate() !== timeSlots[index - 1].getDate();
                       const leftPosition = getTimePosition(slot, startDate);
+                      const isOvernight = slot.getHours() >= 21 || slot.getHours() < 6;
 
                       return (
                         <div
                           key={slot.getTime()}
-                          className="absolute top-0"
+                          className={`absolute top-0 ${isOvernight ? 'bg-[#dbe7f3]' : 'bg-white'}`}
                           style={{
                             left: `${leftPosition}px`,
                             width: '240px',
@@ -1450,7 +1451,9 @@ export const Timeline: React.FC = () => {
                             </div>
                           )}
                           <div
-                            className={`h-full border-r border-gray-200 flex items-end justify-center pb-2 text-xs font-medium text-gray-600 ${
+                            className={`h-full border-r flex items-end justify-center pb-2 text-xs font-medium text-gray-600 ${
+                              isOvernight ? 'border-[#b7c8dc]' : 'border-gray-200'
+                            } ${
                               isNewDay ? 'pt-6' : 'pt-2'
                             }`}
                           >
@@ -1464,18 +1467,24 @@ export const Timeline: React.FC = () => {
                   <div className="absolute top-12 left-0 right-0" style={{ height: `${slotCount * gridSlotHeight}px` }}>
                     {timeSlots.map((slot) => {
                       const leftPosition = getTimePosition(slot, startDate);
+                      const isOvernight = slot.getHours() >= 21 || slot.getHours() < 6;
 
                       return (
                         <div
                           key={slot.getTime()}
-                          className={`absolute top-0 bottom-0 border-r border-gray-100 transition-colors group ${
+                          className={`absolute top-0 bottom-0 border-r transition-colors group ${
                             dragState.isDragging || dragState.isResizing
-                              ? 'cursor-not-allowed'
-                              : 'hover:bg-blue-50 cursor-pointer'
+                              ? `${isOvernight ? 'z-[1] border-[#b7c8dc] bg-[#dbe7f3]' : 'border-gray-100'} cursor-not-allowed`
+                              : isOvernight
+                                ? 'z-[1] border-[#b7c8dc] bg-[#dbe7f3] hover:bg-[#cedded] cursor-pointer'
+                                : 'border-gray-100 hover:bg-blue-50 cursor-pointer'
                           }`}
                           style={{
                             left: `${leftPosition}px`,
-                            width: '240px'
+                            width: '240px',
+                            backgroundImage: isOvernight
+                              ? `repeating-linear-gradient(to bottom, transparent 0, transparent ${gridSlotHeight - 1}px, #b7c8dc ${gridSlotHeight - 1}px, #b7c8dc ${gridSlotHeight}px)`
+                              : undefined
                           }}
                           onDoubleClick={() => handleTimeSlotClick(slot)}
                           title="Double-click to create new event"

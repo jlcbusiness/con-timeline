@@ -61,6 +61,28 @@ const SearchFandomTag: React.FC<{ fandom: string }> = ({ fandom }) => (
   </span>
 );
 
+const OverflowTitle: React.FC<{ title: string }> = ({ title }) => {
+  const titleRef = useRef<HTMLSpanElement>(null);
+  const [isTruncated, setIsTruncated] = useState(false);
+
+  useEffect(() => {
+    const element = titleRef.current;
+    if (!element) return;
+
+    const updateTruncation = () => setIsTruncated(element.scrollWidth > element.clientWidth);
+    updateTruncation();
+    const resizeObserver = new ResizeObserver(updateTruncation);
+    resizeObserver.observe(element);
+    return () => resizeObserver.disconnect();
+  }, [title]);
+
+  return (
+    <span ref={titleRef} className="min-w-0 flex-1 truncate text-sm font-semibold text-gray-900" title={isTruncated ? title : undefined}>
+      {title}
+    </span>
+  );
+};
+
 const SortFieldIcon: React.FC<{ field: EventSortField }> = ({ field }) => {
   if (field === 'title') {
     return <span className="font-serif text-lg font-bold leading-none" aria-hidden="true">T</span>;
@@ -300,7 +322,7 @@ export const EventSearchPane: React.FC<EventSearchPaneProps> = ({
                       aria-hidden="true"
                     />
                     <div className="flex items-start justify-between gap-3">
-                      <span className="min-w-0 flex-1 truncate text-sm font-semibold text-gray-900">{event.title}</span>
+                      <OverflowTitle title={event.title} />
                       <span className="shrink-0 text-xs font-medium text-gray-500">{formatDuration(event)}</span>
                     </div>
                     <div className="mt-1 flex min-w-0 items-end gap-2 text-xs text-gray-600">

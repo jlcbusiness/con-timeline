@@ -118,7 +118,10 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
   const fandomSubmenuTriggerRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
   const hostRef = useRef<HTMLDivElement>(null);
+  const titleRef = useRef<HTMLSpanElement>(null);
   const locationRef = useRef<HTMLSpanElement>(null);
+  const fandomTagRef = useRef<HTMLSpanElement>(null);
+  const fandomTagFloorRef = useRef<HTMLSpanElement>(null);
   const lockBadgeRef = useRef<HTMLDivElement>(null);
   const colorSubmenuCloseTimer = useRef<number | null>(null);
   const lockSubmenuCloseTimer = useRef<number | null>(null);
@@ -134,6 +137,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
   const [colorSubmenuPlacement, setColorSubmenuPlacement] = useState<SubmenuPlacement>({ opensLeft: false, width: 124 });
   const [fandomSubmenuPlacement, setFandomSubmenuPlacement] = useState<SubmenuPlacement>({ opensLeft: false, width: 220 });
   const [fandomTagMaxWidth, setFandomTagMaxWidth] = useState<number | null>(null);
+  const [isTitleTruncated, setIsTitleTruncated] = useState(false);
   const hasDescription = Boolean(event.description?.trim());
 
   // Use the unified positioning functions
@@ -214,7 +218,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
   }, []);
 
   const openTooltip = () => {
-    if (!hasDescription) {
+    if (!hasDescription && !isTitleTruncated) {
       closeTooltip();
       return;
     }
@@ -449,6 +453,25 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
   }, [tooltipStyle, updateTooltipPosition]);
 
   useLayoutEffect(() => {
+    const titleElement = titleRef.current;
+    if (!titleElement || event.intangible) {
+      setIsTitleTruncated(false);
+      return;
+    }
+
+    const updateTitleTruncation = () => {
+      const isTruncated = titleElement.scrollWidth > titleElement.clientWidth;
+      setIsTitleTruncated(current => current === isTruncated ? current : isTruncated);
+    };
+
+    updateTitleTruncation();
+    const resizeObserver = new ResizeObserver(updateTitleTruncation);
+    resizeObserver.observe(titleElement);
+
+    return () => resizeObserver.disconnect();
+  }, [event.intangible, event.title]);
+
+  useLayoutEffect(() => {
     const hostElement = hostRef.current;
     const locationElement = locationRef.current;
     if (event.intangible || !event.fandom?.trim() || !locationElement || !hostElement) {
@@ -462,7 +485,12 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
       const lockRect = lockBadgeRef.current?.getBoundingClientRect();
       const tagRightEdge = lockRect ? lockRect.left - 4 : hostRect.right - 4;
       const availableWidth = Math.max(0, Math.floor(tagRightEdge - locationRect.right - 4));
-      setFandomTagMaxWidth(current => current === availableWidth ? current : availableWidth);
+      const naturalTagWidth = fandomTagRef.current?.scrollWidth ?? 0;
+      const floorWidth = fandomTagFloorRef.current?.getBoundingClientRect().width ?? 0;
+      const constrainedWidth = naturalTagWidth > availableWidth
+        ? Math.max(availableWidth, Math.ceil(floorWidth))
+        : availableWidth;
+      setFandomTagMaxWidth(current => current === constrainedWidth ? current : constrainedWidth);
     };
 
     updateFandomTagWidth();
@@ -510,10 +538,10 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
       } as React.CSSProperties & { ['--event-width']: string }}
       onDoubleClick={handleDoubleClick}
       onContextMenu={handleContextMenu}
-      onMouseEnter={hasDescription ? openTooltip : undefined}
-      onMouseMove={hasDescription ? updateTooltipPosition : undefined}
-      onMouseLeave={hasDescription ? closeTooltip : undefined}
-      onPointerLeave={hasDescription ? closeTooltip : undefined}
+      onMouseEnter={hasDescription || isTitleTruncated ? openTooltip : undefined}
+      onMouseMove={hasDescription || isTitleTruncated ? updateTooltipPosition : undefined}
+      onMouseLeave={hasDescription || isTitleTruncated ? closeTooltip : undefined}
+      onPointerLeave={hasDescription || isTitleTruncated ? closeTooltip : undefined}
       title={undefined}
     >
       {bufferWidth > 0 && (
@@ -569,7 +597,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
           <div className="flex items-start justify-between min-w-0 gap-1">
             <div className="flex items-center gap-1 min-w-0 flex-1">
               {!event.intangible && <GripVertical size={10} className="flex-shrink-0 opacity-60" />}
-              <span className={event.intangible ? 'sr-only' : 'truncate whitespace-nowrap font-medium'}>{event.title}</span>
+              <span ref={titleRef} data-event-title="true" className={event.intangible ? 'sr-only' : 'truncate whitespace-nowrap font-medium'}>{event.title}</span>
             </div>
             
             <div className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-1">
@@ -646,7 +674,8 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
           style={tooltipStyle}
         >
           <div className="px-3 py-2 rounded">
-            <div className="max-w-xs text-gray-300">{event.description}</div>
+            {isTitleTruncated && <div className="max-w-xs font-semibold text-white">{event.title}</div>}
+            {hasDescription && <div className={`max-w-xs text-gray-300 ${isTitleTruncated ? 'mt-1' : ''}`}>{event.description}</div>}
           </div>
           <div className="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
         </div>,
@@ -661,14 +690,24 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
       {((!event.intangible && event.fandom?.trim()) || event.lockTime || event.megaLock) && (
         <div className="pointer-events-none absolute bottom-1 right-1 z-20 flex max-w-[calc(100%-0.5rem)] items-center justify-end gap-1">
           {!event.intangible && event.fandom?.trim() && (
-            <span
-              data-event-fandom-tag="true"
-              className="min-w-0 max-w-full truncate rounded-md border border-white/70 px-1.5 py-0.5 text-[11px] font-medium leading-snug text-white shadow-sm"
-              title={event.fandom}
-              style={{ backgroundColor: effectiveColor, maxWidth: fandomTagMaxWidth === null ? undefined : `${fandomTagMaxWidth}px` }}
-            >
-              {event.fandom}
-            </span>
+            <>
+              <span
+                ref={fandomTagFloorRef}
+                className="invisible absolute whitespace-nowrap rounded-md border px-1.5 py-0.5 text-[11px] font-medium leading-snug"
+                aria-hidden="true"
+              >
+                Superman
+              </span>
+              <span
+                ref={fandomTagRef}
+                data-event-fandom-tag="true"
+                className="min-w-0 max-w-full truncate rounded-md border border-white/70 px-1.5 py-0.5 text-[11px] font-medium leading-snug text-white shadow-sm"
+                title={event.fandom}
+                style={{ backgroundColor: effectiveColor, maxWidth: fandomTagMaxWidth === null ? undefined : `${fandomTagMaxWidth}px` }}
+              >
+                {event.fandom}
+              </span>
+            </>
           )}
           {(event.lockTime || event.megaLock) && (
             <div
