@@ -798,6 +798,56 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
               </div>
             )}
           </div>
+          <button
+            type="button"
+            role="menuitemcheckbox"
+            aria-checked={event.intangible}
+            onClick={toggleIntangible}
+            className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+          >
+            <span>Intangible</span>
+            <span className="text-xs text-gray-500">{event.intangible ? 'ON' : 'off'}</span>
+          </button>
+          <div
+            ref={colorSubmenuTriggerRef}
+            className="relative"
+            onMouseEnter={openColorSubmenu}
+            onMouseLeave={closeColorSubmenuSoon}
+          >
+            <button
+              type="button"
+              role="menuitem"
+              aria-haspopup="menu"
+              aria-expanded={isColorSubmenuOpen}
+              className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+            >
+              <span>Color</span>
+              <ChevronRightIcon size={14} className="text-gray-400" />
+            </button>
+
+            {isColorSubmenuOpen && (
+              <div
+                className={`absolute top-0 z-[10000] min-w-0 overflow-hidden rounded-md border border-gray-200 bg-white p-2 shadow-xl ${colorSubmenuPlacement.opensLeft ? 'right-full mr-1' : 'left-full ml-1'}`}
+                style={{ width: `${colorSubmenuPlacement.width}px` }}
+                onMouseEnter={openColorSubmenu}
+                onMouseLeave={closeColorSubmenuSoon}
+              >
+                <div className="grid grid-cols-[repeat(auto-fit,2rem)] place-content-center justify-center gap-2">
+                  {colorChoices.map(color => (
+                    <button
+                      key={color}
+                      type="button"
+                      onClick={() => updateEventColor(color)}
+                      className={`h-8 w-8 rounded-md transition-transform hover:scale-105 ${normalizeColor(event.color) === normalizeColor(color) ? 'border-2 border-gray-900 shadow-[inset_0_0_0_1px_white] ring-2 ring-gray-300' : 'border border-gray-200'}`}
+                      style={{ backgroundColor: color }}
+                      aria-label={`Set event color to ${color}`}
+                      title={color}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
           <div
             ref={fandomSubmenuTriggerRef}
             className="relative"
@@ -865,56 +915,6 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
                 {fandomSuggestions.length === 0 && (
                   <div className="px-3 py-2 text-sm text-gray-500">No fandoms yet</div>
                 )}
-              </div>
-            )}
-          </div>
-          <button
-            type="button"
-            role="menuitemcheckbox"
-            aria-checked={event.intangible}
-            onClick={toggleIntangible}
-            className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
-          >
-            <span>Intangible</span>
-            <span className="text-xs text-gray-500">{event.intangible ? 'ON' : 'off'}</span>
-          </button>
-          <div
-            ref={colorSubmenuTriggerRef}
-            className="relative"
-            onMouseEnter={openColorSubmenu}
-            onMouseLeave={closeColorSubmenuSoon}
-          >
-            <button
-              type="button"
-              role="menuitem"
-              aria-haspopup="menu"
-              aria-expanded={isColorSubmenuOpen}
-              className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
-            >
-              <span>Color</span>
-              <ChevronRightIcon size={14} className="text-gray-400" />
-            </button>
-
-            {isColorSubmenuOpen && (
-              <div
-                className={`absolute top-0 z-[10000] min-w-0 overflow-hidden rounded-md border border-gray-200 bg-white p-2 shadow-xl ${colorSubmenuPlacement.opensLeft ? 'right-full mr-1' : 'left-full ml-1'}`}
-                style={{ width: `${colorSubmenuPlacement.width}px` }}
-                onMouseEnter={openColorSubmenu}
-                onMouseLeave={closeColorSubmenuSoon}
-              >
-                <div className="grid grid-cols-[repeat(auto-fit,2rem)] place-content-center justify-center gap-2">
-                  {colorChoices.map(color => (
-                    <button
-                      key={color}
-                      type="button"
-                      onClick={() => updateEventColor(color)}
-                      className={`h-8 w-8 rounded-md transition-transform hover:scale-105 ${normalizeColor(event.color) === normalizeColor(color) ? 'border-2 border-gray-900 shadow-[inset_0_0_0_1px_white] ring-2 ring-gray-300' : 'border border-gray-200'}`}
-                      style={{ backgroundColor: color }}
-                      aria-label={`Set event color to ${color}`}
-                      title={color}
-                    />
-                  ))}
-                </div>
               </div>
             )}
           </div>

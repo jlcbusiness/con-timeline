@@ -146,6 +146,43 @@ export const EventContextMenu: React.FC<EventContextMenuProps> = ({
         )}
       </div>
 
+      <button type="button" role="menuitemcheckbox" aria-checked={event.intangible} onClick={() => updateAndClose({ intangible: !event.intangible })} className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100">
+        <span>Intangible</span>
+        <span className="text-xs text-gray-500">{event.intangible ? 'ON' : 'off'}</span>
+      </button>
+
+      <div className="relative">
+        <button
+          type="button"
+          role="menuitem"
+          aria-haspopup="menu"
+          aria-expanded={openSubmenu === 'color'}
+          onMouseEnter={mouseEvent => openMenu('color', mouseEvent.currentTarget, 124)}
+          onClick={clickEvent => openMenu('color', clickEvent.currentTarget, 124)}
+          className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+        >
+          <span>Color</span>
+          <ChevronRight size={14} className="text-gray-400" />
+        </button>
+        {openSubmenu === 'color' && (
+          <div className={`${submenuClass} p-2`} style={{ width: `${submenuWidth}px` }}>
+            <div className="grid grid-cols-[repeat(auto-fit,2rem)] place-content-center justify-center gap-2">
+              {getEventColors().map(color => (
+                <button
+                  key={color}
+                  type="button"
+                  onClick={() => updateAndClose({ color })}
+                  className={`h-8 w-8 rounded-md transition-transform hover:scale-105 ${normalizeColor(event.color) === normalizeColor(color) ? 'border-2 border-gray-900 shadow-[inset_0_0_0_1px_white] ring-2 ring-gray-300' : 'border border-gray-200'}`}
+                  style={{ backgroundColor: color }}
+                  aria-label={`Set event color to ${color}`}
+                  title={color}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
       <div className="relative">
         <button
           type="button"
@@ -203,43 +240,6 @@ export const EventContextMenu: React.FC<EventContextMenuProps> = ({
             ) : (
               <div className="px-3 py-2 text-sm text-gray-500">No fandoms yet</div>
             )}
-          </div>
-        )}
-      </div>
-
-      <button type="button" role="menuitemcheckbox" aria-checked={event.intangible} onClick={() => updateAndClose({ intangible: !event.intangible })} className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100">
-        <span>Intangible</span>
-        <span className="text-xs text-gray-500">{event.intangible ? 'ON' : 'off'}</span>
-      </button>
-
-      <div className="relative">
-        <button
-          type="button"
-          role="menuitem"
-          aria-haspopup="menu"
-          aria-expanded={openSubmenu === 'color'}
-          onMouseEnter={mouseEvent => openMenu('color', mouseEvent.currentTarget, 124)}
-          onClick={clickEvent => openMenu('color', clickEvent.currentTarget, 124)}
-          className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
-        >
-          <span>Color</span>
-          <ChevronRight size={14} className="text-gray-400" />
-        </button>
-        {openSubmenu === 'color' && (
-          <div className={`${submenuClass} p-2`} style={{ width: `${submenuWidth}px` }}>
-            <div className="grid grid-cols-[repeat(auto-fit,2rem)] place-content-center justify-center gap-2">
-              {getEventColors().map(color => (
-                <button
-                  key={color}
-                  type="button"
-                  onClick={() => updateAndClose({ color })}
-                  className={`h-8 w-8 rounded-md transition-transform hover:scale-105 ${normalizeColor(event.color) === normalizeColor(color) ? 'border-2 border-gray-900 shadow-[inset_0_0_0_1px_white] ring-2 ring-gray-300' : 'border border-gray-200'}`}
-                  style={{ backgroundColor: color }}
-                  aria-label={`Set event color to ${color}`}
-                  title={color}
-                />
-              ))}
-            </div>
           </div>
         )}
       </div>
