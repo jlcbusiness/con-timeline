@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Calendar, Clock, Palette, MapPin, Plus, Lock, ChevronDown, Heart } from 'lucide-react';
+import { X, Calendar, Clock, Palette, MapPin, Plus, Lock, ChevronDown, Tag } from 'lucide-react';
 import type { TimelineEvent, Location } from '../types/timeline';
 import { getEventColors, roundToNearestHalfHour } from '../utils/timelineUtils';
 import { EVENT_BUFFER_OPTIONS_MINUTES } from '../config/timeline';
@@ -640,7 +640,7 @@ export const EventModal: React.FC<EventModalProps> = ({
           <div className="relative">
             <div className="mb-2 flex items-center justify-between gap-2">
               <label htmlFor="event-fandom" className="block text-sm font-medium text-gray-700">
-                <Heart size={16} className="mr-1 inline" />
+                <Tag size={16} className="mr-1 inline" />
                 Fandom (Optional)
               </label>
               {fandom.trim() && (

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowDown, ArrowUp, Clock, Fan, Hourglass, MapPin, Search, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Clock, Hourglass, MapPin, Search, Tag, X } from 'lucide-react';
 import type { TimelineEvent } from '../types/timeline';
 import {
   searchEvents,
@@ -57,7 +57,7 @@ const SortFieldIcon: React.FC<{ field: EventSortField }> = ({ field }) => {
   }
   if (field === 'startTime') return <Clock size={17} aria-hidden="true" />;
   if (field === 'location') return <MapPin size={17} aria-hidden="true" />;
-  if (field === 'fandom') return <Fan size={17} aria-hidden="true" />;
+  if (field === 'fandom') return <Tag size={17} aria-hidden="true" />;
   return <Hourglass size={17} aria-hidden="true" />;
 };
 
@@ -286,8 +286,21 @@ export const EventSearchPane: React.FC<EventSearchPaneProps> = ({
                         <span className="truncate">{event.location}</span>
                       </div>
                     )}
-                    {event.description?.trim() && (
-                      <p className="mt-2 line-clamp-2 text-xs leading-5 text-gray-500">{event.description}</p>
+                    {(event.description?.trim() || event.fandom?.trim()) && (
+                      <div className="mt-2 flex min-w-0 items-end gap-2 text-xs leading-5 text-gray-500">
+                        {event.description?.trim() && (
+                          <span className="min-w-0 flex-1 line-clamp-2">{event.description}</span>
+                        )}
+                        {event.fandom?.trim() && (
+                          <span
+                            data-search-fandom-tag="true"
+                            className="ml-auto max-w-[70%] shrink-0 truncate rounded-md border border-gray-500 px-1.5 text-xs font-medium leading-[18px] text-gray-500"
+                            title={event.fandom}
+                          >
+                            {event.fandom}
+                          </span>
+                        )}
+                      </div>
                     )}
                   </button>
                 ))}

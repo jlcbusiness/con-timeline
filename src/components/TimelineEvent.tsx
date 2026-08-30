@@ -663,7 +663,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
           {!event.intangible && event.fandom?.trim() && (
             <span
               data-event-fandom-tag="true"
-              className="min-w-0 max-w-full truncate rounded border border-white/70 px-1.5 py-0.5 text-[11px] font-medium leading-snug text-white shadow-sm"
+              className="min-w-0 max-w-full truncate rounded-md border border-white/70 px-1.5 py-0.5 text-[11px] font-medium leading-snug text-white shadow-sm"
               title={event.fandom}
               style={{ backgroundColor: effectiveColor, maxWidth: fandomTagMaxWidth === null ? undefined : `${fandomTagMaxWidth}px` }}
             >
