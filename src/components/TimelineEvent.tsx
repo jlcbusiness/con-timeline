@@ -144,6 +144,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
   const [bufferSubmenuPlacement, setBufferSubmenuPlacement] = useState<SubmenuPlacement>({ opensLeft: false, width: 140 });
   const [fandomTagMaxWidth, setFandomTagMaxWidth] = useState<number | null>(null);
   const [isTitleTruncated, setIsTitleTruncated] = useState(false);
+  const [isLocationTruncated, setIsLocationTruncated] = useState(false);
   const hasDescription = Boolean(event.description?.trim());
 
   // Use the unified positioning functions
@@ -229,7 +230,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
   }, []);
 
   const openTooltip = () => {
-    if (!hasDescription && !isTitleTruncated) {
+    if (!hasDescription && !isTitleTruncated && !isLocationTruncated) {
       closeTooltip();
       return;
     }
@@ -506,9 +507,31 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
     updateTitleTruncation();
     const resizeObserver = new ResizeObserver(updateTitleTruncation);
     resizeObserver.observe(titleElement);
+    if (hostRef.current) resizeObserver.observe(hostRef.current);
 
     return () => resizeObserver.disconnect();
-  }, [event.intangible, event.title]);
+  }, [event.endTime, event.intangible, event.startTime, event.title]);
+
+  useLayoutEffect(() => {
+    const locationElement = locationRef.current;
+    if (!locationElement || event.intangible) {
+      setIsLocationTruncated(false);
+      return;
+    }
+
+    const updateLocationTruncation = () => {
+      const isTruncated = locationElement.scrollWidth > locationElement.clientWidth
+        || locationElement.scrollHeight > locationElement.clientHeight;
+      setIsLocationTruncated(current => current === isTruncated ? current : isTruncated);
+    };
+
+    updateLocationTruncation();
+    const resizeObserver = new ResizeObserver(updateLocationTruncation);
+    resizeObserver.observe(locationElement);
+    if (hostRef.current) resizeObserver.observe(hostRef.current);
+
+    return () => resizeObserver.disconnect();
+  }, [event.endTime, event.intangible, event.location, event.startTime, slotHeight]);
 
   useLayoutEffect(() => {
     const hostElement = hostRef.current;
@@ -580,10 +603,10 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
       } as React.CSSProperties & { ['--event-width']: string }}
       onDoubleClick={handleDoubleClick}
       onContextMenu={handleContextMenu}
-      onMouseEnter={hasDescription || isTitleTruncated ? openTooltip : undefined}
-      onMouseMove={hasDescription || isTitleTruncated ? updateTooltipPosition : undefined}
-      onMouseLeave={hasDescription || isTitleTruncated ? closeTooltip : undefined}
-      onPointerLeave={hasDescription || isTitleTruncated ? closeTooltip : undefined}
+      onMouseEnter={hasDescription || isTitleTruncated || isLocationTruncated ? openTooltip : undefined}
+      onMouseMove={hasDescription || isTitleTruncated || isLocationTruncated ? updateTooltipPosition : undefined}
+      onMouseLeave={hasDescription || isTitleTruncated || isLocationTruncated ? closeTooltip : undefined}
+      onPointerLeave={hasDescription || isTitleTruncated || isLocationTruncated ? closeTooltip : undefined}
       title={undefined}
     >
       {bufferWidth > 0 && (
@@ -631,12 +654,12 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
 
         {/* Main event content */}
         <div
-          className="flex flex-col justify-center h-full px-3 py-2 text-xs font-medium cursor-grab active:cursor-grabbing touch-none"
+          className="flex h-full min-h-0 flex-col justify-start overflow-hidden px-3 py-2 text-xs font-medium cursor-grab active:cursor-grabbing touch-none"
           onMouseDown={(e) => handleMouseDown(e, 'move')}
           onPointerDown={(e) => handlePointerDown(e, 'move')}
         >
           {/* First line: Title with icons and edit button */}
-          <div className="flex items-start justify-between min-w-0 gap-1">
+          <div className="flex shrink-0 items-start justify-between min-w-0 gap-1">
             <div className="flex items-center gap-1 min-w-0 flex-1">
               {!event.intangible && <GripVertical size={10} className="flex-shrink-0 opacity-60" />}
               <span ref={titleRef} data-event-title="true" className={event.intangible ? 'sr-only' : 'truncate whitespace-nowrap font-medium'}>{event.title}</span>
@@ -649,15 +672,15 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
 
           {/* Second line: Location (if present) */}
           {event.location && (
-            <div className="flex items-start gap-1 mt-1 min-w-0">
-              <div className="w-2.5"></div> {/* Spacer to align with title */}
+            <div className="mt-1 flex min-h-0 min-w-0 flex-1 items-start gap-1 overflow-hidden">
+              <div className="w-2.5 shrink-0"></div> {/* Spacer to align with title */}
               {event.intangible ? (
                 <span className="sr-only">{event.location}</span>
               ) : (
                 <span
                   ref={locationRef}
                   data-event-location="true"
-                  className="whitespace-normal break-words text-xs leading-snug opacity-90"
+                  className="block max-h-full min-w-0 flex-1 overflow-hidden whitespace-normal break-words text-xs leading-snug opacity-90"
                 >
                   {event.location}
                 </span>
@@ -739,7 +762,8 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
         >
           <div className="px-3 py-2 rounded">
             {isTitleTruncated && <div className="max-w-xs font-semibold text-white">{event.title}</div>}
-            {hasDescription && <div className={`max-w-xs text-gray-300 ${isTitleTruncated ? 'mt-1' : ''}`}>{event.description}</div>}
+            {isLocationTruncated && <div className={`max-w-xs text-gray-200 ${isTitleTruncated ? 'mt-1' : ''}`}>{event.location}</div>}
+            {hasDescription && <div className={`max-w-xs text-gray-300 ${isTitleTruncated || isLocationTruncated ? 'mt-1' : ''}`}>{event.description}</div>}
           </div>
           <div className="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
         </div>,
