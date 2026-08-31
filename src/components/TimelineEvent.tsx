@@ -654,7 +654,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
 
         {/* Main event content */}
         <div
-          className="flex h-full min-h-0 flex-col justify-start overflow-hidden px-3 py-2 text-xs font-medium cursor-grab active:cursor-grabbing touch-none"
+          className="flex h-full min-h-0 flex-col justify-center overflow-hidden px-3 py-1.5 text-xs font-medium cursor-grab active:cursor-grabbing touch-none"
           onMouseDown={(e) => handleMouseDown(e, 'move')}
           onPointerDown={(e) => handlePointerDown(e, 'move')}
         >
@@ -672,7 +672,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
 
           {/* Second line: Location (if present) */}
           {event.location && (
-            <div className="mt-1 flex min-h-0 min-w-0 flex-1 items-start gap-1 overflow-hidden">
+            <div className="mt-0.5 flex min-w-0 shrink-0 items-start gap-1 overflow-hidden">
               <div className="w-2.5 shrink-0"></div> {/* Spacer to align with title */}
               {event.intangible ? (
                 <span className="sr-only">{event.location}</span>
@@ -680,7 +680,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
                 <span
                   ref={locationRef}
                   data-event-location="true"
-                  className="block max-h-full min-w-0 flex-1 overflow-hidden whitespace-normal break-words text-xs leading-snug opacity-90"
+                  className="block min-w-0 flex-1 truncate whitespace-nowrap text-xs leading-snug opacity-90"
                 >
                   {event.location}
                 </span>
