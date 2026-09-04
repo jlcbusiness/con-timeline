@@ -79,6 +79,10 @@ const normalizeImportedEvent = (event: any): TimelineEvent => {
   };
 };
 
+export const remapImportedEventIds = (events: TimelineEvent[]): TimelineEvent[] => (
+  events.map(event => ({ ...event, id: createUuid() }))
+);
+
 const isMissingTableError = (error: any) =>
   error?.code === 'PGRST205' || error?.code === '42P01' || /could not find the table/i.test(String(error?.message || ''));
 
@@ -330,12 +334,16 @@ export const useEventPersistence = (activeTimelineId?: string | null) => {
         return validEvents;
       }
 
+      const importedEvents = options?.timelineId
+        ? remapImportedEventIds(validEvents)
+        : validEvents;
+
       const nextEvents = options?.replace
-        ? validEvents
+        ? importedEvents
         : (() => {
             const existingIds = new Set(events.map(event => event.id));
-            const deduped = validEvents.map(event => (
-              existingIds.has(event.id) ? { ...event, id: `${event.id}-${Date.now()}` } : event
+            const deduped = importedEvents.map(event => (
+              existingIds.has(event.id) ? { ...event, id: createUuid() } : event
             ));
 
             return options?.timelineId ? deduped : [...events, ...deduped];
