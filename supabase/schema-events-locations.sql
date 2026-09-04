@@ -8,6 +8,7 @@ create table if not exists timelines (
   name text not null,
   start_date timestamptz not null,
   end_date timestamptz not null,
+  time_zone text,
   created_at timestamptz default now(),
   updated_at timestamptz default now(),
   archived boolean default false,

@@ -1,5 +1,6 @@
 import type { TimelineEvent } from '../types/timeline';
 import { PIXELS_PER_HOUR } from '../config/timeline';
+import { formatInTimelineTimeZone, getDayKeyInTimeZone, getHourInTimeZone } from './timezones';
 
 export const generateTimeSlots = (startDate: Date, endDate: Date): Date[] => {
   const slots: Date[] = [];
@@ -13,22 +14,25 @@ export const generateTimeSlots = (startDate: Date, endDate: Date): Date[] => {
   return slots;
 };
 
-export const formatTimeSlot = (date: Date): string => {
-  const hours = date.getHours();
+export const formatTimeSlot = (date: Date, timeZone?: string): string => {
+  const hours = timeZone ? getHourInTimeZone(date, timeZone) : date.getHours();
   const ampm = hours >= 12 ? 'PM' : 'AM';
   const displayHours = hours % 12 || 12;
   return `${displayHours} ${ampm}`;
 };
 
-export const formatDateHeader = (date: Date): string => {
-  return date.toLocaleDateString('en-US', {
+export const formatDateHeader = (date: Date, timeZone?: string): string => {
+  const options: Intl.DateTimeFormatOptions = {
     weekday: 'short',
     month: 'short',
     day: 'numeric'
-  });
+  };
+  return timeZone ? formatInTimelineTimeZone(date, timeZone, options) : date.toLocaleDateString('en-US', options);
 };
 
-export const getDayKey = (date: Date): string => {
+export const getDayKey = (date: Date, timeZone?: string): string => {
+  if (timeZone) return getDayKeyInTimeZone(date, timeZone);
+
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { LocationManager } from './LocationManager';
 import type { TimelineMeta } from '../hooks/useTimelinePersistence';
 import type { Location } from '../types/timeline';
+import { TIME_ZONE_OPTIONS, formatDateInputInTimeZone, getRepresentativeTimeZone, zonedDateTimeToUtc } from '../utils/timezones';
 
 interface Props {
   isOpen: boolean;
@@ -11,7 +12,7 @@ interface Props {
   activeId: string | null;
   setActiveId: (id: string | null) => void;
   renameTimeline: (id: string, name: string) => Promise<void>;
-  updateTimelineDates: (id: string, startDate: string, endDate: string, slotCount: number) => Promise<void>;
+  updateTimelineDates: (id: string, startDate: string, endDate: string, slotCount: number, timeZone: string) => Promise<void>;
   useLocationColors: boolean;
   onToggleUseLocationColors: (enabled: boolean) => void;
   locations: Location[];
@@ -152,6 +153,7 @@ export const ManageTimelinesModal: React.FC<Props> = ({ isOpen, onClose, mode, t
                     const name = String(formData.get('name')).trim();
                     const startDate = String(formData.get('startDate'));
                     const endDate = String(formData.get('endDate'));
+                    const timeZone = String(formData.get('timeZone'));
                     const slotCount = Number(formData.get('slotCount'));
                     if (!name || !startDate || !endDate || endDate < startDate) {
                       setIsSaving(false);
@@ -163,18 +165,20 @@ export const ManageTimelinesModal: React.FC<Props> = ({ isOpen, onClose, mode, t
                     }
 
                     try {
-                      const nextStartDate = `${startDate}T01:00:00`;
-                      const nextEndDate = `${endDate}T23:00:00`;
+                      const nextStartDate = zonedDateTimeToUtc(startDate, '01:00', timeZone);
+                      const nextEndDate = zonedDateTimeToUtc(endDate, '23:00', timeZone);
+                      if (!nextStartDate || !nextEndDate) return;
                       const hasNameChange = name !== editingTimeline.name;
-                      const hasTimelineChange = startDate !== editingTimeline.startDate.slice(0, 10)
-                        || endDate !== editingTimeline.endDate.slice(0, 10)
-                        || Math.floor(slotCount) !== editingTimeline.slotCount;
+                      const hasTimelineChange = nextStartDate.toISOString() !== new Date(editingTimeline.startDate).toISOString()
+                        || nextEndDate.toISOString() !== new Date(editingTimeline.endDate).toISOString()
+                        || Math.floor(slotCount) !== editingTimeline.slotCount
+                        || timeZone !== editingTimeline.timeZone;
 
                       if (hasNameChange) {
                         await renameTimeline(editingTimeline.id, name);
                       }
                       if (hasTimelineChange) {
-                        await updateTimelineDates(editingTimeline.id, nextStartDate, nextEndDate, Math.floor(slotCount));
+                        await updateTimelineDates(editingTimeline.id, nextStartDate.toISOString(), nextEndDate.toISOString(), Math.floor(slotCount), timeZone);
                       }
                       setEditingTimeline(null);
                       if (directEditMode) {
@@ -195,13 +199,21 @@ export const ManageTimelinesModal: React.FC<Props> = ({ isOpen, onClose, mode, t
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <label className="block text-sm font-medium text-gray-700">
                       Start date
-                      <input name="startDate" type="date" defaultValue={editingTimeline.startDate.slice(0, 10)} className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-gray-900" required />
+                      <input name="startDate" type="date" defaultValue={formatDateInputInTimeZone(new Date(editingTimeline.startDate), editingTimeline.timeZone)} className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-gray-900" required />
                     </label>
                     <label className="block text-sm font-medium text-gray-700">
                       End date
-                      <input name="endDate" type="date" defaultValue={editingTimeline.endDate.slice(0, 10)} className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-gray-900" required />
+                      <input name="endDate" type="date" defaultValue={formatDateInputInTimeZone(new Date(editingTimeline.endDate), editingTimeline.timeZone)} className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-gray-900" required />
                     </label>
                   </div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Timezone
+                    <select name="timeZone" defaultValue={getRepresentativeTimeZone(editingTimeline.timeZone, new Date(editingTimeline.startDate))} className="mt-1 w-full rounded border border-gray-300 bg-white px-3 py-2 text-gray-900">
+                      {TIME_ZONE_OPTIONS.map(option => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </label>
                   <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
                     <label className="flex flex-col items-start text-sm font-medium text-gray-700">
                       Slots

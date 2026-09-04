@@ -3,6 +3,7 @@ import { Upload, Sparkles, X } from 'lucide-react';
 import type { TimelineEvent } from '../types/timeline';
 import { addDragonConEvents, parseDragonConSchedule } from '../utils/dragonConImporter';
 import { extractDragonConScheduleTextFromPdf } from '../utils/dragonConPdf';
+import { DRAGON_CON_TIME_ZONE, TIME_ZONE_OPTIONS } from '../utils/timezones';
 
 interface DragonConImporterProps {
   isOpen: boolean;
@@ -25,19 +26,21 @@ export const DragonConImporter: React.FC<DragonConImporterProps> = ({
   const [isImporting, setIsImporting] = useState(false);
   const [isLoadingPdf, setIsLoadingPdf] = useState(false);
   const [updateDescriptions, setUpdateDescriptions] = useState(false);
+  const [timeZone, setTimeZone] = useState(DRAGON_CON_TIME_ZONE);
   const [importResult, setImportResult] = useState<{ kind: 'success' | 'error'; message: string } | null>(null);
 
   useEffect(() => {
     if (isOpen) {
       setImportResult(null);
       setUpdateDescriptions(false);
+      setTimeZone(DRAGON_CON_TIME_ZONE);
     }
   }, [isOpen]);
 
   const persistLocations = async (text: string) => {
     if (!onAddLocations) return;
 
-    const importedEvents = parseDragonConSchedule(text);
+    const importedEvents = parseDragonConSchedule(text, timeZone);
     const locationNames = Array.from(new Set(
       importedEvents
         .map(event => event.location?.trim())
@@ -55,7 +58,7 @@ export const DragonConImporter: React.FC<DragonConImporterProps> = ({
     setIsImporting(true);
     setImportResult(null);
     try {
-      const eventCount = addDragonConEvents(scheduleText, existingEvents, onAddEvent, onUpdateEvent, updateDescriptions);
+      const eventCount = addDragonConEvents(scheduleText, existingEvents, onAddEvent, onUpdateEvent, updateDescriptions, timeZone);
       await persistLocations(scheduleText);
       setImportResult({ kind: 'success', message: `Successfully imported or updated ${eventCount} Dragon Con events!` });
       setScheduleText('');
@@ -192,6 +195,19 @@ Skies Over Dragon Con - Thursday, Sep 1 8:30 PM"
                   className="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
                 />
                 <span>Update Descriptions</span>
+              </label>
+
+              <label className="block text-sm font-medium text-gray-700">
+                Imported times timezone
+                <select
+                  value={timeZone}
+                  onChange={event => setTimeZone(event.target.value)}
+                  className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                >
+                  {TIME_ZONE_OPTIONS.map(option => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
               </label>
 
               <div className="flex gap-3 pt-4">

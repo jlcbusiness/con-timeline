@@ -23,6 +23,13 @@ import { AccountMenu } from './AccountMenu';
 import { EventSearchPane } from './EventSearchPane';
 import { getFandomSuggestions, getLocationSuggestions } from '../utils/locationSuggestions';
 import {
+  addCalendarDaysInTimeZone,
+  formatInTimelineTimeZone,
+  getDayKeyInTimeZone,
+  getHourInTimeZone,
+  zonedDateTimeToUtc
+} from '../utils/timezones';
+import {
   generateTimeSlots,
   formatTimeSlot,
   formatDateHeader,
@@ -128,26 +135,23 @@ const getNowJumpPopup = (now: Date, startDate: Date, endDate: Date): NowJumpPopu
 
 const normalizeColor = (color: string) => color.trim().toLowerCase();
 
-const isSameDay = (left: Date, right: Date) =>
-  left.getFullYear() === right.getFullYear() &&
-  left.getMonth() === right.getMonth() &&
-  left.getDate() === right.getDate();
-
-const getDaysInSpan = (start: Date, end: Date) => {
+const getDaysInSpan = (start: Date, end: Date, timeZone: string) => {
   const days: Date[] = [];
-  const current = new Date(start);
-  current.setHours(0, 0, 0, 0);
-
-  const last = new Date(end);
-  last.setHours(0, 0, 0, 0);
+  const current = new Date(`${getDayKeyInTimeZone(start, timeZone)}T12:00:00Z`);
+  const last = new Date(`${getDayKeyInTimeZone(end, timeZone)}T12:00:00Z`);
 
   while (current <= last) {
-    days.push(new Date(current));
-    current.setDate(current.getDate() + 1);
+    const day = zonedDateTimeToUtc(current.toISOString().slice(0, 10), '12:00', timeZone);
+    if (day) days.push(day);
+    current.setUTCDate(current.getUTCDate() + 1);
   }
 
   return days;
 };
+
+const isSameDay = (left: Date, right: Date, timeZone: string) => (
+  getDayKeyInTimeZone(left, timeZone) === getDayKeyInTimeZone(right, timeZone)
+);
 
 export const Timeline: React.FC = () => {
   const { user } = useSupabaseSession();
@@ -200,6 +204,7 @@ export const Timeline: React.FC = () => {
   const activeTimeline = timelines.find(timeline => timeline.id === activeId);
   const timelineStartDate = activeTimeline?.startDate;
   const timelineEndDate = activeTimeline?.endDate;
+  const activeTimeZone = activeTimeline?.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
   const configuredSlotCount = activeTimeline?.slotCount ?? 11;
   const startDate = new Date(timelineStartDate || DEFAULT_START_DATE);
   const endDate = new Date(timelineEndDate || DEFAULT_END_DATE);
@@ -209,7 +214,7 @@ export const Timeline: React.FC = () => {
   const totalDurationMs = endDate.getTime() - startDate.getTime();
   const totalDurationHours = totalDurationMs / (1000 * 60 * 60);
   const totalTimelineWidth = Math.round(totalDurationHours * PIXELS_PER_HOUR); // px per hour
-  const dayColumns = getDaysInSpan(startDate, endDate);
+  const dayColumns = getDaysInSpan(startDate, endDate, activeTimeZone);
   const viewportWidth = timelineViewportWidth > 0
     ? timelineViewportWidth
     : (typeof window !== 'undefined' ? window.innerWidth : 0);
@@ -343,23 +348,22 @@ export const Timeline: React.FC = () => {
     const earliest = new Date(Math.min(...datedEvents.map(event => event.startTime.getTime())));
     const latest = new Date(Math.max(...datedEvents.map(event => event.endTime.getTime())));
 
-    const startDate = new Date(earliest);
-    startDate.setHours(1, 0, 0, 0);
-
-    const endDate = new Date(latest);
-    endDate.setHours(23, 0, 0, 0);
+    const startDate = zonedDateTimeToUtc(getDayKeyInTimeZone(earliest, activeTimeZone), '01:00', activeTimeZone) ?? earliest;
+    const endDate = zonedDateTimeToUtc(getDayKeyInTimeZone(latest, activeTimeZone), '23:00', activeTimeZone) ?? latest;
 
     return { startDate, endDate };
   };
 
   const formatTimelineName = (startDate: Date, endDate: Date) => {
-    const startMonth = startDate.toLocaleDateString('en-US', { month: 'short' });
-    const endMonth = endDate.toLocaleDateString('en-US', { month: 'short' });
-    const startDay = startDate.getDate();
-    const endDay = endDate.getDate();
-    const year = endDate.getFullYear();
+    const startParts = getDayKeyInTimeZone(startDate, activeTimeZone).split('-');
+    const endParts = getDayKeyInTimeZone(endDate, activeTimeZone).split('-');
+    const startMonth = formatInTimelineTimeZone(startDate, activeTimeZone, { month: 'short' });
+    const endMonth = formatInTimelineTimeZone(endDate, activeTimeZone, { month: 'short' });
+    const startDay = Number(startParts[2]);
+    const endDay = Number(endParts[2]);
+    const year = Number(endParts[0]);
 
-    if (startDate.getFullYear() === endDate.getFullYear() && startMonth === endMonth) {
+    if (startParts[0] === endParts[0] && startParts[1] === endParts[1]) {
       return `${startMonth} ${startDay} - ${endDay}, ${year}`;
     }
 
@@ -832,7 +836,7 @@ export const Timeline: React.FC = () => {
         setViewMode('daily-columns');
       }
 
-      const targetIndex = dayColumns.findIndex(day => isSameDay(day, event.startTime));
+      const targetIndex = dayColumns.findIndex(day => getDayKeyInTimeZone(day, activeTimeZone) === getDayKeyInTimeZone(event.startTime, activeTimeZone));
       if (targetIndex >= 0) setMobileDayIndex(targetIndex);
       setPendingCenteredEventId(event.id);
       return;
@@ -842,10 +846,8 @@ export const Timeline: React.FC = () => {
   };
 
   const handleEventCopy = (event: TimelineEventType) => {
-    const startTime = new Date(event.startTime);
-    const endTime = new Date(event.endTime);
-    startTime.setDate(startTime.getDate() + 1);
-    endTime.setDate(endTime.getDate() + 1);
+    const startTime = addCalendarDaysInTimeZone(event.startTime, 1, activeTimeZone);
+    const endTime = addCalendarDaysInTimeZone(event.endTime, 1, activeTimeZone);
 
     setEditingEvent(undefined);
     setClickedTime(undefined);
@@ -953,7 +955,8 @@ export const Timeline: React.FC = () => {
       importedTimelineName,
       inferredStartDate.toISOString(),
       inferredEndDate.toISOString(),
-      configuredSlotCount
+      configuredSlotCount,
+      activeTimeZone
     );
 
     setActiveId(createdTimeline.id);
@@ -992,25 +995,21 @@ export const Timeline: React.FC = () => {
       .filter(event => {
         const eventStart = event.startTime;
         return (
-          eventStart.getFullYear() === day.getFullYear() &&
-          eventStart.getMonth() === day.getMonth() &&
-          eventStart.getDate() === day.getDate() &&
-          eventStart.getHours() < 9
+          getDayKeyInTimeZone(eventStart, activeTimeZone) === getDayKeyInTimeZone(day, activeTimeZone) &&
+          getHourInTimeZone(eventStart, activeTimeZone) < 9
         );
       })
       .sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
 
     return sameDayEventsBeforeNine[0]?.startTime ?? (() => {
-      const fallback = new Date(day);
-      fallback.setHours(9, 0, 0, 0);
-      return fallback;
+      return zonedDateTimeToUtc(getDayKeyInTimeZone(day, activeTimeZone), '09:00', activeTimeZone) ?? day;
     })();
   };
 
   // Function to scroll to a specific date
   const scrollToDate = (targetDate: Date, targetDay?: Date) => {
     if (isMobileDayPager && isDayColumnView && targetDay) {
-      const targetIndex = dayColumns.findIndex(day => isSameDay(day, targetDay));
+      const targetIndex = dayColumns.findIndex(day => isSameDay(day, targetDay, activeTimeZone));
       if (targetIndex >= 0) {
         setMobileDayIndex(targetIndex);
       }
@@ -1020,7 +1019,7 @@ export const Timeline: React.FC = () => {
     if (timelineContentRef.current) {
       const viewportWidth = timelineContentRef.current.clientWidth;
       const scrollLeft = isDayColumnView
-        ? Math.max(0, dayColumns.findIndex(day => isSameDay(day, targetDate)) * dayColumnWidth)
+        ? Math.max(0, dayColumns.findIndex(day => isSameDay(day, targetDate, activeTimeZone)) * dayColumnWidth)
         : getTimePosition(targetDate, startDate);
       const contentWidth = isDayColumnView
         ? dayColumns.length * dayColumnWidth
@@ -1060,21 +1059,18 @@ export const Timeline: React.FC = () => {
     const startHour = Math.floor(scrollLeft / 240);
     const endHour = Math.floor((scrollLeft + viewportWidth) / 240);
 
-    const visibleStartTime = new Date(startDate);
-    visibleStartTime.setHours(visibleStartTime.getHours() + startHour);
+    const visibleStartTime = new Date(startDate.getTime() + startHour * 60 * 60 * 1000);
+    const visibleEndTime = new Date(startDate.getTime() + endHour * 60 * 60 * 1000);
 
-    const visibleEndTime = new Date(startDate);
-    visibleEndTime.setHours(visibleEndTime.getHours() + endHour);
-
-    if (visibleStartTime.toDateString() === visibleEndTime.toDateString()) {
-      return formatDateHeader(visibleStartTime);
+    if (getDayKeyInTimeZone(visibleStartTime, activeTimeZone) === getDayKeyInTimeZone(visibleEndTime, activeTimeZone)) {
+      return formatDateHeader(visibleStartTime, activeTimeZone);
     } else {
-      return `${formatDateHeader(visibleStartTime)} - ${formatDateHeader(visibleEndTime)}`;
+      return `${formatDateHeader(visibleStartTime, activeTimeZone)} - ${formatDateHeader(visibleEndTime, activeTimeZone)}`;
     }
   };
 
   const currentRangeLabel = isMobileDayPager && visibleDayColumns[0]
-    ? formatDateHeader(visibleDayColumns[0])
+    ? formatDateHeader(visibleDayColumns[0], activeTimeZone)
     : isDayColumnView
     ? formatTimelineName(startDate, endDate)
     : getCurrentDateRange();
@@ -1101,7 +1097,7 @@ export const Timeline: React.FC = () => {
   const jumpToDates = dayColumns.map(day => ({
     day,
     target: getJumpTargetForDate(day),
-    label: day.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' })
+    label: formatInTimelineTimeZone(day, activeTimeZone, { weekday: 'short', day: 'numeric' })
   }));
   if (timelinesLoading || eventsLoading || locationsLoading || cosplayEntriesLoading) {
     return (
@@ -1455,9 +1451,10 @@ export const Timeline: React.FC = () => {
                 >
                   <div className="absolute top-0 left-0 right-0 h-12 bg-white border-b z-20">
                     {timeSlots.map((slot, index) => {
-                      const isNewDay = index === 0 || slot.getDate() !== timeSlots[index - 1].getDate();
+                      const isNewDay = index === 0 || getDayKeyInTimeZone(slot, activeTimeZone) !== getDayKeyInTimeZone(timeSlots[index - 1], activeTimeZone);
                       const leftPosition = getTimePosition(slot, startDate);
-                      const isOvernight = slot.getHours() >= 21 || slot.getHours() < 6;
+                      const slotHour = getHourInTimeZone(slot, activeTimeZone);
+                      const isOvernight = slotHour >= 21 || slotHour < 6;
 
                       return (
                         <div
@@ -1471,7 +1468,7 @@ export const Timeline: React.FC = () => {
                         >
                           {isNewDay && (
                             <div className="absolute top-0 left-0 right-0 bg-blue-50 border-b border-blue-200 px-2 py-1 text-xs font-semibold text-blue-800 z-10">
-                              {formatDateHeader(slot)}
+                              {formatDateHeader(slot, activeTimeZone)}
                             </div>
                           )}
                           <div
@@ -1481,7 +1478,7 @@ export const Timeline: React.FC = () => {
                               isNewDay ? 'pt-6' : 'pt-2'
                             }`}
                           >
-                            {formatTimeSlot(slot)}
+                            {formatTimeSlot(slot, activeTimeZone)}
                           </div>
                         </div>
                       );
@@ -1491,7 +1488,8 @@ export const Timeline: React.FC = () => {
                   <div className="absolute top-12 left-0 right-0" style={{ height: `${slotCount * gridSlotHeight}px` }}>
                     {timeSlots.map((slot) => {
                       const leftPosition = getTimePosition(slot, startDate);
-                      const isOvernight = slot.getHours() >= 21 || slot.getHours() < 6;
+                      const slotHour = getHourInTimeZone(slot, activeTimeZone);
+                      const isOvernight = slotHour >= 21 || slotHour < 6;
 
                       return (
                         <div
@@ -1635,6 +1633,7 @@ export const Timeline: React.FC = () => {
                 onCosplayEntryEdit={handleCosplayEntryEdit}
                 onCosplayEntryMove={moveCosplayEntry}
                 highlightedEventId={highlightedEventId}
+                timeZone={activeTimeZone}
               />
             </div>
           </div>
@@ -1662,6 +1661,7 @@ export const Timeline: React.FC = () => {
           onEventDelete={handleEventDelete}
           fandomSuggestions={suggestedFandoms}
           onAddFandom={addFandom}
+          timeZone={activeTimeZone}
         />
       )}
 
@@ -1684,6 +1684,7 @@ export const Timeline: React.FC = () => {
         fandomOptions={fandomOptions}
         suggestedFandoms={suggestedFandoms}
         onAddFandom={addFandom}
+        timeZone={activeTimeZone}
       />
 
       <CosplayEntryModal

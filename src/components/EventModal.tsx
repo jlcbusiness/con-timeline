@@ -3,6 +3,13 @@ import { X, Calendar, Clock, Palette, MapPin, Plus, Lock, ChevronDown, Tag } fro
 import type { TimelineEvent, Location } from '../types/timeline';
 import { getEventColors, roundToNearestHalfHour } from '../utils/timelineUtils';
 import { EVENT_BUFFER_OPTIONS_MINUTES } from '../config/timeline';
+import {
+  formatDateInputInTimeZone,
+  formatTimeInputInTimeZone,
+  getEventTimeZoneOptions,
+  getRepresentativeTimeZone,
+  zonedDateTimeToUtc
+} from '../utils/timezones';
 
 const normalizeColor = (color: string) => color.trim().toLowerCase();
 type LockMode = 'off' | 'time' | 'mega';
@@ -22,6 +29,7 @@ interface EventModalProps {
   fandomOptions: string[];
   suggestedFandoms: string[];
   onAddFandom: (name: string) => { name: string };
+  timeZone: string;
 }
 
 export const EventModal: React.FC<EventModalProps> = ({
@@ -38,7 +46,8 @@ export const EventModal: React.FC<EventModalProps> = ({
   suggestedLocations,
   fandomOptions,
   suggestedFandoms,
-  onAddFandom
+  onAddFandom,
+  timeZone
 }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -48,6 +57,8 @@ export const EventModal: React.FC<EventModalProps> = ({
   const [startTimeValue, setStartTimeValue] = useState('');
   const [endDateValue, setEndDateValue] = useState('');
   const [endTimeValue, setEndTimeValue] = useState('');
+  const [startTimeZone, setStartTimeZone] = useState(() => getRepresentativeTimeZone(timeZone));
+  const [endTimeZone, setEndTimeZone] = useState(() => getRepresentativeTimeZone(timeZone));
   const [color, setColor] = useState('#3b82f6');
   const [bufferBeforeMinutes, setBufferBeforeMinutes] = useState(0);
   const [lockMode, setLockMode] = useState<LockMode>('off');
@@ -73,15 +84,19 @@ export const EventModal: React.FC<EventModalProps> = ({
   } as React.CSSProperties;
 
   useEffect(() => {
+    const referenceDate = event?.startTime ?? initialEvent?.startTime ?? initialStartTime ?? new Date();
+    const representativeTimeZone = getRepresentativeTimeZone(timeZone, referenceDate);
+    setStartTimeZone(representativeTimeZone);
+    setEndTimeZone(representativeTimeZone);
     if (event) {
       setTitle(event.title);
       setDescription(event.description || '');
       setLocation(event.location || '');
       setFandom(event.fandom || '');
-      setStartDateValue(formatDateValue(event.startTime));
-      setStartTimeValue(formatTimeValue(event.startTime));
-      setEndDateValue(formatDateValue(event.endTime));
-      setEndTimeValue(formatTimeValue(event.endTime));
+      setStartDateValue(formatDateInputInTimeZone(event.startTime, timeZone));
+      setStartTimeValue(formatTimeInputInTimeZone(event.startTime, timeZone));
+      setEndDateValue(formatDateInputInTimeZone(event.endTime, timeZone));
+      setEndTimeValue(formatTimeInputInTimeZone(event.endTime, timeZone));
       setColor(event.color);
       setBufferBeforeMinutes(event.bufferBeforeMinutes ?? 0);
       setLockMode(event.megaLock ? 'mega' : event.lockTime ? 'time' : 'off');
@@ -95,10 +110,10 @@ export const EventModal: React.FC<EventModalProps> = ({
       setDescription(initialEvent.description || '');
       setLocation(initialEvent.location || '');
       setFandom(initialEvent.fandom || '');
-      setStartDateValue(formatDateValue(initialEvent.startTime));
-      setStartTimeValue(formatTimeValue(initialEvent.startTime));
-      setEndDateValue(formatDateValue(initialEvent.endTime));
-      setEndTimeValue(formatTimeValue(initialEvent.endTime));
+      setStartDateValue(formatDateInputInTimeZone(initialEvent.startTime, timeZone));
+      setStartTimeValue(formatTimeInputInTimeZone(initialEvent.startTime, timeZone));
+      setEndDateValue(formatDateInputInTimeZone(initialEvent.endTime, timeZone));
+      setEndTimeValue(formatTimeInputInTimeZone(initialEvent.endTime, timeZone));
       setColor(initialEvent.color);
       setBufferBeforeMinutes(initialEvent.bufferBeforeMinutes ?? 0);
       setLockMode(initialEvent.megaLock ? 'mega' : initialEvent.lockTime ? 'time' : 'off');
@@ -116,10 +131,10 @@ export const EventModal: React.FC<EventModalProps> = ({
       setDescription('');
       setLocation('');
       setFandom('');
-      setStartDateValue(formatDateValue(rounded));
-      setStartTimeValue(formatTimeValue(rounded));
-      setEndDateValue(formatDateValue(end));
-      setEndTimeValue(formatTimeValue(end));
+      setStartDateValue(formatDateInputInTimeZone(rounded, timeZone));
+      setStartTimeValue(formatTimeInputInTimeZone(rounded, timeZone));
+      setEndDateValue(formatDateInputInTimeZone(end, timeZone));
+      setEndTimeValue(formatTimeInputInTimeZone(end, timeZone));
       setColor('#3b82f6'); // Use static color instead of colors[0]
       setBufferBeforeMinutes(0);
       setLockMode('off');
@@ -129,7 +144,7 @@ export const EventModal: React.FC<EventModalProps> = ({
       setLocationFilterQuery('');
       setNewLocationName('');
     }
-  }, [event, initialEvent, initialStartTime]);
+  }, [event, initialEvent, initialStartTime, timeZone]);
 
   useEffect(() => {
     if (!isLocationMenuOpen) return;
@@ -163,8 +178,8 @@ export const EventModal: React.FC<EventModalProps> = ({
     e.preventDefault();
     if (!title.trim()) return;
 
-    const startTime = buildDateTime(startDateValue, startTimeValue);
-    const endTime = buildDateTime(endDateValue, endTimeValue);
+    const startTime = buildDateTime(startDateValue, startTimeValue, startTimeZone);
+    const endTime = buildDateTime(endDateValue, endTimeValue, endTimeZone);
 
     if (!startTime || !endTime || endTime <= startTime) return;
 
@@ -191,55 +206,57 @@ export const EventModal: React.FC<EventModalProps> = ({
     }
   };
 
-  const formatDateValue = (date: Date): string => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+  const buildDateTime = (dateValue: string, timeValue: string, valueTimeZone: string): Date | null => {
+    return zonedDateTimeToUtc(dateValue, timeValue, valueTimeZone);
   };
 
-  const formatTimeValue = (date: Date): string => {
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    return `${hours}:${minutes}`;
+  const handleStartTimeZoneChange = (nextTimeZone: string) => {
+    const startTime = buildDateTime(startDateValue, startTimeValue, startTimeZone);
+    setStartTimeZone(nextTimeZone);
+    if (startTime) {
+      setStartDateValue(formatDateInputInTimeZone(startTime, nextTimeZone));
+      setStartTimeValue(formatTimeInputInTimeZone(startTime, nextTimeZone));
+    }
   };
 
-  const buildDateTime = (dateValue: string, timeValue: string): Date | null => {
-    if (!dateValue || !timeValue) return null;
-
-    const parsed = new Date(`${dateValue}T${timeValue}`);
-    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  const handleEndTimeZoneChange = (nextTimeZone: string) => {
+    const endTime = buildDateTime(endDateValue, endTimeValue, endTimeZone);
+    setEndTimeZone(nextTimeZone);
+    if (endTime) {
+      setEndDateValue(formatDateInputInTimeZone(endTime, nextTimeZone));
+      setEndTimeValue(formatTimeInputInTimeZone(endTime, nextTimeZone));
+    }
   };
 
-  const startDateTime = buildDateTime(startDateValue, startTimeValue);
-  const endDateTime = buildDateTime(endDateValue, endTimeValue);
+  const startDateTime = buildDateTime(startDateValue, startTimeValue, startTimeZone);
+  const endDateTime = buildDateTime(endDateValue, endTimeValue, endTimeZone);
   const hasInvalidTimeRange = Boolean(startDateTime && endDateTime && endDateTime <= startDateTime);
 
   const handleStartDateChange = (value: string) => {
     setStartDateValue(value);
 
-    const newStartTime = buildDateTime(value, startTimeValue);
-    const currentEndTime = buildDateTime(endDateValue, endTimeValue);
+    const newStartTime = buildDateTime(value, startTimeValue, startTimeZone);
+    const currentEndTime = buildDateTime(endDateValue, endTimeValue, endTimeZone);
 
     if (newStartTime && currentEndTime && newStartTime >= currentEndTime) {
       const newEndTime = new Date(newStartTime);
       newEndTime.setMinutes(newEndTime.getMinutes() + 30);
-      setEndDateValue(formatDateValue(newEndTime));
-      setEndTimeValue(formatTimeValue(newEndTime));
+      setEndDateValue(formatDateInputInTimeZone(newEndTime, endTimeZone));
+      setEndTimeValue(formatTimeInputInTimeZone(newEndTime, endTimeZone));
     }
   };
 
   const handleStartTimeChange = (value: string) => {
     setStartTimeValue(value);
 
-    const newStartTime = buildDateTime(startDateValue, value);
-    const currentEndTime = buildDateTime(endDateValue, endTimeValue);
+    const newStartTime = buildDateTime(startDateValue, value, startTimeZone);
+    const currentEndTime = buildDateTime(endDateValue, endTimeValue, endTimeZone);
 
     if (newStartTime && currentEndTime && newStartTime >= currentEndTime) {
       const newEndTime = new Date(newStartTime);
       newEndTime.setMinutes(newEndTime.getMinutes() + 30);
-      setEndDateValue(formatDateValue(newEndTime));
-      setEndTimeValue(formatTimeValue(newEndTime));
+      setEndDateValue(formatDateInputInTimeZone(newEndTime, endTimeZone));
+      setEndTimeValue(formatTimeInputInTimeZone(newEndTime, endTimeZone));
     }
   };
 
@@ -300,7 +317,7 @@ export const EventModal: React.FC<EventModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-2 sm:p-4">
-      <div className="flex max-h-[calc(100dvh-1rem)] w-full max-w-md flex-col overflow-hidden rounded-lg bg-white shadow-xl sm:max-h-[90vh]">
+      <div className="flex max-h-[calc(100dvh-1rem)] w-full max-w-lg flex-col overflow-hidden rounded-lg bg-white shadow-xl sm:max-h-[90vh]">
         <div className="flex shrink-0 items-center justify-between border-b p-4 sm:p-6">
           <h2 className="text-xl font-semibold text-gray-900">
             {event ? 'Edit Event' : 'Create Event'}
@@ -515,15 +532,27 @@ export const EventModal: React.FC<EventModalProps> = ({
                   <Clock size={16} className="inline mr-1" />
                   Start Time
                 </label>
-                <input
-                  id="start-time"
-                  type="time"
-                  value={startTimeValue}
-                  onChange={(e) => handleStartTimeChange(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white disabled:bg-gray-100 disabled:text-gray-500"
-                  step="1800"
-                  required
-                />
+                <div className="flex gap-2">
+                  <input
+                    id="start-time"
+                    type="time"
+                    value={startTimeValue}
+                    onChange={(e) => handleStartTimeChange(e.target.value)}
+                    className="min-w-0 flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white disabled:bg-gray-100 disabled:text-gray-500"
+                    step="1800"
+                    required
+                  />
+                  <select
+                    aria-label="Start timezone"
+                    value={startTimeZone}
+                    onChange={changeEvent => handleStartTimeZoneChange(changeEvent.target.value)}
+                    className="w-[4.5rem] shrink-0 rounded-md border border-gray-300 bg-white px-1.5 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    {getEventTimeZoneOptions(startDateTime ?? new Date()).map(option => (
+                      <option key={option.value} value={option.value}>{option.abbreviation}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
 
@@ -549,16 +578,28 @@ export const EventModal: React.FC<EventModalProps> = ({
                   <Clock size={16} className="inline mr-1" />
                   End Time
                 </label>
-                <input
-                  id="end-time"
-                  type="time"
-                  value={endTimeValue}
-                  onChange={(e) => handleEndTimeChange(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white disabled:bg-gray-100 disabled:text-gray-500"
-                  step="1800"
-                  min={endDateValue === startDateValue ? startTimeValue : undefined}
-                  required
-                />
+                <div className="flex gap-2">
+                  <input
+                    id="end-time"
+                    type="time"
+                    value={endTimeValue}
+                    onChange={(e) => handleEndTimeChange(e.target.value)}
+                    className="min-w-0 flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white disabled:bg-gray-100 disabled:text-gray-500"
+                    step="1800"
+                    min={endDateValue === startDateValue && endTimeZone === startTimeZone ? startTimeValue : undefined}
+                    required
+                  />
+                  <select
+                    aria-label="End timezone"
+                    value={endTimeZone}
+                    onChange={changeEvent => handleEndTimeZoneChange(changeEvent.target.value)}
+                    className="w-[4.5rem] shrink-0 rounded-md border border-gray-300 bg-white px-1.5 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    {getEventTimeZoneOptions(endDateTime ?? new Date()).map(option => (
+                      <option key={option.value} value={option.value}>{option.abbreviation}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               {hasInvalidTimeRange && (

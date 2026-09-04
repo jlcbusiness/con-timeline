@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { DEFAULT_TIME_ZONE } from '../utils/timezones';
 
 export interface TimelineMeta {
   id: string;
@@ -7,6 +8,7 @@ export interface TimelineMeta {
   createdAt: string;
   startDate: string;
   endDate: string;
+  timeZone: string;
   slotCount: number;
   archived?: boolean;
   archivedAt?: string | null;
@@ -28,6 +30,7 @@ const mapTimelineRow = (timeline: any): TimelineMeta => ({
   createdAt: timeline.created_at || new Date().toISOString(),
   startDate: timeline.start_date || LEGACY_START_DATE,
   endDate: timeline.end_date || LEGACY_END_DATE,
+  timeZone: timeline.time_zone || DEFAULT_TIME_ZONE,
   slotCount: Number.isFinite(Number(timeline.slot_count)) ? Number(timeline.slot_count) : DEFAULT_SLOT_COUNT,
   archived: Boolean(timeline.archived),
   archivedAt: timeline.archived_at || null
@@ -75,6 +78,7 @@ export const useTimelinePersistence = () => {
               name: 'Default Timeline',
               start_date: LEGACY_START_DATE,
               end_date: LEGACY_END_DATE,
+              time_zone: DEFAULT_TIME_ZONE,
               slot_count: DEFAULT_SLOT_COUNT,
               archived: false,
               archived_at: null
@@ -108,6 +112,7 @@ export const useTimelinePersistence = () => {
             name: 'Default Timeline',
             start_date: LEGACY_START_DATE,
             end_date: LEGACY_END_DATE,
+            time_zone: DEFAULT_TIME_ZONE,
             slot_count: DEFAULT_SLOT_COUNT,
             archived: false,
             archived_at: null
@@ -178,7 +183,7 @@ export const useTimelinePersistence = () => {
     if (!supabase) return;
   }, [timelines, isLoaded]);
 
-  const createTimeline = async (name: string, startDate: string, endDate: string, slotCount = DEFAULT_SLOT_COUNT) => {
+  const createTimeline = async (name: string, startDate: string, endDate: string, slotCount = DEFAULT_SLOT_COUNT, timeZone = DEFAULT_TIME_ZONE) => {
     const id = uuid();
     const newMeta: TimelineMeta = {
       id,
@@ -186,6 +191,7 @@ export const useTimelinePersistence = () => {
       createdAt: new Date().toISOString(),
       startDate,
       endDate,
+      timeZone,
       slotCount
     };
     setTimelines(prev => [...prev, newMeta]);
@@ -203,6 +209,7 @@ export const useTimelinePersistence = () => {
           name: newMeta.name,
           start_date: startDate,
           end_date: endDate,
+          time_zone: timeZone,
           slot_count: slotCount,
           archived: false,
           archived_at: null
@@ -246,7 +253,7 @@ export const useTimelinePersistence = () => {
     }
   };
 
-  const updateTimelineDates = async (id: string, startDate: string, endDate: string, slotCount: number) => {
+  const updateTimelineDates = async (id: string, startDate: string, endDate: string, slotCount: number, timeZone: string) => {
     if (supabase) {
       try {
         const { data } = await supabase.auth.getUser();
@@ -256,7 +263,7 @@ export const useTimelinePersistence = () => {
         }
 
         const { error } = await supabase.from('timelines')
-          .update({ start_date: startDate, end_date: endDate, slot_count: slotCount })
+          .update({ start_date: startDate, end_date: endDate, slot_count: slotCount, time_zone: timeZone })
           .eq('id', id)
           .eq('user_id', user.id);
 
@@ -269,7 +276,7 @@ export const useTimelinePersistence = () => {
       }
     }
 
-    setTimelines(prev => prev.map(t => t.id === id ? { ...t, startDate, endDate, slotCount } : t));
+    setTimelines(prev => prev.map(t => t.id === id ? { ...t, startDate, endDate, slotCount, timeZone } : t));
   };
 
   const deleteTimeline = (id: string) => {

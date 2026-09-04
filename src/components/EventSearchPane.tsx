@@ -23,6 +23,7 @@ interface EventSearchPaneProps {
   onEventDelete: (eventId: string) => void;
   fandomSuggestions: string[];
   onAddFandom: (name: string) => { name: string };
+  timeZone: string;
 }
 
 const SEARCH_FIELDS: { field: SearchField; label: string }[] = [
@@ -42,10 +43,11 @@ const SORT_LABELS: Record<EventSortField, string> = {
   duration: 'duration'
 };
 
-const formatTime = (date: Date) => date.toLocaleTimeString('en-US', {
+const formatTime = (date: Date, timeZone: string) => date.toLocaleTimeString('en-US', {
   hour: 'numeric',
   minute: '2-digit',
-  hour12: true
+  hour12: true,
+  timeZone
 });
 
 const formatDuration = (event: TimelineEvent) => {
@@ -113,7 +115,8 @@ export const EventSearchPane: React.FC<EventSearchPaneProps> = ({
   onEventUpdate,
   onEventDelete,
   fandomSuggestions,
-  onAddFandom
+  onAddFandom,
+  timeZone
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const longPressTimerRef = useRef<number | null>(null);
@@ -394,8 +397,8 @@ export const EventSearchPane: React.FC<EventSearchPaneProps> = ({
                     </div>
                     <div className="mt-1 flex min-w-0 items-end gap-2 text-xs text-gray-600">
                       <span className="min-w-0 flex-1">
-                        {event.startTime.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                        {' | '}{formatTime(event.startTime)} - {formatTime(event.endTime)}
+                        {event.startTime.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone })}
+                        {' | '}{formatTime(event.startTime, timeZone)} - {formatTime(event.endTime, timeZone)}
                       </span>
                       {event.fandom?.trim() && !event.location?.trim() && !event.description?.trim() && (
                         <SearchFandomTag fandom={event.fandom} />

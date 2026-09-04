@@ -20,9 +20,7 @@ Speakers: Sasha Arbogast — , Bill Keel —`;
     expect(events).toHaveLength(2);
     expect(events[0].title).toBe('Onesie Wednesday');
     expect(events[0].location).toBe('Marriott Marquis');
-    expect(events[0].startTime.getFullYear()).toBe(2026);
-    expect(events[0].startTime.getMonth()).toBe(8);
-    expect(events[0].startTime.getDate()).toBe(2);
+    expect(events[0].startTime.toISOString()).toBe('2026-09-03T03:00:00.000Z');
     expect(events[1].title).toBe('Artemis Spaceship Bridge Simulator');
     expect(events[1].location).toBe('Westin 12th Floor');
     expect(events[1].description).toContain('Speakers: Sasha Arbogast');
@@ -40,7 +38,7 @@ Speakers: Sasha Arbogast — , Bill Keel —`;
     expect(events).toHaveLength(1);
     expect(events[0].title).toBe('Dragon Con Newbie Walking Tours');
     expect(events[0].location).toBe('Dragon Con');
-    expect(events[0].startTime.getHours()).toBe(12);
+    expect(events[0].startTime.toISOString()).toBe('2026-09-01T16:00:00.000Z');
     expect(events[0].description).toBe('');
     expect(events[0].lockTime).toBe(true);
     expect(events[0].color).toBe('#6B7280');
@@ -52,8 +50,8 @@ Speakers: Sasha Arbogast — , Bill Keel —`;
       title: 'Onesie Wednesday',
       description: 'Dragon Con 2026 - Wednesday, Sep 2',
       location: 'Marriott Marquis',
-      startTime: new Date(2026, 8, 2, 23, 0),
-      endTime: new Date(2026, 8, 3, 1, 0),
+      startTime: new Date('2026-09-03T03:00:00.000Z'),
+      endTime: new Date('2026-09-03T05:00:00.000Z'),
       color: '#10B981',
       position: 0,
       intangible: true,
@@ -87,8 +85,8 @@ Speakers: Sasha Arbogast — , Bill Keel —`;
       title: 'Artemis Spaceship Bridge Simulator',
       description: 'Dragon Con 2026 - Thursday, Sep 3',
       location: 'Westin 12th Floor',
-      startTime: new Date(2026, 8, 3, 19, 0),
-      endTime: new Date(2026, 8, 3, 23, 55),
+      startTime: new Date('2026-09-03T23:00:00.000Z'),
+      endTime: new Date('2026-09-04T03:55:00.000Z'),
       color: '#6B7280',
       position: 3,
       intangible: true,

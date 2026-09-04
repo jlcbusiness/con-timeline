@@ -20,18 +20,15 @@ interface DayColumnsViewProps {
   onCosplayEntryEdit: (entry: CosplayEntry) => void;
   onCosplayEntryMove: (entryId: string, targetDayKey: string) => void;
   highlightedEventId?: string | null;
+  timeZone: string;
 }
 
-const isSameDay = (left: Date, right: Date) =>
-  left.getFullYear() === right.getFullYear() &&
-  left.getMonth() === right.getMonth() &&
-  left.getDate() === right.getDate();
-
-const formatTime = (date: Date): string =>
+const formatTime = (date: Date, timeZone: string): string =>
   date.toLocaleTimeString('en-US', {
     hour: 'numeric',
     minute: '2-digit',
-    hour12: true
+    hour12: true,
+    timeZone
   });
 
 const formatDuration = (startTime: Date, endTime: Date): string => {
@@ -92,7 +89,8 @@ export const DayColumnsView: React.FC<DayColumnsViewProps> = ({
   onCosplayEntryCreate,
   onCosplayEntryEdit,
   onCosplayEntryMove,
-  highlightedEventId
+  highlightedEventId,
+  timeZone
 }) => {
   const dragTouchStateRef = React.useRef<{ activeEntryId: string | null; lastDayKey: string | null }>({
     activeEntryId: null,
@@ -135,7 +133,7 @@ export const DayColumnsView: React.FC<DayColumnsViewProps> = ({
     .sort((left, right) => left.startTime.getTime() - right.startTime.getTime());
 
   const groupedEvents = days.map(day =>
-    filteredEvents.filter(event => isSameDay(event.startTime, day))
+    filteredEvents.filter(event => getDayKey(event.startTime, timeZone) === getDayKey(day, timeZone))
   );
 
   const cosplayEntriesByDay = new Map(cosplayEntries.map(entry => [entry.dayKey, entry]));
@@ -250,7 +248,7 @@ export const DayColumnsView: React.FC<DayColumnsViewProps> = ({
                 className="border-r border-slate-200 px-3 py-3 last:border-r-0"
                 style={{ width: `${columnWidth}px`, flex: `0 0 ${columnWidth}px` }}
               >
-                <div className="text-sm font-semibold text-slate-900">{formatDateHeader(day)}</div>
+                <div className="text-sm font-semibold text-slate-900">{formatDateHeader(day, timeZone)}</div>
               </div>
             );
           })}
@@ -260,7 +258,7 @@ export const DayColumnsView: React.FC<DayColumnsViewProps> = ({
       <div className="flex items-stretch" style={{ width: `${boardWidth}px` }}>
         {days.map((day, dayIndex) => {
           const dayEvents = groupedEvents[dayIndex];
-          const dayKey = getDayKey(day);
+          const dayKey = getDayKey(day, timeZone);
           const cosplayEntry = cosplayEntriesByDay.get(dayKey);
 
           return (
@@ -366,7 +364,7 @@ export const DayColumnsView: React.FC<DayColumnsViewProps> = ({
                           <div className="flex min-w-0 items-center gap-2 text-[11px] text-slate-500">
                             <span className="flex min-w-0 flex-1 items-center gap-1 whitespace-nowrap">
                               <Clock size={11} className="flex-shrink-0" />
-                              <span className="truncate">{formatTime(event.startTime)} - {formatTime(event.endTime)}</span>
+                              <span className="truncate">{formatTime(event.startTime, timeZone)} - {formatTime(event.endTime, timeZone)}</span>
                             </span>
                             {!hasFandom && !hasDescription && !hasLocation && (
                               <DurationBadge startTime={event.startTime} endTime={event.endTime} />

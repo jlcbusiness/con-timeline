@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS timelines (
   name text NOT NULL,
   start_date timestamptz NOT NULL,
   end_date timestamptz NOT NULL,
+  time_zone text,
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now(),
   archived boolean DEFAULT false,

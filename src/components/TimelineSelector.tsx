@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { Edit3 } from 'lucide-react';
 import type { TimelineMeta } from '../hooks/useTimelinePersistence';
+import { DEFAULT_TIME_ZONE, TIME_ZONE_OPTIONS, zonedDateTimeToUtc } from '../utils/timezones';
 
 interface Props {
   timelines: TimelineMeta[];
   activeId: string | null;
   setActiveId: (id: string | null) => void;
-  onCreate: (name: string, startDate: string, endDate: string, slotCount?: number) => Promise<unknown>;
+  onCreate: (name: string, startDate: string, endDate: string, slotCount?: number, timeZone?: string) => Promise<unknown>;
   onEditCurrent: () => void;
   onManage: () => void;
   fillAvailableWidth?: boolean;
@@ -21,12 +22,14 @@ export const TimelineSelector: React.FC<Props> = ({ timelines, activeId, setActi
   const [name, setName] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [timeZone, setTimeZone] = useState(DEFAULT_TIME_ZONE);
 
   const openCreateDialog = () => {
     const year = new Date().getFullYear();
     setName('New Timeline');
     setStartDate(`${year}-09-01`);
     setEndDate(`${year}-09-08`);
+    setTimeZone(DEFAULT_TIME_ZONE);
     setIsOpen(false);
     setIsCreateOpen(true);
   };
@@ -40,7 +43,11 @@ export const TimelineSelector: React.FC<Props> = ({ timelines, activeId, setActi
     setIsCreating(true);
 
     try {
-      await onCreate(`${name.trim()}`, `${startDate}T01:00:00`, `${endDate}T23:00:00`);
+      const timelineStart = zonedDateTimeToUtc(startDate, '01:00', timeZone);
+      const timelineEnd = zonedDateTimeToUtc(endDate, '23:00', timeZone);
+      if (!timelineStart || !timelineEnd) return;
+
+      await onCreate(name.trim(), timelineStart.toISOString(), timelineEnd.toISOString(), undefined, timeZone);
       setIsCreateOpen(false);
     } finally {
       setIsCreating(false);
@@ -150,6 +157,18 @@ export const TimelineSelector: React.FC<Props> = ({ timelines, activeId, setActi
                   />
                 </label>
               </div>
+              <label className="block text-sm font-medium text-gray-700">
+                Timezone
+                <select
+                  value={timeZone}
+                  onChange={event => setTimeZone(event.target.value)}
+                  className="mt-1 w-full rounded border border-gray-300 bg-white px-3 py-2 text-gray-900"
+                >
+                  {TIME_ZONE_OPTIONS.map(option => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
             </div>
             <div className="mt-6 flex justify-end gap-3">
               <button

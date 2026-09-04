@@ -1,5 +1,6 @@
 import type { TimelineEvent } from '../types/timeline';
 import { findAvailablePosition, sortEventsByStructure } from './timelineUtils';
+import { DRAGON_CON_TIME_ZONE, zonedDateTimeToUtc } from './timezones';
 
 const DEFAULT_DRAGONCON_YEAR = 2026;
 const DRAGONCON_IMPORT_COLOR = '#6B7280';
@@ -106,10 +107,18 @@ const parseTimeRange = (text: string) => {
   };
 };
 
-const buildEventDate = (day: Date, minutesFromMidnight: number) => {
-  const eventDate = new Date(day);
-  eventDate.setHours(Math.floor(minutesFromMidnight / 60), minutesFromMidnight % 60, 0, 0);
-  return eventDate;
+const buildEventDate = (day: Date, minutesFromMidnight: number, timeZone: string) => {
+  const dateValue = [
+    day.getFullYear(),
+    String(day.getMonth() + 1).padStart(2, '0'),
+    String(day.getDate()).padStart(2, '0')
+  ].join('-');
+  const timeValue = [
+    String(Math.floor(minutesFromMidnight / 60)).padStart(2, '0'),
+    String(minutesFromMidnight % 60).padStart(2, '0')
+  ].join(':');
+
+  return zonedDateTimeToUtc(dateValue, timeValue, timeZone);
 };
 
 const normalizeLocation = (value: string) => value.replace(/^Location:\s*/i, '').replace(/\s+https?:\/\/.*$/i, '').trim();
@@ -157,11 +166,13 @@ const buildEvent = (
   day: Date,
   timeRange: { startMinutes: number; endMinutes: number },
   year: number,
+  timeZone: string,
   location?: string,
   speakers?: string
 ): TimelineEvent => {
-  const startTime = buildEventDate(day, timeRange.startMinutes);
-  const endTime = buildEventDate(day, timeRange.endMinutes);
+  const startTime = buildEventDate(day, timeRange.startMinutes, timeZone);
+  const endTime = buildEventDate(day, timeRange.endMinutes, timeZone);
+  if (!startTime || !endTime) throw new Error('Invalid Dragon Con event time');
   const entryDate = day.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
   const cleanedSpeakers = speakers ? cleanDragonConDescription(speakers, year, entryDate) : '';
 
@@ -205,7 +216,7 @@ const mergeParsedEvents = (events: TimelineEvent[]) => {
   return Array.from(merged.values());
 };
 
-const parseLegacySchedule = (lines: string[], year: number) => {
+const parseLegacySchedule = (lines: string[], year: number, timeZone: string) => {
   return lines.flatMap((line) => {
     const match = line.match(LEGACY_EVENT_REGEX);
     if (!match) return [];
@@ -227,7 +238,12 @@ const parseLegacySchedule = (lines: string[], year: number) => {
       hour = 0;
     }
 
-    const eventDate = new Date(year, monthIndex, Number(day), hour, minute, 0, 0);
+    const eventDate = zonedDateTimeToUtc(
+      `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(Number(day)).padStart(2, '0')}`,
+      `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`,
+      timeZone
+    );
+    if (!eventDate) return [];
     const durationMinutes = getDurationMinutes(title);
     const endDate = new Date(eventDate.getTime() + durationMinutes * 60 * 1000);
 
@@ -245,7 +261,7 @@ const parseLegacySchedule = (lines: string[], year: number) => {
   });
 };
 
-const parseBlockSchedule = (lines: string[], year: number) => {
+const parseBlockSchedule = (lines: string[], year: number, timeZone: string) => {
   const events: TimelineEvent[] = [];
   let currentDay: Date | null = null;
   let preEventLines: string[] = [];
@@ -261,7 +277,7 @@ const parseBlockSchedule = (lines: string[], year: number) => {
     if (titleParts.length === 0) return false;
 
     const title = titleParts[titleParts.length - 1].trim();
-    const event = buildEvent(title, currentDay, timeRange, year);
+    const event = buildEvent(title, currentDay, timeRange, year, timeZone);
     events.push(event);
     lastEvent = event;
     preEventLines = [];
@@ -288,7 +304,7 @@ const parseBlockSchedule = (lines: string[], year: number) => {
       const [, title, timeText] = titleAndTimeMatch;
       const timeRange = parseTimeRange(timeText);
       if (timeRange) {
-        const event = buildEvent(title, currentDay, timeRange, year);
+        const event = buildEvent(title, currentDay, timeRange, year, timeZone);
         events.push(event);
         lastEvent = event;
         preEventLines = [];
@@ -318,11 +334,11 @@ const parseBlockSchedule = (lines: string[], year: number) => {
   return events;
 };
 
-export const parseDragonConSchedule = (scheduleText: string): TimelineEvent[] => {
+export const parseDragonConSchedule = (scheduleText: string, timeZone = DRAGON_CON_TIME_ZONE): TimelineEvent[] => {
   const lines = normalizeLines(scheduleText);
   const year = inferYear(scheduleText);
-  const legacyEvents = parseLegacySchedule(lines, year);
-  const blockEvents = parseBlockSchedule(lines, year);
+  const legacyEvents = parseLegacySchedule(lines, year, timeZone);
+  const blockEvents = parseBlockSchedule(lines, year, timeZone);
 
   return mergeParsedEvents([...legacyEvents, ...blockEvents]);
 };
@@ -338,9 +354,10 @@ export const addDragonConEvents = (
   existingEvents: TimelineEvent[],
   addEvent: (event: TimelineEvent) => void,
   updateEvent?: (eventId: string, updates: Partial<TimelineEvent>) => void,
-  updateDescriptions = false
+  updateDescriptions = false,
+  timeZone = DRAGON_CON_TIME_ZONE
 ) => {
-  const newEvents = sortEventsByStructure(parseDragonConSchedule(scheduleText));
+  const newEvents = sortEventsByStructure(parseDragonConSchedule(scheduleText, timeZone));
   const workingEvents = existingEvents.map(event => ({ ...event }));
   const importedKeys = new Set<string>();
   let importedCount = 0;
