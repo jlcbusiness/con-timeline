@@ -24,6 +24,10 @@ const uuid = () => (typeof crypto !== 'undefined' && (crypto as any).randomUUID 
 const isMissingTableError = (error: any) =>
   error?.code === 'PGRST205' || error?.code === '42P01' || /could not find the table/i.test(String(error?.message || ''));
 
+const isMissingTimeZoneColumnError = (error: any) =>
+  (error?.code === 'PGRST204' || error?.code === '42703')
+  && /time_zone/i.test(String(error?.message || ''));
+
 const mapTimelineRow = (timeline: any): TimelineMeta => ({
   id: timeline.id,
   name: timeline.name,
@@ -194,16 +198,18 @@ export const useTimelinePersistence = () => {
       timeZone,
       slotCount
     };
-    setTimelines(prev => [...prev, newMeta]);
-    setActiveId(id);
 
     if (supabase) {
       try {
-        const { data } = await supabase.auth.getUser();
-        const user = data.user;
-        if (!user) return newMeta;
+        const { data, error: userError } = await supabase.auth.getUser();
+        if (userError) throw userError;
 
-        const { error } = await supabase.from('timelines').insert({
+        const user = data.user;
+        if (!user) {
+          throw new Error('You must be signed in to create a timeline.');
+        }
+
+        const timelineRow = {
           id,
           user_id: user.id,
           name: newMeta.name,
@@ -213,19 +219,29 @@ export const useTimelinePersistence = () => {
           slot_count: slotCount,
           archived: false,
           archived_at: null
-        });
+        };
+
+        let { error } = await supabase.from('timelines').insert(timelineRow);
+
+        if (isMissingTimeZoneColumnError(error)) {
+          const { time_zone: _timeZone, ...legacyTimelineRow } = timelineRow;
+          const retryResult = await supabase.from('timelines').insert(legacyTimelineRow);
+          error = retryResult.error;
+        }
 
         if (error && !isMissingTableError(error)) {
-          console.error('Failed to create timeline in Supabase', error);
+          throw error;
         }
       } catch (error) {
-        if (isMissingTableError(error)) {
-          return newMeta;
+        if (!isMissingTableError(error)) {
+          console.error('Failed to create timeline in Supabase', error);
+          throw error;
         }
-
-        console.error('Failed to create timeline in Supabase', error);
       }
     }
+
+    setTimelines(prev => [...prev, newMeta]);
+    setActiveId(id);
 
     return newMeta;
   };
